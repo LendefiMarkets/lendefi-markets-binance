@@ -563,7 +563,7 @@ contract BasicDeploy is Test {
         // Protocol Oracle deploy (combined Oracle + Assets)
         bytes memory data = abi.encodeCall(
             LendefiAssets.initialize,
-            (address(timelockInstance), gnosisSafe, address(usdcInstance), address(porFeedImplementation))
+            (address(timelockInstance), charlie, address(usdcInstance), address(porFeedImplementation))
         );
 
         address payable proxy = payable(Upgrades.deployUUPSProxy("LendefiAssets.sol", data));
@@ -615,8 +615,8 @@ contract BasicDeploy is Test {
         // Deploy the implementation without upgrading
         address newImpl = Upgrades.prepareUpgrade("LendefiAssetsV2.sol", opts);
 
-        // Schedule the upgrade with that exact address
-        vm.startPrank(gnosisSafe);
+        // Schedule the upgrade with that exact address (using timelock)
+        vm.startPrank(address(timelockInstance));
         assetsInstance.scheduleUpgrade(newImpl);
 
         // Fast forward past the timelock period (3 days for Assets)
@@ -633,14 +633,14 @@ contract BasicDeploy is Test {
         // Assert that upgrade was successful
         assertEq(assetsInstanceV2.version(), 2, "Version not incremented to 2");
         assertFalse(implAddressV2 == implAddressV1, "Implementation address didn't change");
-        assertTrue(assetsInstanceV2.hasRole(UPGRADER_ROLE, gnosisSafe), "Lost UPGRADER_ROLE");
+        assertTrue(assetsInstanceV2.hasRole(UPGRADER_ROLE, address(timelockInstance)), "Timelock should retain UPGRADER_ROLE");
 
         // Test role management still works
         vm.startPrank(address(timelockInstance));
-        assetsInstanceV2.revokeRole(UPGRADER_ROLE, gnosisSafe);
-        assertFalse(assetsInstanceV2.hasRole(UPGRADER_ROLE, gnosisSafe), "Role should be revoked successfully");
-        assetsInstance.grantRole(UPGRADER_ROLE, gnosisSafe);
-        assertTrue(assetsInstanceV2.hasRole(UPGRADER_ROLE, gnosisSafe), "Lost UPGRADER_ROLE");
+        assetsInstanceV2.revokeRole(UPGRADER_ROLE, address(timelockInstance));
+        assertFalse(assetsInstanceV2.hasRole(UPGRADER_ROLE, address(timelockInstance)), "Role should be revoked successfully");
+        assetsInstance.grantRole(UPGRADER_ROLE, address(timelockInstance));
+        assertTrue(assetsInstanceV2.hasRole(UPGRADER_ROLE, address(timelockInstance)), "Timelock should have UPGRADER_ROLE");
         vm.stopPrank();
     }
 
@@ -834,6 +834,7 @@ contract BasicDeploy is Test {
         bytes memory initData = abi.encodeWithSelector(
             LendefiCore.initialize.selector,
             address(timelockInstance), // admin
+            charlie, // marketOwner
             address(tokenInstance), // govToken_
             address(assetsInstance), // assetsModule_
             address(positionVaultImpl) // positionVault
