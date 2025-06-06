@@ -130,15 +130,14 @@ contract LendefiAssets is
      * @notice Initializes the contract with core configuration and access control settings
      * @dev This can only be called once through the proxy's initializer
      * @param timelock_ Address of the timelock_ contract that will have admin privileges
-     * @param multisig Address of the multisig wallet for emergency controls
+     * @param marketOwner Address of the market owner who will have management privileges
      * @param usdc_ USDC address
      * @param porFeed_ Proof of Reserve feed address
      * @custom:security Sets up the initial access control roles:
      * - DEFAULT_ADMIN_ROLE: timelock_
-     * - MANAGER_ROLE: timelock_
-     * - UPGRADER_ROLE: multisig, timelock_
-     * - PAUSER_ROLE: multisig, timelock_
-     * - CIRCUIT_BREAKER_ROLE: timelock_, multisig
+     * - MANAGER_ROLE: timelock_, marketOwner
+     * - UPGRADER_ROLE: timelock_
+     * - PAUSER_ROLE: marketOwner, timelock_
      * @custom:oracle-config Initializes oracle configuration with the following defaults:
      * - freshnessThreshold: 28800 (8 hours)
      * - volatilityThreshold: 3600 (1 hour)
@@ -148,13 +147,13 @@ contract LendefiAssets is
      */
     function initialize(
         address timelock_,
-        address multisig,
+        address marketOwner,
         address usdc_,
         address porFeed_
     ) external initializer {
         if (
             timelock_ == address(0) ||
-            multisig == address(0) ||
+            marketOwner == address(0) ||
             porFeed_ == address(0) ||
             usdc_ == address(0)
         ) {
@@ -168,9 +167,9 @@ contract LendefiAssets is
 
         _grantRole(DEFAULT_ADMIN_ROLE, timelock_);
         _grantRole(LendefiConstants.MANAGER_ROLE, timelock_);
-        _grantRole(LendefiConstants.UPGRADER_ROLE, multisig);
+        _grantRole(LendefiConstants.MANAGER_ROLE, marketOwner);
         _grantRole(LendefiConstants.UPGRADER_ROLE, timelock_);
-        _grantRole(LendefiConstants.PAUSER_ROLE, multisig);
+        _grantRole(LendefiConstants.PAUSER_ROLE, marketOwner);
         _grantRole(LendefiConstants.PAUSER_ROLE, timelock_);
 
         // Initialize oracle config
