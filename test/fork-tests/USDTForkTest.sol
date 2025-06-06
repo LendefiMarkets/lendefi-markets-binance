@@ -17,7 +17,7 @@ contract USDTForkTest is BasicDeploy {
     address constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
     address constant LINK = 0x514910771AF9Ca656af840dff83E8264EcF986CA;
 
-    // Pools and oracles - Using USDT pools instead of USDC
+    // Pools and oracles - Using USDT pools
     address constant LINK_WETH_POOL = 0xa6Cc3C2531FdaA6Ae1A3CA84c2855806728693e8;
     address constant WBTC_USDT_POOL = 0x9Db9e0e53058C89e5B94e29621a205198648425B;
     address constant WETH_USDT_POOL = 0x4e68Ccd3E89f51C3074ca5072bbAC773960dFa36;
@@ -25,7 +25,7 @@ contract USDTForkTest is BasicDeploy {
     address constant WETH_CHAINLINK_ORACLE = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
     address constant WBTC_CHAINLINK_ORACLE = 0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c;
     address constant LINK_CHAINLINK_ORACLE = 0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c;
-    address constant USDC_CHAINLINK_ORACLE = 0xfB6471ACD42c91FF265344Ff73E88353521d099F;
+    address constant USDT_CHAINLINK_ORACLE = 0x3E7d1eAB13ad0104d2750B8863b489D65364e32D;
 
     uint256 mainnetFork;
     address testUser;
@@ -47,7 +47,7 @@ contract USDTForkTest is BasicDeploy {
         _deployGovernor();
         _deployMarketFactory();
 
-        // Deploy USDT market instead of USDC
+        // Deploy USDT market
         _deployMarket(address(usdtInstance), "Lendefi Yield Token", "LYTUSDT");
 
         // Now warp to current time to match oracle data
@@ -81,7 +81,7 @@ contract USDTForkTest is BasicDeploy {
     function _configureWETH() internal {
         vm.startPrank(address(timelockInstance));
 
-        // Configure WETH with updated struct format and CORRECT pool & token position
+        // Configure WETH with updated struct format
         assetsInstance.updateAssetConfig(
             WETH,
             IASSETS.Asset({
@@ -388,7 +388,7 @@ contract USDTForkTest is BasicDeploy {
         // Identify other token in the pool
         address otherToken = isToken0 ? token1 : token0;
 
-        // Always use USDC as quote token if it's in the pool
+        // Always use USDT as quote token if it's in the pool
         address quoteToken;
         if (otherToken == address(usdtInstance)) {
             quoteToken = address(usdtInstance);
@@ -417,15 +417,9 @@ contract USDTForkTest is BasicDeploy {
         });
     }
 
-    function test_getAnyPoolTokenPriceInUSD_ETHUSDC() public {
-        // ETH/USDC pool address
-        // address ethUsdcPool = 0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640; // ETH/USDC pool
-
-        // Call the getAnyPoolTokenPriceInUSD function
-        // uint256 ethPriceInUSD = assetsInstance.getAnyPoolTokenPriceInUSD(ethUsdcPool, WETH, ethUsdcPool, 1800);
+    function test_getAnyPoolTokenPriceInUSD_ETHUSDT() public {
         uint256 ethPriceInUSD = assetsInstance.getAssetPrice(WETH);
-        // Log the ETH price in USD
-        console2.log("ETH price in USD (from ETH/USDC pool):", ethPriceInUSD);
+        console2.log("ETH price in USD (from ETH/USDT pool):", ethPriceInUSD);
 
         // Assert that the price is within a reasonable range (e.g., $1000 to $5000)
         assertTrue(ethPriceInUSD > 1700 * 1e6, "ETH price should be greater than $1700");
@@ -452,10 +446,10 @@ contract USDTForkTest is BasicDeploy {
         assertTrue(linkPriceInUSD < 20 * 1e6, "LINK price should be less than $20");
     }
 
-    function test_getAnyPoolTokenPriceInUSD_WBTCUSDC() public {
+    function test_getAnyPoolTokenPriceInUSD_WBTCUSDT() public {
         uint256 wbtcPriceInUSD = assetsInstance.getAssetPrice(WBTC);
         // Log the WBTC price in USD
-        console2.log("WBTC price in USD (from WBTC/USDC pool):", wbtcPriceInUSD);
+        console2.log("WBTC price in USD (from WBTC/USDT pool):", wbtcPriceInUSD);
 
         // Assert that the price is within a reasonable range (e.g., $90,000 to $120,000)
         assertTrue(wbtcPriceInUSD > 90000 * 1e6, "WBTC price should be greater than $90,000");
