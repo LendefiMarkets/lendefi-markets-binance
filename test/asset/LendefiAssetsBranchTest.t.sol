@@ -34,7 +34,7 @@ contract LendefiAssetsBranchTest is BasicDeploy {
         LendefiPoRFeed porFeedImpl = new LendefiPoRFeed();
         bytes memory initData = abi.encodeCall(
             LendefiAssets.initialize,
-            (address(timelockInstance), gnosisSafe, address(usdcInstance), address(porFeedImpl))
+            (address(timelockInstance), charlie, address(usdcInstance), address(porFeedImpl))
         );
         address payable assetsProxy = payable(Upgrades.deployUUPSProxy("LendefiAssets.sol", initData));
         assetsProxyForUpgrades = LendefiAssets(assetsProxy);
@@ -94,7 +94,7 @@ contract LendefiAssetsBranchTest is BasicDeploy {
         // First schedule an upgrade
         LendefiAssets newImplementation = new LendefiAssets();
 
-        vm.prank(gnosisSafe);
+        vm.prank(address(timelockInstance));
         assetsProxyForUpgrades.scheduleUpgrade(address(newImplementation));
 
         // Attempt to cancel without proper role
@@ -111,7 +111,7 @@ contract LendefiAssetsBranchTest is BasicDeploy {
         // Schedule an upgrade with one implementation
         LendefiAssets scheduledImpl = new LendefiAssets();
 
-        vm.prank(gnosisSafe);
+        vm.prank(address(timelockInstance));
         assetsProxyForUpgrades.scheduleUpgrade(address(scheduledImpl));
 
         // Try to upgrade with a different implementation
@@ -119,7 +119,7 @@ contract LendefiAssetsBranchTest is BasicDeploy {
 
         vm.warp(block.timestamp + 3 days + 1);
 
-        vm.prank(gnosisSafe);
+        vm.prank(address(timelockInstance));
         vm.expectRevert(
             abi.encodeWithSelector(
                 IASSETS.ImplementationMismatch.selector, address(scheduledImpl), address(differentImpl)
