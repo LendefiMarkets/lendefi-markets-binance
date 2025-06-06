@@ -167,11 +167,13 @@ contract LendefiCoreV2 is
     /// @param positionVault Address of the cloneable vault implementation
     function initialize(
         address admin,
+        address marketOwner,
         address govToken_,
         address assetsModule_,
         address positionVault
     ) external initializer {
         if (admin == address(0)) revert ZeroAddressNotAllowed();
+        if (marketOwner == address(0)) revert ZeroAddressNotAllowed();
         if (assetsModule_ == address(0)) revert ZeroAddressNotAllowed();
         if (govToken_ == address(0)) revert ZeroAddressNotAllowed();
         if (positionVault == address(0)) revert ZeroAddressNotAllowed();
@@ -182,7 +184,9 @@ contract LendefiCoreV2 is
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(LendefiConstants.MANAGER_ROLE, admin);
+        _grantRole(LendefiConstants.MANAGER_ROLE, marketOwner);
         _grantRole(LendefiConstants.PAUSER_ROLE, admin);
+        _grantRole(LendefiConstants.PAUSER_ROLE, marketOwner);
         _grantRole(LendefiConstants.UPGRADER_ROLE, admin);
 
         assetsModule = IASSETS(assetsModule_);
