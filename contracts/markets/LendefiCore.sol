@@ -162,16 +162,19 @@ contract LendefiCore is
     /// @notice Initializes the core contract with essential protocol components
     /// @dev Can only be called once during deployment by the factory contract
     /// @param admin Address to receive all administrative roles
+    /// @param marketOwner Address of the market owner who will have management privileges
     /// @param govToken_ Address of the governance token contract
     /// @param assetsModule_ Address of the assets module for collateral management
     /// @param positionVault Address of the cloneable vault implementation
     function initialize(
         address admin,
+        address marketOwner,
         address govToken_,
         address assetsModule_,
         address positionVault
     ) external initializer {
         if (admin == address(0)) revert ZeroAddressNotAllowed();
+        if (marketOwner == address(0)) revert ZeroAddressNotAllowed();
         if (assetsModule_ == address(0)) revert ZeroAddressNotAllowed();
         if (govToken_ == address(0)) revert ZeroAddressNotAllowed();
         if (positionVault == address(0)) revert ZeroAddressNotAllowed();
@@ -182,7 +185,9 @@ contract LendefiCore is
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(LendefiConstants.MANAGER_ROLE, admin);
+        _grantRole(LendefiConstants.MANAGER_ROLE, marketOwner);
         _grantRole(LendefiConstants.PAUSER_ROLE, admin);
+        _grantRole(LendefiConstants.PAUSER_ROLE, marketOwner);
         _grantRole(LendefiConstants.UPGRADER_ROLE, admin);
 
         assetsModule = IASSETS(assetsModule_);
