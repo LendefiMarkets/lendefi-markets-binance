@@ -645,7 +645,7 @@ contract LendefiAssetsTest is BasicDeploy {
         LendefiPoRFeed porFeedImpl = new LendefiPoRFeed();
         bytes memory initData = abi.encodeCall(
             LendefiAssets.initialize,
-            (address(timelockInstance), gnosisSafe, address(usdcInstance), address(porFeedImpl))
+            (address(timelockInstance), charlie, address(usdcInstance), address(porFeedImpl))
         );
         address payable assetsProxy = payable(Upgrades.deployUUPSProxy("LendefiAssets.sol", initData));
         LendefiAssets assetsProxyInstance = LendefiAssets(assetsProxy);
@@ -654,16 +654,16 @@ contract LendefiAssetsTest is BasicDeploy {
         LendefiAssets newImplementation = new LendefiAssets();
 
         // Step 1: Schedule the upgrade first (new requirement)
-        vm.prank(gnosisSafe);
+        vm.prank(address(timelockInstance));
         assetsProxyInstance.scheduleUpgrade(address(newImplementation));
 
         // Step 2: Fast forward time to pass the timelock period (3 days)
         vm.warp(block.timestamp + 3 days + 1);
 
         // Step 3: Now perform the upgrade
-        vm.prank(gnosisSafe);
+        vm.prank(address(timelockInstance));
         vm.expectEmit(true, true, false, false);
-        emit Upgrade(gnosisSafe, address(newImplementation));
+        emit Upgrade(address(timelockInstance), address(newImplementation));
         assetsProxyInstance.upgradeToAndCall(address(newImplementation), "");
 
         // After upgrade, version should be incremented
@@ -879,7 +879,7 @@ contract LendefiAssetsTest is BasicDeploy {
         // Create initialization data
         LendefiPoRFeed porFeedImpl = new LendefiPoRFeed();
         bytes memory initData = abi.encodeCall(
-            LendefiAssets.initialize, (timelockAddr, gnosisSafe, address(usdcInstance), address(porFeedImpl))
+            LendefiAssets.initialize, (timelockAddr, charlie, address(usdcInstance), address(porFeedImpl))
         );
         // Deploy LendefiAssets with initialization
         address payable proxy = payable(Upgrades.deployUUPSProxy("LendefiAssets.sol", initData));
@@ -887,12 +887,16 @@ contract LendefiAssetsTest is BasicDeploy {
 
         // Check role assignments
         assertTrue(
-            assetsContract.hasRole(DEFAULT_ADMIN_ROLE, timelockAddr), "gnosisSafe should have DEFAULT_ADMIN_ROLE"
+            assetsContract.hasRole(DEFAULT_ADMIN_ROLE, timelockAddr), "Timelock should have DEFAULT_ADMIN_ROLE"
         );
         assertTrue(assetsContract.hasRole(MANAGER_ROLE, timelockAddr), "Timelock should have MANAGER_ROLE");
-        assertTrue(assetsContract.hasRole(UPGRADER_ROLE, gnosisSafe), "gnosisSafe should have UPGRADER_ROLE");
+        assertTrue(assetsContract.hasRole(MANAGER_ROLE, charlie), "Market owner should have MANAGER_ROLE");
+        assertTrue(assetsContract.hasRole(UPGRADER_ROLE, timelockAddr), "Timelock should have UPGRADER_ROLE");
         assertTrue(
-            assetsContract.hasRole(LendefiConstants.PAUSER_ROLE, gnosisSafe), "gnosisSafe should have PAUSER_ROLE"
+            assetsContract.hasRole(LendefiConstants.PAUSER_ROLE, charlie), "Market owner should have PAUSER_ROLE"
+        );
+        assertTrue(
+            assetsContract.hasRole(LendefiConstants.PAUSER_ROLE, timelockAddr), "Timelock should have PAUSER_ROLE"
         );
 
         // Check version
