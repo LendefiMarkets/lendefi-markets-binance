@@ -60,6 +60,7 @@ contract ProxyDeployer {
         bytes memory initData = abi.encodeWithSelector(
             LendefiCore.initialize.selector,
             address(timelockInstance), // admin
+            address(timelockInstance), // marketOwner (using timelock as market owner in this test helper)
             address(tokenInstance), // govToken_
             address(assetsInstance), // assetsModule_
             address(positionVaultImpl) // positionVault
