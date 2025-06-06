@@ -411,11 +411,11 @@ contract LendefiMarketFactory is
             revert CloneDeploymentFailed();
 
         // Initialize the cloned assets module
-        // Note: Using timelock for both admin and multisig roles
+        // Note: Using timelock for admin role and marketOwner for management
         // Using the porFeed implementation as template (assets module will clone it for each asset)
         IASSETS(assetsModule).initialize(
             timelock,
-            multisig,
+            msg.sender,
             baseAsset,
             porFeedImplementation
         );
@@ -429,6 +429,7 @@ contract LendefiMarketFactory is
         bytes memory initData = abi.encodeWithSelector(
             LendefiCore.initialize.selector,
             timelock,
+            msg.sender,
             govToken,
             assetsModule,
             positionVaultImplementation
