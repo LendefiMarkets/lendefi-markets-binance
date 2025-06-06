@@ -81,7 +81,7 @@ contract OracleForkTest is BasicDeploy {
     function _configureWETH() internal {
         vm.startPrank(address(timelockInstance));
 
-        // Configure WETH with updated struct format and CORRECT pool & token position
+        // Configure WETH with updated struct format
         assetsInstance.updateAssetConfig(
             WETH,
             IASSETS.Asset({
@@ -418,13 +418,7 @@ contract OracleForkTest is BasicDeploy {
     }
 
     function test_getAnyPoolTokenPriceInUSD_ETHUSDC() public {
-        // ETH/USDC pool address
-        // address ethUsdcPool = 0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640; // ETH/USDC pool
-
-        // Call the getAnyPoolTokenPriceInUSD function
-        // uint256 ethPriceInUSD = assetsInstance.getAnyPoolTokenPriceInUSD(ethUsdcPool, WETH, ethUsdcPool, 1800);
         uint256 ethPriceInUSD = assetsInstance.getAssetPrice(WETH);
-        // Log the ETH price in USD
         console2.log("ETH price in USD (from ETH/USDC pool):", ethPriceInUSD);
 
         // Assert that the price is within a reasonable range (e.g., $1000 to $5000)
