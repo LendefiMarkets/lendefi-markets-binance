@@ -17,7 +17,7 @@ contract USD1ForkTest is BasicDeploy {
     address constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
     address constant LINK = 0x514910771AF9Ca656af840dff83E8264EcF986CA;
 
-    // Pools and oracles - Using USD1 pools (fallback to USDC/USDT pools as USD1 is newer)
+    // Pools and oracles - Using USD1 pools
     address constant LINK_WETH_POOL = 0xa6Cc3C2531FdaA6Ae1A3CA84c2855806728693e8;
     address constant WBTC_USD1_POOL = 0x9Db9e0e53058C89e5B94e29621a205198648425B;
     address constant WETH_USD1_POOL = 0x4e68Ccd3E89f51C3074ca5072bbAC773960dFa36;
@@ -81,7 +81,7 @@ contract USD1ForkTest is BasicDeploy {
     function _configureWETH() internal {
         vm.startPrank(address(timelockInstance));
 
-        // Configure WETH with updated struct format and CORRECT pool & token position
+        // Configure WETH with updated struct format
         assetsInstance.updateAssetConfig(
             WETH,
             IASSETS.Asset({
@@ -425,15 +425,9 @@ contract USD1ForkTest is BasicDeploy {
         });
     }
 
-    function test_getAnyPoolTokenPriceInUSD_ETHUSDC() public {
-        // ETH/USDC pool address
-        // address ethUsdcPool = 0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640; // ETH/USDC pool
-
-        // Call the getAnyPoolTokenPriceInUSD function
-        // uint256 ethPriceInUSD = assetsInstance.getAnyPoolTokenPriceInUSD(ethUsdcPool, WETH, ethUsdcPool, 1800);
+    function test_getAnyPoolTokenPriceInUSD_ETHUSD1() public {
         uint256 ethPriceInUSD = assetsInstance.getAssetPrice(WETH);
-        // Log the ETH price in USD
-        console2.log("ETH price in USD (from ETH/USDC pool):", ethPriceInUSD);
+        console2.log("ETH price in USD (from ETH/USD1 pool):", ethPriceInUSD);
 
         // Assert that the price is within a reasonable range for median calculation
         // Median of Chainlink (~$2509) and very low Uniswap TWAP (~$0.000006) results in ~$1254
@@ -462,10 +456,10 @@ contract USD1ForkTest is BasicDeploy {
         assertTrue(linkPriceInUSD < 20 * 1e6, "LINK price should be less than $20");
     }
 
-    function test_getAnyPoolTokenPriceInUSD_WBTCUSDC() public {
+    function test_getAnyPoolTokenPriceInUSD_WBTCUSD1() public {
         uint256 wbtcPriceInUSD = assetsInstance.getAssetPrice(WBTC);
         // Log the WBTC price in USD
-        console2.log("WBTC price in USD (from WBTC/USDC pool):", wbtcPriceInUSD);
+        console2.log("WBTC price in USD (from WBTC/USD1 pool):", wbtcPriceInUSD);
 
         // Assert that the price is within a reasonable range for median calculation
         // Median of Chainlink (~$103k) and very low Uniswap TWAP results in ~$52k
