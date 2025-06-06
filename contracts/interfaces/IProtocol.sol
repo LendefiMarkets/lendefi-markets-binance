@@ -358,7 +358,7 @@ interface IPROTOCOL {
      * @param assetsModule_ The address of the assets module
      * @param vaultImplementation The address of the vault implementation contract
      */
-    function initialize(address admin, address govToken_, address assetsModule_, address vaultImplementation)
+    function initialize(address admin, address marketOwner, address govToken_, address assetsModule_, address vaultImplementation)
         external;
 
     /**
