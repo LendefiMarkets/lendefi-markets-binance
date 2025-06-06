@@ -182,7 +182,7 @@ contract LendefiCoreTest is BasicDeploy {
 
         vm.expectRevert(); // Expect revert for already initialized
         marketCoreInstance.initialize(
-            address(timelockInstance), address(tokenInstance), address(assetsInstance), address(vaultImpl)
+            address(timelockInstance), charlie, address(tokenInstance), address(assetsInstance), address(vaultImpl)
         );
     }
 
