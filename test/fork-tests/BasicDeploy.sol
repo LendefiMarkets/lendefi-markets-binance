@@ -101,6 +101,7 @@ contract BasicDeploy is Test {
     // USDC internal usdcInstance;
     IERC20 usdcInstance = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48); //real usdc ethereum for fork testing
     IERC20 usdtInstance = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7); //real usdt ethereum for fork testing
+    IERC20 usd1Instance = IERC20(0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d); //real usd1 ethereum for fork testing
 
     function deployTokenUpgrade() internal {
         if (address(timelockInstance) == address(0)) {
@@ -1073,6 +1074,61 @@ contract BasicDeploy is Test {
 
         // Deploy USDT market
         _deployMarket(address(usdtInstance), "Lendefi Yield Token USDT", "LYTUSDT");
+    }
+
+    /**
+     * @notice Deploy a complete markets setup with USD1 as base asset
+     * @dev Deploys all necessary contracts and creates a USD1 market
+     */
+    function deployMarketsWithUSD1() internal {
+        // Warp time to ensure treasury deployment doesn't underflow
+        vm.warp(365 days);
+
+        // Ensure base contracts are deployed
+        if (address(timelockInstance) == address(0)) _deployTimelock();
+        if (address(tokenInstance) == address(0)) _deployToken();
+        if (address(ecoInstance) == address(0)) _deployEcosystem();
+        if (address(treasuryInstance) == address(0)) _deployTreasury();
+        if (address(assetsInstance) == address(0)) _deployAssetsModule();
+
+        // USD1 instance is already defined in BasicDeploy as real mainnet USD1
+
+        // Deploy market factory
+        _deployMarketFactory();
+
+        // Deploy USD1 market
+        _deployMarket(address(usd1Instance), "Lendefi Yield Token USD1", "LYTUSD1");
+    }
+
+    /**
+     * @notice Deploy complete protocol with all ecosystem components and USD1 market
+     * @dev Equivalent to deployComplete() but with USD1 market instead of just governance setup
+     */
+    function deployCompleteWithUSD1() internal {
+        vm.warp(365 days);
+        _deployTimelock();
+        _deployToken();
+        _deployEcosystem();
+        _deployGovernor();
+
+        // reset timelock proposers and executors
+        vm.startPrank(guardian);
+        timelockInstance.revokeRole(PROPOSER_ROLE, ethereum);
+        timelockInstance.revokeRole(EXECUTOR_ROLE, ethereum);
+        timelockInstance.revokeRole(CANCELLER_ROLE, ethereum);
+        timelockInstance.grantRole(PROPOSER_ROLE, address(govInstance));
+        timelockInstance.grantRole(EXECUTOR_ROLE, address(govInstance));
+        timelockInstance.grantRole(CANCELLER_ROLE, address(govInstance));
+        vm.stopPrank();
+
+        // deploy Treasury
+        _deployTreasury();
+
+        // Deploy market factory
+        _deployMarketFactory();
+
+        // Deploy USD1 market
+        _deployMarket(address(usd1Instance), "Lendefi Yield Token USD1", "LYTUSD1");
     }
 
     /**
