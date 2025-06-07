@@ -294,8 +294,7 @@ contract LendefiMarketDashboardTest is BasicDeploy {
         assertEq(metrics.length, 3);
 
         // Verify TVL is correctly aggregated
-        uint256 expectedTVL = 5000e6 + 5000e18; // USDC (6 decimals) + DAI (18 decimals)
-        // Note: This is a simplified check since DAI has different decimals
+        // Note: This is a simplified check since assets have different decimals
         assertGt(stats.totalProtocolTVL, 5000e6); // At least USDC amount
     }
 
