@@ -726,7 +726,6 @@ contract BasicDeploy is Test {
             (
                 address(timelockInstance),
                 charlie,
-                address(usdcInstance),
                 address(porFeedImplementation)
             )
         );
@@ -1129,6 +1128,37 @@ contract BasicDeploy is Test {
 
         // Deploy USD1 market
         _deployMarket(address(usd1Instance), "Lendefi Yield Token USD1", "LYTUSD1");
+    }
+
+    /**
+     * @notice Deploy complete protocol with all ecosystem components and WETH market
+     * @dev Equivalent to deployComplete() but with WETH market instead of just governance setup
+     */
+    function deployCompleteWithWETH() internal {
+        vm.warp(365 days);
+        _deployTimelock();
+        _deployToken();
+        _deployEcosystem();
+        _deployGovernor();
+
+        // reset timelock proposers and executors
+        vm.startPrank(guardian);
+        timelockInstance.revokeRole(PROPOSER_ROLE, ethereum);
+        timelockInstance.revokeRole(EXECUTOR_ROLE, ethereum);
+        timelockInstance.revokeRole(CANCELLER_ROLE, ethereum);
+        timelockInstance.grantRole(PROPOSER_ROLE, address(govInstance));
+        timelockInstance.grantRole(EXECUTOR_ROLE, address(govInstance));
+        timelockInstance.grantRole(CANCELLER_ROLE, address(govInstance));
+        vm.stopPrank();
+
+        // deploy Treasury
+        _deployTreasury();
+
+        // Deploy market factory
+        _deployMarketFactory();
+
+        // Deploy WETH market (18 decimal base asset)
+        _deployMarket(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2, "Lendefi Yield Token WETH", "LYTWETH");
     }
 
     /**
