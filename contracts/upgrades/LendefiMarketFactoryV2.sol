@@ -97,6 +97,7 @@ contract LendefiMarketFactoryV2 is
     /// @dev Handles governance token rewards for liquidity providers
     address public ecosystem;
 
+
     /// @notice Set of approved base assets that can be used for market creation
     /// @dev Only assets in this allowlist can be used to create new markets
     /// @dev Ensures only tested and verified assets are supported by the protocol
@@ -416,7 +417,6 @@ contract LendefiMarketFactoryV2 is
         IASSETS(assetsModule).initialize(
             timelock,
             multisig,
-            baseAsset,
             porFeedImplementation
         );
 
