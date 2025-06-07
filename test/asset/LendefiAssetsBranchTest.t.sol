@@ -34,7 +34,7 @@ contract LendefiAssetsBranchTest is BasicDeploy {
         LendefiPoRFeed porFeedImpl = new LendefiPoRFeed();
         bytes memory initData = abi.encodeCall(
             LendefiAssets.initialize,
-            (address(timelockInstance), charlie, address(usdcInstance), address(porFeedImpl))
+            (address(timelockInstance), charlie, address(porFeedImpl))
         );
         address payable assetsProxy = payable(Upgrades.deployUUPSProxy("LendefiAssets.sol", initData));
         assetsProxyForUpgrades = LendefiAssets(assetsProxy);
