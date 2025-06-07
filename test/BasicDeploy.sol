@@ -563,7 +563,7 @@ contract BasicDeploy is Test {
         // Protocol Oracle deploy (combined Oracle + Assets)
         bytes memory data = abi.encodeCall(
             LendefiAssets.initialize,
-            (address(timelockInstance), charlie, address(usdcInstance), address(porFeedImplementation))
+            (address(timelockInstance), charlie, address(porFeedImplementation))
         );
 
         address payable proxy = payable(Upgrades.deployUUPSProxy("LendefiAssets.sol", data));
