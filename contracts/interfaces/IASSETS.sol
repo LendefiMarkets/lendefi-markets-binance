@@ -367,10 +367,9 @@ interface IASSETS {
      * @notice Initialize the contract
      * @param timelock Address with manager role
      * @param multisig Address with admin roles
-     * @param usdc USDC address
      * @param porFeed Proof of Reserve feed address
      */
-    function initialize(address timelock, address multisig, address usdc, address porFeed) external;
+    function initialize(address timelock, address multisig, address porFeed) external;
 
     /**
      * @notice Register a Uniswap V3 pool as an oracle for an asset
