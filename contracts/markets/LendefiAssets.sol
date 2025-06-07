@@ -60,8 +60,6 @@ contract LendefiAssets is
     /// @notice Address of the core protocol contract
     /// @dev Used for cross-contract calls and validation
     address public coreAddress;
-    /// @notice Address of the usdc contract
-    address internal usdc;
     /// @notice Address of the Proof of Reserve factory
     address public porFeed;
     /// @notice Address of the timelock contract
@@ -131,7 +129,6 @@ contract LendefiAssets is
      * @dev This can only be called once through the proxy's initializer
      * @param timelock_ Address of the timelock_ contract that will have admin privileges
      * @param marketOwner Address of the market owner who will have management privileges
-     * @param usdc_ USDC address
      * @param porFeed_ Proof of Reserve feed address
      * @custom:security Sets up the initial access control roles:
      * - DEFAULT_ADMIN_ROLE: timelock_
@@ -148,14 +145,12 @@ contract LendefiAssets is
     function initialize(
         address timelock_,
         address marketOwner,
-        address usdc_,
         address porFeed_
     ) external initializer {
         if (
             timelock_ == address(0) ||
             marketOwner == address(0) ||
-            porFeed_ == address(0) ||
-            usdc_ == address(0)
+            porFeed_ == address(0)
         ) {
             revert ZeroAddressNotAllowed();
         }
@@ -182,7 +177,6 @@ contract LendefiAssets is
 
         _initializeDefaultTierParameters();
 
-        usdc = usdc_;
         porFeed = porFeed_;
 
         timelock = timelock_;
@@ -1209,11 +1203,11 @@ contract LendefiAssets is
         (
             bool isToken0,
             uint8 assetDecimals,
-            bool isUsdcPool
+            bool isStablePool
         ) = getOptimalUniswapConfig(token, pool);
 
         // Phase 2: Get raw price
-        if (isUsdcPool) {
+        if (isStablePool) {
             tokenPriceInUSD = UniswapTickMath.getRawPrice(
                 pool,
                 isToken0,
@@ -1258,7 +1252,7 @@ contract LendefiAssets is
      * @param pool The Uniswap V3 pool instance
      * @return isToken0 True if the asset is token0 in the pool, false if token1
      * @return assetDecimals The number of decimal places for the asset (e.g., 18 for ETH)
-     * @return isUsdcPool True if the pool directly pairs with USDC, false otherwise
+     * @return isStablePool True if the pool contains a 6-decimal stablecoin, false otherwise
      * @custom:validation Ensures the asset is part of the pool, reverts otherwise
      * @custom:pricing-impact Token position affects price calculation direction (token0/token1 vs token1/token0)
      * @custom:reverts AssetNotInUniswapPool if the asset is not present in the pool
@@ -1269,7 +1263,7 @@ contract LendefiAssets is
     )
         internal
         view
-        returns (bool isToken0, uint8 assetDecimals, bool isUsdcPool)
+        returns (bool isToken0, uint8 assetDecimals, bool isStablePool)
     {
         // Get pool tokens
         address token0 = pool.token0();
@@ -1282,9 +1276,11 @@ contract LendefiAssets is
         // Determine if asset is token0
         isToken0 = (asset == token0);
 
-        // Check if the pool is USDC-based
-        isUsdcPool = (token0 == usdc || token1 == usdc);
+        // Check if either token in the pool is a 6-decimal stablecoin (USD stablecoin)
         assetDecimals = IERC20Metadata(asset).decimals();
+        uint8 token0Decimals = IERC20Metadata(token0).decimals();
+        uint8 token1Decimals = IERC20Metadata(token1).decimals();
+        isStablePool = (token0Decimals == 6 || token1Decimals == 6);
     }
 
     /**
