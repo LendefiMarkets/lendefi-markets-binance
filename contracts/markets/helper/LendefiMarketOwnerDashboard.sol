@@ -13,7 +13,7 @@ pragma solidity 0.8.23;
  *
  * ═══════════[ Composable Lending Markets ]═══════════
  * @title Lendefi Market Owner Dashboard
- * @author alexei@nebula-labs(dot)xyz
+ * @author alexei@lendefimarkets(dot)com
  * @notice Personalized dashboard for market owners providing detailed views of their markets and users
  * @dev Provides owner-specific functions to view and manage their lending markets
  * @custom:security-contact security@lendefimarkets.com
@@ -187,12 +187,11 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
 
     /**
      * @notice Gets detailed information about all borrowers across owner's markets
-     * @param owner Address of the market owner
      * @return Array of BorrowerInfo for all borrowers in owner's markets
      */
     function getOwnerBorrowers(
-        address owner
-    ) external view returns (BorrowerInfo[] memory) {
+        address /* owner */
+    ) external pure returns (BorrowerInfo[] memory) {
         // TODO: Implement comprehensive borrower tracking
         // This requires iterating through all positions across all owner's markets
         // For now, returning empty array as placeholder
@@ -215,9 +214,6 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
         uint256 totalProviders = 0;
         for (uint256 i = 0; i < ownerMarkets.length; i++) {
             if (ownerMarkets[i].active) {
-                ILendefiMarketVault vault = ILendefiMarketVault(
-                    ownerMarkets[i].baseVault
-                );
                 // TODO: Get actual holder count - this would require additional tracking
                 totalProviders += 1; // Placeholder
             }
@@ -231,19 +227,12 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
 
     /**
      * @notice Gets borrowers for a specific market owned by the owner
-     * @param owner Address of the market owner
-     * @param baseAsset Address of the base asset
      * @return Array of BorrowerInfo for borrowers in the specific market
      */
     function getMarketBorrowers(
-        address owner,
-        address baseAsset
-    ) external view returns (BorrowerInfo[] memory) {
-        IPROTOCOL.Market memory market = _marketFactory.getMarketInfo(
-            owner,
-            baseAsset
-        );
-
+        address /* owner */,
+        address /* baseAsset */
+    ) external pure returns (BorrowerInfo[] memory) {
         // TODO: Implement market-specific borrower tracking
         // This requires getting all positions from the core contract
         return new BorrowerInfo[](0);
@@ -251,19 +240,12 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
 
     /**
      * @notice Gets liquidity providers for a specific market owned by the owner
-     * @param owner Address of the market owner
-     * @param baseAsset Address of the base asset
      * @return Array of LiquidityProviderInfo for LPs in the specific market
      */
     function getMarketLiquidityProviders(
-        address owner,
-        address baseAsset
-    ) external view returns (LiquidityProviderInfo[] memory) {
-        IPROTOCOL.Market memory market = _marketFactory.getMarketInfo(
-            owner,
-            baseAsset
-        );
-
+        address /* owner */,
+        address /* baseAsset */
+    ) external pure returns (LiquidityProviderInfo[] memory) {
         // TODO: Implement market-specific LP tracking
         // This requires getting all LP token holders from the vault
         return new LiquidityProviderInfo[](0);
@@ -283,8 +265,6 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
             owner,
             baseAsset
         );
-        ILendefiMarketVault vault = ILendefiMarketVault(market.baseVault);
-        IERC20Metadata baseToken = IERC20Metadata(market.baseAsset);
 
         return
             MarketPerformanceAnalytics({
@@ -337,14 +317,12 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
 
     /**
      * @notice Gets top borrowers by debt amount across owner's markets
-     * @param owner Address of the market owner
-     * @param limit Maximum number of borrowers to return
      * @return Array of BorrowerInfo sorted by total debt (descending)
      */
     function getTopBorrowersByDebt(
-        address owner,
-        uint256 limit
-    ) external view returns (BorrowerInfo[] memory) {
+        address /* owner */,
+        uint256 /* limit */
+    ) external pure returns (BorrowerInfo[] memory) {
         // TODO: Implement borrower ranking by debt
         // This requires getting all borrowers and sorting by debt amount
         return new BorrowerInfo[](0);
@@ -352,14 +330,12 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
 
     /**
      * @notice Gets top liquidity providers by LP value across owner's markets
-     * @param owner Address of the market owner
-     * @param limit Maximum number of providers to return
      * @return Array of LiquidityProviderInfo sorted by LP value (descending)
      */
     function getTopLiquidityProviders(
-        address owner,
-        uint256 limit
-    ) external view returns (LiquidityProviderInfo[] memory) {
+        address /* owner */,
+        uint256 /* limit */
+    ) external pure returns (LiquidityProviderInfo[] memory) {
         // TODO: Implement LP ranking by value
         // This requires getting all LPs and sorting by LP token value
         return new LiquidityProviderInfo[](0);
@@ -367,12 +343,11 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
 
     /**
      * @notice Gets borrowers at risk of liquidation across owner's markets
-     * @param owner Address of the market owner
      * @return Array of BorrowerInfo for borrowers with high liquidation risk
      */
     function getAtRiskBorrowers(
-        address owner
-    ) external view returns (BorrowerInfo[] memory) {
+        address /* owner */
+    ) external pure returns (BorrowerInfo[] memory) {
         // TODO: Implement at-risk borrower identification
         // This requires checking health factors across all positions
         return new BorrowerInfo[](0);
@@ -523,7 +498,7 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
      */
     function _calculateMarketRiskScore(
         uint256 utilization,
-        uint256 avgHealthFactor
+        uint256 /* avgHealthFactor */
     ) internal pure returns (uint256) {
         // Risk increases with higher utilization
         uint256 utilizationRisk = utilization > 1000 ? 1000 : utilization;
