@@ -11,28 +11,27 @@ import {AggregatorV3Interface} from
 import {IUniswapV3Pool} from "../../contracts/interfaces/IUniswapV3Pool.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-contract USD1ForkTest is BasicDeploy {
+contract WETHForkTest is BasicDeploy {
     // Mainnet addresses
     address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
     address constant LINK = 0x514910771AF9Ca656af840dff83E8264EcF986CA;
 
-    // Pools and oracles - Using USD1 pools
+    // Pools and oracles - Using WETH pools instead of USDC pools
     address constant LINK_WETH_POOL = 0xa6Cc3C2531FdaA6Ae1A3CA84c2855806728693e8;
-    address constant WBTC_USD1_POOL = 0x9Db9e0e53058C89e5B94e29621a205198648425B;
-    address constant WETH_USD1_POOL = 0x4e68Ccd3E89f51C3074ca5072bbAC773960dFa36;
-    address constant USD1_USDC_POOL = 0x1e1DfFf79d95725aaAFD6b47aF4fbc28D859ce28;
+    address constant WBTC_WETH_POOL = 0xCBCdF9626bC03E24f779434178A73a0B4bad62eD;
+    address constant WETH_USDC_POOL = 0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640;
 
     address constant WETH_CHAINLINK_ORACLE = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
     address constant WBTC_CHAINLINK_ORACLE = 0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c;
     address constant LINK_CHAINLINK_ORACLE = 0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c;
-    address constant USD1_CHAINLINK_ORACLE = 0xF0d9bb015Cd7BfAb877B7156146dc09Bf461370d;
+    address constant USDC_CHAINLINK_ORACLE = 0xfB6471ACD42c91FF265344Ff73E88353521d099F;
 
     uint256 mainnetFork;
     address testUser;
 
     function setUp() public {
-        // Fork mainnet at a stable block (same as other tests)
+        // Fork mainnet at a specific block
         mainnetFork = vm.createFork("mainnet", 22607428);
         vm.selectFork(mainnetFork);
 
@@ -48,8 +47,8 @@ contract USD1ForkTest is BasicDeploy {
         _deployGovernor();
         _deployMarketFactory();
 
-        // Deploy USD1 market instead of USDT
-        _deployMarket(address(usd1Instance), "Lendefi Yield Token", "LYTUSD1");
+        // Deploy WETH market instead of USDC market
+        _deployMarket(WETH, "Lendefi Yield Token WETH", "LYTWETH");
 
         // Now warp to current time to match oracle data
         vm.warp(1748748827 + 3600); // Oracle timestamp + 1 hour
@@ -72,32 +71,32 @@ contract USD1ForkTest is BasicDeploy {
         vm.prank(guardian);
         tokenInstance.initializeTGE(address(ecoInstance), address(treasuryInstance));
 
-        // Configure assets
+        // Configure assets - WETH is now base asset, others are collateral
         _configureWETH();
         _configureWBTC();
         _configureLINK();
-        _configureUSD1();
+        _configureUSDC();
     }
 
     function _configureWETH() internal {
         vm.startPrank(address(timelockInstance));
 
-        // Configure WETH with updated struct format
+        // Configure WETH as base asset - adjusted for base asset use
         assetsInstance.updateAssetConfig(
             WETH,
             IASSETS.Asset({
                 active: 1,
                 decimals: 18,
-                borrowThreshold: 800,
-                liquidationThreshold: 850,
+                borrowThreshold: 950, // Base asset still needs thresholds
+                liquidationThreshold: 980,
                 maxSupplyThreshold: 1_000_000 ether,
                 isolationDebtCap: 0,
                 assetMinimumOracles: 1,
                 porFeed: address(0),
-                primaryOracleType: IASSETS.OracleType.UNISWAP_V3_TWAP,
+                primaryOracleType: IASSETS.OracleType.CHAINLINK,
                 tier: IASSETS.CollateralTier.CROSS_A,
-                chainlinkConfig: IASSETS.ChainlinkOracleConfig({oracleUSD: WETH_CHAINLINK_ORACLE, active: 0}),
-                poolConfig: IASSETS.UniswapPoolConfig({pool: WETH_USD1_POOL, twapPeriod: 1800, active: 1})
+                chainlinkConfig: IASSETS.ChainlinkOracleConfig({oracleUSD: WETH_CHAINLINK_ORACLE, active: 1}),
+                poolConfig: IASSETS.UniswapPoolConfig({pool: WETH_USDC_POOL, twapPeriod: 1800, active: 1})
             })
         );
 
@@ -107,7 +106,7 @@ contract USD1ForkTest is BasicDeploy {
     function _configureWBTC() internal {
         vm.startPrank(address(timelockInstance));
 
-        // Configure WBTC with updated struct format
+        // Configure WBTC with WETH pool instead of USDC pool
         assetsInstance.updateAssetConfig(
             WBTC,
             IASSETS.Asset({
@@ -119,10 +118,10 @@ contract USD1ForkTest is BasicDeploy {
                 isolationDebtCap: 0,
                 assetMinimumOracles: 1,
                 porFeed: address(0),
-                primaryOracleType: IASSETS.OracleType.UNISWAP_V3_TWAP,
+                primaryOracleType: IASSETS.OracleType.CHAINLINK,
                 tier: IASSETS.CollateralTier.CROSS_A,
-                chainlinkConfig: IASSETS.ChainlinkOracleConfig({oracleUSD: WBTC_CHAINLINK_ORACLE, active: 0}),
-                poolConfig: IASSETS.UniswapPoolConfig({pool: WBTC_USD1_POOL, twapPeriod: 1800, active: 1})
+                chainlinkConfig: IASSETS.ChainlinkOracleConfig({oracleUSD: WBTC_CHAINLINK_ORACLE, active: 1}),
+                poolConfig: IASSETS.UniswapPoolConfig({pool: WBTC_WETH_POOL, twapPeriod: 1800, active: 1})
             })
         );
 
@@ -132,7 +131,7 @@ contract USD1ForkTest is BasicDeploy {
     function _configureLINK() internal {
         vm.startPrank(address(timelockInstance));
 
-        // Configure LINK using the ETH bridge approach
+        // Configure LINK using the WETH pool approach
         assetsInstance.updateAssetConfig(
             LINK,
             IASSETS.Asset({
@@ -144,9 +143,9 @@ contract USD1ForkTest is BasicDeploy {
                 isolationDebtCap: 0,
                 assetMinimumOracles: 1,
                 porFeed: address(0),
-                primaryOracleType: IASSETS.OracleType.UNISWAP_V3_TWAP,
+                primaryOracleType: IASSETS.OracleType.CHAINLINK,
                 tier: IASSETS.CollateralTier.CROSS_A,
-                chainlinkConfig: IASSETS.ChainlinkOracleConfig({oracleUSD: LINK_CHAINLINK_ORACLE, active: 0}),
+                chainlinkConfig: IASSETS.ChainlinkOracleConfig({oracleUSD: LINK_CHAINLINK_ORACLE, active: 1}),
                 poolConfig: IASSETS.UniswapPoolConfig({pool: LINK_WETH_POOL, twapPeriod: 1800, active: 1})
             })
         );
@@ -154,28 +153,28 @@ contract USD1ForkTest is BasicDeploy {
         vm.stopPrank();
     }
 
-    function _configureUSD1() internal {
+    function _configureUSDC() internal {
         vm.startPrank(address(timelockInstance));
 
-        // Configure USD1 with proper Chainlink oracle
+        // Configure USDC as collateral asset
         assetsInstance.updateAssetConfig(
-            address(usd1Instance),
+            address(usdcInstance),
             IASSETS.Asset({
                 active: 1,
-                decimals: 18, // USD1 has 18 decimals
+                decimals: 6,
                 borrowThreshold: 950, // 95% - very safe for stablecoin
                 liquidationThreshold: 980, // 98% - very safe for stablecoin
-                maxSupplyThreshold: 1_000_000_000 * 1e18, // 1B USD1
+                maxSupplyThreshold: 1_000_000_000e6, // 1B USDC
                 isolationDebtCap: 0,
                 assetMinimumOracles: 1,
                 porFeed: address(0),
-                primaryOracleType: IASSETS.OracleType.UNISWAP_V3_TWAP,
+                primaryOracleType: IASSETS.OracleType.CHAINLINK,
                 tier: IASSETS.CollateralTier.STABLE,
                 chainlinkConfig: IASSETS.ChainlinkOracleConfig({
-                    oracleUSD: USD1_CHAINLINK_ORACLE,
-                    active: 0
+                    oracleUSD: USDC_CHAINLINK_ORACLE,
+                    active: 1
                 }),
-                poolConfig: IASSETS.UniswapPoolConfig({pool: USD1_USDC_POOL, twapPeriod: 1800, active: 1})
+                poolConfig: IASSETS.UniswapPoolConfig({pool: address(0), twapPeriod: 0, active: 0})
             })
         );
 
@@ -201,39 +200,45 @@ contract USD1ForkTest is BasicDeploy {
         console2.log("  Updated at:", updatedAt);
     }
 
-    function test_ChainlinkOracleUSD1() public view {
-        (uint80 roundId, int256 answer,, uint256 updatedAt,) =
-            AggregatorV3Interface(USD1_CHAINLINK_ORACLE).latestRoundData();
-        console2.log("Direct USD1/USD oracle call:");
-        console2.log("  RoundId:", roundId);
-        console2.log("  Price:", uint256(answer) / 1e8);
-        console2.log("  Updated at:", updatedAt);
-    }
-
     function test_RealMedianPriceETH() public {
-        // Get price from Uniswap only (Chainlink disabled)
+        // Get prices from both oracles
+        uint256 chainlinkPrice = assetsInstance.getAssetPriceByType(WETH, IASSETS.OracleType.CHAINLINK);
         uint256 uniswapPrice = assetsInstance.getAssetPriceByType(WETH, IASSETS.OracleType.UNISWAP_V3_TWAP);
 
+        console2.log("WETH Chainlink price:", chainlinkPrice);
         console2.log("WETH Uniswap price:", uniswapPrice);
 
-        // Get actual price (should be Uniswap only)
-        uint256 actualPrice = assetsInstance.getAssetPrice(WETH);
-        console2.log("WETH price (Uniswap only):", actualPrice);
+        // Calculate expected median
+        uint256 expectedMedian = (chainlinkPrice + uniswapPrice) / 2;
 
-        assertEq(actualPrice, uniswapPrice, "Price should be Uniswap only");
+        // Get actual median
+        uint256 actualMedian = assetsInstance.getAssetPrice(WETH);
+        console2.log("WETH median price:", actualMedian);
+
+        assertEq(actualMedian, expectedMedian, "Median calculation should be correct");
     }
 
     function test_RealMedianPriceBTC() public {
-        // Get price from Uniswap only (Chainlink disabled)
+        // Get prices from both oracles
+        uint256 chainlinkPrice = assetsInstance.getAssetPriceByType(WBTC, IASSETS.OracleType.CHAINLINK);
         uint256 uniswapPrice = assetsInstance.getAssetPriceByType(WBTC, IASSETS.OracleType.UNISWAP_V3_TWAP);
 
+        console2.log("WBTC Chainlink price:", chainlinkPrice);
         console2.log("WBTC Uniswap price:", uniswapPrice);
+        console2.log("WBTC Chainlink price in USD:", chainlinkPrice / 1e6);
+        console2.log("WBTC Uniswap price in massive units:", uniswapPrice);
+        
+        // This shows the scale difference
+        console2.log("Chainlink vs Uniswap ratio:", uniswapPrice / chainlinkPrice);
 
-        // Get actual price (should be Uniswap only)
-        uint256 actualPrice = assetsInstance.getAssetPrice(WBTC);
-        console2.log("WBTC price (Uniswap only):", actualPrice);
+        // Calculate expected median
+        uint256 expectedMedian = (chainlinkPrice + uniswapPrice) / 2;
 
-        assertEq(actualPrice, uniswapPrice, "Price should be Uniswap only");
+        // Get actual median
+        uint256 actualMedian = assetsInstance.getAssetPrice(WBTC);
+        console2.log("WBTC median price:", actualMedian);
+
+        assertEq(actualMedian, expectedMedian, "Median calculation should be correct");
     }
 
     function test_OracleTypeSwitch() public view {
@@ -275,7 +280,7 @@ contract USD1ForkTest is BasicDeploy {
         vm.stopPrank();
 
         // Get actual WETH balance in the pool
-        uint256 poolWethBalance = IERC20(WETH).balanceOf(WETH_USD1_POOL);
+        uint256 poolWethBalance = IERC20(WETH).balanceOf(WETH_USDC_POOL);
         console2.log("WETH balance in pool:", poolWethBalance / 1e18, "ETH");
 
         // Calculate 3% of pool balance
@@ -338,14 +343,19 @@ contract USD1ForkTest is BasicDeploy {
 
     // Add this test function
     function test_RealMedianPriceLINK() public {
-        // Get price from Uniswap only (Chainlink disabled)
+        // Get prices from both oracles
+        uint256 chainlinkPrice = assetsInstance.getAssetPriceByType(LINK, IASSETS.OracleType.CHAINLINK);
         uint256 uniswapPrice = assetsInstance.getAssetPriceByType(LINK, IASSETS.OracleType.UNISWAP_V3_TWAP);
 
+        console2.log("LINK Chainlink price:", chainlinkPrice);
         console2.log("LINK Uniswap price:", uniswapPrice);
 
-        // Get actual price (should be Uniswap only)
-        uint256 actualPrice = assetsInstance.getAssetPrice(LINK);
-        console2.log("LINK price (Uniswap only):", actualPrice);
+        // Calculate expected median
+        uint256 expectedMedian = (chainlinkPrice + uniswapPrice) / 2;
+
+        // Get actual median
+        uint256 actualMedian = assetsInstance.getAssetPrice(LINK);
+        console2.log("LINK median price:", actualMedian);
 
         // Also log direct Chainlink data for reference
         (uint80 roundId, int256 answer,, uint256 updatedAt,) =
@@ -355,7 +365,7 @@ contract USD1ForkTest is BasicDeploy {
         console2.log("  Price:", uint256(answer) / 1e8);
         console2.log("  Updated at:", updatedAt);
 
-        assertEq(actualPrice, uniswapPrice, "Price should be Uniswap only");
+        assertEq(actualMedian, expectedMedian, "Median calculation should be correct");
     }
 
     /**
@@ -382,12 +392,12 @@ contract USD1ForkTest is BasicDeploy {
         // Identify other token in the pool
         address otherToken = isToken0 ? token1 : token0;
 
-        // Always use USD1 as quote token if it's in the pool
+        // Always use WETH as quote token if it's in the pool (since WETH is our base asset)
         address quoteToken;
-        if (otherToken == address(usd1Instance)) {
-            quoteToken = address(usd1Instance);
+        if (otherToken == WETH) {
+            quoteToken = WETH;
         } else {
-            // If not a USD1 pair, use the other token as quote
+            // If not a WETH pair, use the other token as quote
             quoteToken = otherToken;
         }
 
@@ -396,11 +406,11 @@ contract USD1ForkTest is BasicDeploy {
 
         // Calculate optimal decimalsUniswap based on asset decimals
         uint8 decimalsUniswap;
-        if (quoteToken == address(usd1Instance)) {
-            // For USD-quoted prices, use 8 decimals (standard)
+        if (quoteToken == WETH) {
+            // For WETH-quoted prices, use 8 decimals (standard)
             decimalsUniswap = 8;
         } else {
-            // For non-USD quotes, add 2 extra precision digits to asset decimals
+            // For non-WETH quotes, add 2 extra precision digits to asset decimals
             decimalsUniswap = uint8(assetDecimals) + 2;
         }
 
@@ -411,14 +421,13 @@ contract USD1ForkTest is BasicDeploy {
         });
     }
 
-    function test_getAnyPoolTokenPriceInUSD_ETHUSD1() public {
+    function test_getAnyPoolTokenPriceInUSD_ETHUSDC() public {
         uint256 ethPriceInUSD = assetsInstance.getAssetPrice(WETH);
-        console2.log("ETH price in USD (from ETH/USD1 pool):", ethPriceInUSD);
+        console2.log("ETH price in USD (from ETH/USDC pool):", ethPriceInUSD);
 
-        // Assert that the price is within a reasonable range for median calculation
-        // Median of Chainlink (~$2509) and very low Uniswap TWAP (~$0.000006) results in ~$1254
-        assertTrue(ethPriceInUSD > 1000 * 1e6, "ETH price should be greater than $1000");
-        assertTrue(ethPriceInUSD < 3000 * 1e6, "ETH price should be less than $3000");
+        // Assert that the price is within a reasonable range (e.g., $1000 to $5000)
+        assertTrue(ethPriceInUSD > 1700 * 1e6, "ETH price should be greater than $1700");
+        assertTrue(ethPriceInUSD < 5000 * 1e6, "ETH price should be less than $5000");
     }
 
     function test_getAnyPoolTokenPriceInUSD_WBTCETH() public {
@@ -426,9 +435,8 @@ contract USD1ForkTest is BasicDeploy {
         // Log the WBTC price in USD
         console2.log("WBTC price in USD (from WBTC/ETH pool):", wbtcPriceInUSD);
 
-        // Assert that the price is within a reasonable range for median calculation
-        // Median of Chainlink (~$103k) and very low Uniswap TWAP results in ~$52k
-        assertTrue(wbtcPriceInUSD > 50000 * 1e6, "WBTC price should be greater than $50,000");
+        // Assert that the price is within a reasonable range (e.g., $90,000 to $120,000)
+        assertTrue(wbtcPriceInUSD > 90000 * 1e6, "WBTC price should be greater than $90,000");
         assertTrue(wbtcPriceInUSD < 120000 * 1e6, "WBTC price should be less than $120,000");
     }
 
@@ -442,25 +450,13 @@ contract USD1ForkTest is BasicDeploy {
         assertTrue(linkPriceInUSD < 20 * 1e6, "LINK price should be less than $20");
     }
 
-    function test_getAnyPoolTokenPriceInUSD_WBTCUSD1() public {
+    function test_getAnyPoolTokenPriceInUSD_WBTCWETH() public {
         uint256 wbtcPriceInUSD = assetsInstance.getAssetPrice(WBTC);
         // Log the WBTC price in USD
-        console2.log("WBTC price in USD (from WBTC/USD1 pool):", wbtcPriceInUSD);
+        console2.log("WBTC price in USD (from WBTC/WETH pool):", wbtcPriceInUSD);
 
-        // Assert that the price is within a reasonable range for median calculation
-        // Median of Chainlink (~$103k) and very low Uniswap TWAP results in ~$52k
-        assertTrue(wbtcPriceInUSD > 50000 * 1e6, "WBTC price should be greater than $50,000");
+        // Assert that the price is within a reasonable range (e.g., $90,000 to $120,000)
+        assertTrue(wbtcPriceInUSD > 90000 * 1e6, "WBTC price should be greater than $90,000");
         assertTrue(wbtcPriceInUSD < 120000 * 1e6, "WBTC price should be less than $120,000");
-    }
-
-    function test_getUSD1PriceFromUniswap() public {
-        uint256 usd1PriceInUSD = assetsInstance.getAssetPrice(address(usd1Instance));
-        // Log the USD1 price in USD from USD1/USDC pool
-        console2.log("USD1 price in USD (from USD1/USDC pool):", usd1PriceInUSD);
-        console2.log("USD1 price formatted:", usd1PriceInUSD / 1e6);
-
-        // USD1 should be close to $1.00 (1000000 in 1e6 scale)
-        assertTrue(usd1PriceInUSD > 0.95 * 1e6, "USD1 price should be greater than $0.95");
-        assertTrue(usd1PriceInUSD < 1.05 * 1e6, "USD1 price should be less than $1.05");
     }
 }

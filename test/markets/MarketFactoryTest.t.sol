@@ -175,4 +175,5 @@ contract MarketFactoryTest is BasicDeploy {
         vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
         new ERC1967Proxy(address(factoryImpl), initData);
     }
+
 }
