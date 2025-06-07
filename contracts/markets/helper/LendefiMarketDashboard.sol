@@ -13,7 +13,7 @@ pragma solidity 0.8.23;
  *
  * ═══════════[ Composable Lending Markets ]═══════════
  * @title Lendefi Market Dashboard
- * @author alexei@nebula-labs(dot)xyz
+ * @author alexei@lendefimarkets(dot)com
  * @notice Comprehensive dashboard view for all Lendefi markets providing aggregated data for UIs
  * @dev Provides read-only functions to aggregate market data across all markets for dashboard visualization
  * @custom:security-contact security@lendefimarkets.com
@@ -241,7 +241,6 @@ contract LendefiMarketDashboard is ILendefiMarketDashboard {
         IPROTOCOL.Market memory market
     ) internal view returns (MarketOverview memory) {
         ILendefiMarketVault vault = ILendefiMarketVault(market.baseVault);
-        IPROTOCOL core = IPROTOCOL(market.core);
         IERC20Metadata baseToken = IERC20Metadata(market.baseAsset);
 
         // Get financial metrics
@@ -272,8 +271,8 @@ contract LendefiMarketDashboard is ILendefiMarketDashboard {
                 totalBorrowed: vault.totalBorrow(),
                 totalCollateralValueUSD: 0, // TODO: Calculate from all positions
                 utilization: vault.utilization(),
-                supplyRate: core.getSupplyRate(),
-                borrowRate: core.getBorrowRate(IASSETS.CollateralTier.CROSS_A),
+                supplyRate: vault.getSupplyRate(),
+                borrowRate: vault.getBorrowRate(IASSETS.CollateralTier.CROSS_A),
                 // Vault Metrics
                 totalShares: totalShares,
                 totalAssets: totalAssets,
