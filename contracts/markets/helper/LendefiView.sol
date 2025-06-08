@@ -133,7 +133,7 @@ contract LendefiView is ILENDEFIVIEW {
 
         // Calculate pending rewards if eligible
         if (isRewardEligible) {
-            IPROTOCOL.ProtocolConfig memory config = protocol.getConfig();
+            ILendefiMarketVault.ProtocolConfig memory config = marketVault.protocolConfig();
             // Since we can't access liquidityOperationBlock directly, estimate from current eligibility
             // If eligible, they must have waited at least rewardInterval blocks
             uint256 estimatedBlocksElapsed = config.rewardInterval;
@@ -154,10 +154,10 @@ contract LendefiView is ILENDEFIVIEW {
         view
         returns (ProtocolSnapshot memory)
     {
-        IPROTOCOL.ProtocolConfig memory config = protocol.getConfig();
+        ILendefiMarketVault.ProtocolConfig memory config = marketVault.protocolConfig();
 
         // Get flash loan fee from protocol config
-        uint256 flashLoanFee = protocol.getConfig().flashLoanFee;
+        uint256 flashLoanFee = config.flashLoanFee;
 
         return
             ProtocolSnapshot({
@@ -172,7 +172,7 @@ contract LendefiView is ILENDEFIVIEW {
                 rewardInterval: config.rewardInterval, // Now in blocks
                 rewardableSupply: config.rewardableSupply,
                 baseProfitTarget: config.profitTargetRate,
-                liquidatorThreshold: config.liquidatorThreshold,
+                liquidatorThreshold: protocol.liquidatorThreshold(),
                 flashLoanFee: flashLoanFee
             });
     }
