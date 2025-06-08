@@ -3,6 +3,7 @@ pragma solidity 0.8.23;
 
 import "../BasicDeploy.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
+import {ILendefiMarketVault} from "../../contracts/interfaces/ILendefiMarketVault.sol";
 import {LendefiPositionVault} from "../../contracts/markets/LendefiPositionVault.sol";
 import {MockRWA} from "../../contracts/mock/MockRWA.sol";
 import {RWAPriceConsumerV3} from "../../contracts/mock/RWAOracle.sol";
@@ -12,6 +13,9 @@ import {MockPriceOracle} from "../../contracts/mock/MockPriceOracle.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract LendefiCoreTest is BasicDeploy {
+    // Events
+    event ProtocolConfigUpdated(ILendefiMarketVault.ProtocolConfig config);
+    
     // Test tokens and oracles
     MockRWA public rwaToken;
     RWAPriceConsumerV3 public rwaOracle;
@@ -208,59 +212,56 @@ contract LendefiCoreTest is BasicDeploy {
     // ============ Protocol Configuration Tests ============
 
     function test_LoadProtocolConfig() public {
-        IPROTOCOL.ProtocolConfig memory newConfig = IPROTOCOL.ProtocolConfig({
+        ILendefiMarketVault.ProtocolConfig memory newConfig = ILendefiMarketVault.ProtocolConfig({
             profitTargetRate: 0.02e6, // 2%
             borrowRate: 0.08e6, // 8%
             rewardAmount: 5_000 ether,
             rewardInterval: 365 days,
             rewardableSupply: 500_000e6,
-            liquidatorThreshold: 50_000 ether,
             flashLoanFee: 10 // 10 basis points (0.1%)
         });
 
+        // Test DAO updating protocol config in vault
         vm.prank(address(timelockInstance));
         vm.expectEmit(true, true, true, true);
-        emit IPROTOCOL.ProtocolConfigUpdated(
-            newConfig.profitTargetRate,
-            newConfig.borrowRate,
-            newConfig.rewardAmount,
-            newConfig.rewardInterval,
-            newConfig.rewardableSupply,
-            newConfig.liquidatorThreshold
-        );
-        marketCoreInstance.loadProtocolConfig(newConfig);
+        emit ProtocolConfigUpdated(newConfig);
+        marketVaultInstance.loadProtocolConfig(newConfig);
 
-        IPROTOCOL.ProtocolConfig memory loadedConfig = marketCoreInstance.getConfig();
+        // Test DAO updating liquidator threshold in core
+        vm.prank(address(timelockInstance));
+        marketCoreInstance.setLiquidatorThreshold(50_000 ether);
+
+        ILendefiMarketVault.ProtocolConfig memory loadedConfig = ILendefiMarketVault(address(marketVaultInstance)).protocolConfig();
         assertEq(loadedConfig.profitTargetRate, newConfig.profitTargetRate);
         assertEq(loadedConfig.borrowRate, newConfig.borrowRate);
+        assertEq(marketCoreInstance.liquidatorThreshold(), 50_000 ether);
     }
 
     function test_Revert_LoadProtocolConfig_InvalidValues() public {
-        IPROTOCOL.ProtocolConfig memory badConfig = IPROTOCOL.ProtocolConfig({
+        ILendefiMarketVault.ProtocolConfig memory badConfig = ILendefiMarketVault.ProtocolConfig({
             profitTargetRate: 0.0001e6, // Too low
             borrowRate: 0.08e6,
             rewardAmount: 5_000 ether,
             rewardInterval: 365 days,
             rewardableSupply: 500_000e6,
-            liquidatorThreshold: 50_000 ether,
             flashLoanFee: 10
         });
 
         vm.prank(address(timelockInstance));
-        vm.expectRevert(IPROTOCOL.InvalidProfitTarget.selector);
-        marketCoreInstance.loadProtocolConfig(badConfig);
+        vm.expectRevert(abi.encodeWithSignature("InvalidProfitTarget()"));
+        marketVaultInstance.loadProtocolConfig(badConfig);
     }
 
     function test_Revert_LoadProtocolConfig_Unauthorized() public {
-        IPROTOCOL.ProtocolConfig memory config = marketCoreInstance.getConfig();
+        ILendefiMarketVault.ProtocolConfig memory config = ILendefiMarketVault(address(marketVaultInstance)).protocolConfig();
 
         vm.prank(alice);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, alice, keccak256("MANAGER_ROLE")
+                IAccessControl.AccessControlUnauthorizedAccount.selector, alice, 0x0000000000000000000000000000000000000000000000000000000000000000
             )
         );
-        marketCoreInstance.loadProtocolConfig(config);
+        marketVaultInstance.loadProtocolConfig(config);
     }
 
     // ============ Supply Liquidity Tests ============
@@ -945,10 +946,10 @@ contract LendefiCoreTest is BasicDeploy {
         assertTrue(marketData.active);
     }
 
-    // ============ getMainConfig Function Tests ============
+    // ============ Protocol Config Tests ============
 
-    function test_getMainConfig() public {
-        IPROTOCOL.ProtocolConfig memory config = marketCoreInstance.getMainConfig();
+    function test_getProtocolConfig() public {
+        ILendefiMarketVault.ProtocolConfig memory config = ILendefiMarketVault(address(marketVaultInstance)).protocolConfig();
 
         // Check that we get a valid config
         assertTrue(config.profitTargetRate > 0);
@@ -956,18 +957,14 @@ contract LendefiCoreTest is BasicDeploy {
         assertTrue(config.rewardInterval > 0);
     }
 
-    function test_getMainConfig_MatchesGetConfig() public {
-        IPROTOCOL.ProtocolConfig memory mainConfig = marketCoreInstance.getMainConfig();
-        IPROTOCOL.ProtocolConfig memory config = marketCoreInstance.getConfig();
+    function test_marketOwnerCanUpdateParameters() public {
+        // Test that market owner can update borrow rate and flash loan fee
+        vm.prank(charlie); // charlie is the market owner in BasicDeploy
+        marketVaultInstance.updateMarketParameters(0.10e6, 15); // 10% borrow rate, 15 bps flash fee
 
-        // Both functions should return the same data
-        assertEq(mainConfig.profitTargetRate, config.profitTargetRate);
-        assertEq(mainConfig.borrowRate, config.borrowRate);
-        assertEq(mainConfig.rewardAmount, config.rewardAmount);
-        assertEq(mainConfig.rewardInterval, config.rewardInterval);
-        assertEq(mainConfig.rewardableSupply, config.rewardableSupply);
-        assertEq(mainConfig.liquidatorThreshold, config.liquidatorThreshold);
-        assertEq(mainConfig.flashLoanFee, config.flashLoanFee);
+        ILendefiMarketVault.ProtocolConfig memory config = ILendefiMarketVault(address(marketVaultInstance)).protocolConfig();
+        assertEq(config.borrowRate, 0.10e6);
+        assertEq(config.flashLoanFee, 15);
     }
 
     // ============ getUserPosition Function Tests ============
