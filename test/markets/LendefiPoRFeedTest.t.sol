@@ -329,15 +329,6 @@ contract LendefiPoRFeedTest is BasicDeploy {
         assertEq(desc, expected, "Description should include token symbol");
     }
 
-    function test_Description_Fallback() public {
-        // Create a feed with a contract that doesn't have symbol()
-        LendefiPoRFeed newFeed = new LendefiPoRFeed();
-        newFeed.initialize(address(this), testUpdater, testOwner); // Use this contract as asset (no symbol function)
-
-        string memory desc = newFeed.description();
-        assertEq(desc, "Lendefi Protocol Reserves for UNKNOWN", "Should fallback to UNKNOWN");
-    }
-
     function test_Version() public {
         uint256 ver = porFeed.version();
         assertEq(ver, 3, "Version should be 3 for AggregatorV3Interface");

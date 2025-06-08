@@ -7,7 +7,6 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 
 /**
  * @title LendefiPoRFeed
- * @author alexei@lendefimarkets(dot)com
  * @notice Proof of Reserves feed implementing Chainlink's AggregatorV3Interface for the Lendefi protocol
  * @dev This contract provides a standardized way to track and expose reserve data for specific assets
  *      within the Lendefi lending protocol. It implements Chainlink's AggregatorV3Interface to ensure
@@ -22,8 +21,6 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
  *
  *      The contract serves as a bridge between Lendefi's internal reserve tracking
  *      and external consumers requiring standardized oracle data feeds.
- * @custom:security-contact security@lendefimarkets.com
- * @custom:copyright Copyright (c) 2025 Nebula Holding Inc. All rights reserved.
  */
 contract LendefiPoRFeed is AggregatorV3Interface, Initializable {
     /**
@@ -71,20 +68,14 @@ contract LendefiPoRFeed is AggregatorV3Interface, Initializable {
      * @param previousOwner Address of the previous owner
      * @param newOwner Address of the new owner
      */
-    event OwnershipTransferred(
-        address indexed previousOwner,
-        address indexed newOwner
-    );
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     /**
      * @notice Emitted when the authorized updater address is changed
      * @param previousUpdater Address of the previous updater
      * @param newUpdater Address of the new updater
      */
-    event UpdaterChanged(
-        address indexed previousUpdater,
-        address indexed newUpdater
-    );
+    event UpdaterChanged(address indexed previousUpdater, address indexed newUpdater);
 
     /**
      * @notice Emitted when reserve data is updated via updateAnswer function
@@ -92,11 +83,7 @@ contract LendefiPoRFeed is AggregatorV3Interface, Initializable {
      * @param roundId The round ID associated with this update
      * @param updatedAt Timestamp when the update occurred
      */
-    event AnswerUpdated(
-        int256 indexed current,
-        uint256 indexed roundId,
-        uint256 updatedAt
-    );
+    event AnswerUpdated(int256 indexed current, uint256 indexed roundId, uint256 updatedAt);
 
     /**
      * @notice Emitted when reserves are updated via updateReserves function
@@ -152,12 +139,8 @@ contract LendefiPoRFeed is AggregatorV3Interface, Initializable {
 
         // Update round data
         latestRoundId = _roundId;
-        rounds[_roundId] = Round({
-            answer: _answer,
-            startedAt: timestamp,
-            updatedAt: timestamp,
-            answeredInRound: _roundId
-        });
+        rounds[_roundId] =
+            Round({answer: _answer, startedAt: timestamp, updatedAt: timestamp, answeredInRound: _roundId});
 
         emit AnswerUpdated(_answer, _roundId, timestamp);
     }
@@ -288,29 +271,15 @@ contract LendefiPoRFeed is AggregatorV3Interface, Initializable {
      * @custom:error-cases
      *   - Reverts with "Round does not exist" when _roundId has no data
      */
-    function getRoundData(
-        uint80 _roundId
-    )
+    function getRoundData(uint80 _roundId)
         external
         view
         override
-        returns (
-            uint80 roundId,
-            int256 answer,
-            uint256 startedAt,
-            uint256 updatedAt,
-            uint80 answeredInRound
-        )
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
         Round memory round = rounds[_roundId];
         require(round.updatedAt > 0, "Round does not exist");
-        return (
-            _roundId,
-            round.answer,
-            round.startedAt,
-            round.updatedAt,
-            round.answeredInRound
-        );
+        return (_roundId, round.answer, round.startedAt, round.updatedAt, round.answeredInRound);
     }
 
     /**
@@ -336,23 +305,11 @@ contract LendefiPoRFeed is AggregatorV3Interface, Initializable {
         external
         view
         override
-        returns (
-            uint80 roundId,
-            int256 answer,
-            uint256 startedAt,
-            uint256 updatedAt,
-            uint80 answeredInRound
-        )
+        returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
         Round memory round = rounds[latestRoundId];
         require(round.updatedAt > 0, "No data available");
-        return (
-            latestRoundId,
-            round.answer,
-            round.startedAt,
-            round.updatedAt,
-            round.answeredInRound
-        );
+        return (latestRoundId, round.answer, round.startedAt, round.updatedAt, round.answeredInRound);
     }
 
     /**
@@ -386,16 +343,8 @@ contract LendefiPoRFeed is AggregatorV3Interface, Initializable {
      * @custom:access-control Available to any caller (view function)
      */
     function description() external view override returns (string memory) {
-        string memory symbol = "UNKNOWN";
-
-        try IERC20Metadata(asset).symbol() returns (string memory _symbol) {
-            symbol = _symbol;
-        } catch {
-            // Use default "UNKNOWN" if symbol() call fails
-        }
-
-        return
-            string(abi.encodePacked("Lendefi Protocol Reserves for ", symbol));
+        string memory symbol = IERC20Metadata(asset).symbol();
+        return string(abi.encodePacked("Lendefi Protocol Reserves for ", symbol));
     }
 
     /**
@@ -438,16 +387,8 @@ contract LendefiPoRFeed is AggregatorV3Interface, Initializable {
      *
      * @custom:initialization-pattern Uses OpenZeppelin's Initializable for proxy safety
      */
-    function initialize(
-        address _asset,
-        address _updater,
-        address _owner
-    ) public initializer {
-        if (
-            _asset == address(0) ||
-            _updater == address(0) ||
-            _owner == address(0)
-        ) {
+    function initialize(address _asset, address _updater, address _owner) public initializer {
+        if (_asset == address(0) || _updater == address(0) || _owner == address(0)) {
             revert ZeroAddress();
         }
 
@@ -457,11 +398,7 @@ contract LendefiPoRFeed is AggregatorV3Interface, Initializable {
 
         // Initialize with round ID 1
         latestRoundId = 1;
-        rounds[latestRoundId] = Round({
-            answer: 0,
-            startedAt: block.timestamp,
-            updatedAt: block.timestamp,
-            answeredInRound: 1
-        });
+        rounds[latestRoundId] =
+            Round({answer: 0, startedAt: block.timestamp, updatedAt: block.timestamp, answeredInRound: 1});
     }
 }

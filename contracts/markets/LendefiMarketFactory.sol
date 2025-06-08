@@ -37,12 +37,7 @@ import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transpa
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 /// @custom:oz-upgrades
-contract LendefiMarketFactory is
-    ILendefiMarketFactory,
-    Initializable,
-    AccessControlUpgradeable,
-    UUPSUpgradeable
-{
+contract LendefiMarketFactory is ILendefiMarketFactory, Initializable, AccessControlUpgradeable, UUPSUpgradeable {
     using Clones for address;
     using LendefiConstants for *;
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -97,7 +92,6 @@ contract LendefiMarketFactory is
     /// @dev Handles governance token rewards for liquidity providers
     address public ecosystem;
 
-
     /// @notice Set of approved base assets that can be used for market creation
     /// @dev Only assets in this allowlist can be used to create new markets
     /// @dev Ensures only tested and verified assets are supported by the protocol
@@ -130,8 +124,9 @@ contract LendefiMarketFactory is
     /// @notice Ensures the base asset is on the allowlist for market creation
     /// @param baseAsset Address of the base asset to validate
     modifier onlyAllowedBaseAsset(address baseAsset) {
-        if (!allowedBaseAssets.contains(baseAsset))
+        if (!allowedBaseAssets.contains(baseAsset)) {
             revert BaseAssetNotAllowed();
+        }
         _;
     }
 
@@ -164,18 +159,11 @@ contract LendefiMarketFactory is
      * @custom:error-cases
      *   - ZeroAddress: When any required address parameter is zero
      */
-    function initialize(
-        address _timelock,
-        address _govToken,
-        address _multisig,
-        address _ecosystem
-    ) external initializer {
-        if (
-            _timelock == address(0) ||
-            _govToken == address(0) ||
-            _multisig == address(0) ||
-            _ecosystem == address(0)
-        ) {
+    function initialize(address _timelock, address _govToken, address _multisig, address _ecosystem)
+        external
+        initializer
+    {
+        if (_timelock == address(0) || _govToken == address(0) || _multisig == address(0) || _ecosystem == address(0)) {
             revert ZeroAddress();
         }
 
@@ -225,11 +213,9 @@ contract LendefiMarketFactory is
         address _PoRFeed
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (
-            _coreImplementation == address(0) ||
-            _vaultImplementation == address(0) ||
-            _positionVaultImplementation == address(0) ||
-            _assetsModuleImplementation == address(0) ||
-            _PoRFeed == address(0)
+            _coreImplementation == address(0) || _vaultImplementation == address(0)
+                || _positionVaultImplementation == address(0) || _assetsModuleImplementation == address(0)
+                || _PoRFeed == address(0)
         ) revert ZeroAddress();
 
         coreImplementation = _coreImplementation;
@@ -238,11 +224,7 @@ contract LendefiMarketFactory is
         assetsModuleImplementation = _assetsModuleImplementation;
         porFeedImplementation = _PoRFeed;
 
-        emit ImplementationsSet(
-            _coreImplementation,
-            _vaultImplementation,
-            _positionVaultImplementation
-        );
+        emit ImplementationsSet(_coreImplementation, _vaultImplementation, _positionVaultImplementation);
     }
 
     /**
@@ -264,9 +246,7 @@ contract LendefiMarketFactory is
      * @custom:error-cases
      *   - ZeroAddress: When baseAsset is the zero address
      */
-    function addAllowedBaseAsset(
-        address baseAsset
-    ) external onlyRole(LendefiConstants.MANAGER_ROLE) {
+    function addAllowedBaseAsset(address baseAsset) external onlyRole(LendefiConstants.MANAGER_ROLE) {
         if (baseAsset == address(0)) revert ZeroAddress();
 
         bool added = allowedBaseAssets.add(baseAsset);
@@ -294,9 +274,7 @@ contract LendefiMarketFactory is
      * @custom:error-cases
      *   - ZeroAddress: When baseAsset is the zero address
      */
-    function removeAllowedBaseAsset(
-        address baseAsset
-    ) external onlyRole(LendefiConstants.MANAGER_ROLE) {
+    function removeAllowedBaseAsset(address baseAsset) external onlyRole(LendefiConstants.MANAGER_ROLE) {
         if (baseAsset == address(0)) revert ZeroAddress();
 
         bool removed = allowedBaseAssets.remove(baseAsset);
@@ -343,136 +321,79 @@ contract LendefiMarketFactory is
      *   - MarketAlreadyExists: When market for this caller/asset pair already exists
      *   - CloneDeploymentFailed: When any contract clone deployment fails
      */
-    function createMarket(
-        address baseAsset,
-        string memory name,
-        string memory symbol
-    )
+    function createMarket(address baseAsset, string memory name, string memory symbol)
         external
         onlyRole(LendefiConstants.MARKET_OWNER_ROLE)
         onlyAllowedBaseAsset(baseAsset)
     {
         address marketOwner = msg.sender;
         if (baseAsset == address(0)) revert ZeroAddress();
-        if (markets[marketOwner][baseAsset].core != address(0))
+        if (markets[marketOwner][baseAsset].core != address(0)) {
             revert MarketAlreadyExists();
+        }
 
         // Deploy core and vault contracts
-        (
-            address coreProxy,
-            address vaultProxy,
-            address assetsModule
-        ) = _deployContracts(baseAsset, name, symbol);
+        (address coreProxy, address vaultProxy, address assetsModule) = _deployContracts(baseAsset, name, symbol);
 
         // Deploy and initialize PoR feed
         address porFeedClone = _deployPoRFeed(baseAsset);
 
         // Create and store market configuration
-        _storeMarket(
-            marketOwner,
-            baseAsset,
-            coreProxy,
-            vaultProxy,
-            porFeedClone,
-            assetsModule,
-            name,
-            symbol
-        );
+        _storeMarket(marketOwner, baseAsset, coreProxy, vaultProxy, porFeedClone, assetsModule, name, symbol);
 
         // Initialize the core contract with market information
-        LendefiCore(payable(coreProxy)).initializeMarket(
-            markets[marketOwner][baseAsset]
-        );
+        LendefiCore(payable(coreProxy)).initializeMarket(markets[marketOwner][baseAsset]);
 
         // Note: Market owner MANAGER_ROLE must be granted separately by timelock
         // since factory doesn't have DEFAULT_ADMIN_ROLE on the vault
 
-        emit MarketCreated(
-            marketOwner,
-            baseAsset,
-            coreProxy,
-            vaultProxy,
-            name,
-            symbol,
-            porFeedClone
-        );
+        emit MarketCreated(marketOwner, baseAsset, coreProxy, vaultProxy, name, symbol, porFeedClone);
     }
 
     /**
      * @dev Internal function to deploy core and vault contracts
      */
-    function _deployContracts(
-        address baseAsset,
-        string memory name,
-        string memory symbol
-    )
+    function _deployContracts(address baseAsset, string memory name, string memory symbol)
         internal
         returns (address coreProxy, address vaultProxy, address assetsModule)
     {
         // Clone assets module for this market
         assetsModule = assetsModuleImplementation.clone();
-        if (assetsModule == address(0) || assetsModule.code.length == 0)
-            revert CloneDeploymentFailed();
+        if (assetsModule == address(0) || assetsModule.code.length == 0) revert CloneDeploymentFailed();
 
         // Initialize the cloned assets module
         // Note: Using timelock for admin role and marketOwner for management
         // Using the porFeed implementation as template (assets module will clone it for each asset)
-        IASSETS(assetsModule).initialize(
-            timelock,
-            msg.sender,
-            porFeedImplementation
-        );
+        IASSETS(assetsModule).initialize(timelock, msg.sender, porFeedImplementation);
 
-        // Create core contract using minimal proxy pattern
         address core = coreImplementation.clone();
-        if (core == address(0) || core.code.length == 0)
-            revert CloneDeploymentFailed();
+        if (core == address(0) || core.code.length == 0) revert CloneDeploymentFailed();
 
         // Initialize core contract through proxy
         bytes memory initData = abi.encodeWithSelector(
-            LendefiCore.initialize.selector,
-            timelock,
-            msg.sender,
-            govToken,
-            assetsModule,
-            positionVaultImplementation
+            LendefiCore.initialize.selector, timelock, msg.sender, govToken, assetsModule, positionVaultImplementation
         );
-        coreProxy = address(
-            new TransparentUpgradeableProxy(core, timelock, initData)
-        );
+        coreProxy = address(new TransparentUpgradeableProxy(core, timelock, initData));
 
         // Create vault contract using minimal proxy pattern
         address baseVault = vaultImplementation.clone();
-        if (baseVault == address(0) || baseVault.code.length == 0)
-            revert CloneDeploymentFailed();
+        if (baseVault == address(0) || baseVault.code.length == 0) revert CloneDeploymentFailed();
 
         // Initialize vault contract through proxy
         bytes memory vaultData = abi.encodeCall(
-            LendefiMarketVault.initialize,
-            (
-                timelock,
-                coreProxy,
-                baseAsset,
-                ecosystem,
-                assetsModule,
-                name,
-                symbol
-            )
+            LendefiMarketVault.initialize, (timelock, coreProxy, baseAsset, ecosystem, assetsModule, name, symbol)
         );
-        vaultProxy = address(
-            new TransparentUpgradeableProxy(baseVault, timelock, vaultData)
-        );
+        vaultProxy = address(new TransparentUpgradeableProxy(baseVault, timelock, vaultData));
     }
 
     /**
      * @dev Internal function to deploy and initialize PoR feed
      */
-    function _deployPoRFeed(
-        address baseAsset
-    ) internal returns (address porFeedClone) {
+    function _deployPoRFeed(address baseAsset) internal returns (address porFeedClone) {
         porFeedClone = porFeedImplementation.clone();
-        if (porFeedClone == address(0) || porFeedClone.code.length == 0)
+        if (porFeedClone == address(0) || porFeedClone.code.length == 0) {
             revert CloneDeploymentFailed();
+        }
 
         IPoRFeed(porFeedClone).initialize(baseAsset, timelock, timelock);
     }
@@ -525,27 +446,15 @@ contract LendefiMarketFactory is
      * @dev Only callable by addresses with LendefiConstants.UPGRADER_ROLE
      * @param newImplementation Address of the new implementation contract
      */
-    function scheduleUpgrade(
-        address newImplementation
-    ) external onlyRole(LendefiConstants.UPGRADER_ROLE) {
+    function scheduleUpgrade(address newImplementation) external onlyRole(LendefiConstants.UPGRADER_ROLE) {
         if (newImplementation == address(0)) revert ZeroAddress();
 
         uint64 currentTime = uint64(block.timestamp);
-        uint64 effectiveTime = currentTime +
-            uint64(LendefiConstants.UPGRADE_TIMELOCK_DURATION);
+        uint64 effectiveTime = currentTime + uint64(LendefiConstants.UPGRADE_TIMELOCK_DURATION);
 
-        pendingUpgrade = UpgradeRequest({
-            implementation: newImplementation,
-            scheduledTime: currentTime,
-            exists: true
-        });
+        pendingUpgrade = UpgradeRequest({implementation: newImplementation, scheduledTime: currentTime, exists: true});
 
-        emit UpgradeScheduled(
-            msg.sender,
-            newImplementation,
-            currentTime,
-            effectiveTime
-        );
+        emit UpgradeScheduled(msg.sender, newImplementation, currentTime, effectiveTime);
     }
 
     /**
@@ -567,15 +476,10 @@ contract LendefiMarketFactory is
      * @return timeRemaining The time remaining in seconds
      */
     function upgradeTimelockRemaining() external view returns (uint256) {
-        return
-            pendingUpgrade.exists &&
-                block.timestamp <
-                pendingUpgrade.scheduledTime +
-                    LendefiConstants.UPGRADE_TIMELOCK_DURATION
-                ? pendingUpgrade.scheduledTime +
-                    LendefiConstants.UPGRADE_TIMELOCK_DURATION -
-                    block.timestamp
-                : 0;
+        return pendingUpgrade.exists
+            && block.timestamp < pendingUpgrade.scheduledTime + LendefiConstants.UPGRADE_TIMELOCK_DURATION
+            ? pendingUpgrade.scheduledTime + LendefiConstants.UPGRADE_TIMELOCK_DURATION - block.timestamp
+            : 0;
     }
 
     // ========== VIEW FUNCTIONS ==========
@@ -598,14 +502,13 @@ contract LendefiMarketFactory is
      *   - ZeroAddress: When marketOwner or baseAsset is the zero address
      *   - MarketNotFound: When no market exists for the specified owner/asset pair
      */
-    function getMarketInfo(
-        address marketOwner,
-        address baseAsset
-    ) external view returns (IPROTOCOL.Market memory) {
-        if (marketOwner == address(0) || baseAsset == address(0))
+    function getMarketInfo(address marketOwner, address baseAsset) external view returns (IPROTOCOL.Market memory) {
+        if (marketOwner == address(0) || baseAsset == address(0)) {
             revert ZeroAddress();
-        if (markets[marketOwner][baseAsset].core == address(0))
+        }
+        if (markets[marketOwner][baseAsset].core == address(0)) {
             revert MarketNotFound();
+        }
 
         return markets[marketOwner][baseAsset];
     }
@@ -620,10 +523,7 @@ contract LendefiMarketFactory is
      *
      * @custom:access-control Available to any caller (view function)
      */
-    function isMarketActive(
-        address marketOwner,
-        address baseAsset
-    ) external view returns (bool) {
+    function isMarketActive(address marketOwner, address baseAsset) external view returns (bool) {
         return markets[marketOwner][baseAsset].active;
     }
 
@@ -635,9 +535,7 @@ contract LendefiMarketFactory is
      *
      * @custom:access-control Available to any caller (view function)
      */
-    function getOwnerMarkets(
-        address marketOwner
-    ) external view returns (IPROTOCOL.Market[] memory) {
+    function getOwnerMarkets(address marketOwner) external view returns (IPROTOCOL.Market[] memory) {
         address[] memory baseAssets = ownerBaseAssets[marketOwner].values();
         uint256 len = baseAssets.length;
         IPROTOCOL.Market[] memory ownerMarkets = new IPROTOCOL.Market[](len);
@@ -659,9 +557,7 @@ contract LendefiMarketFactory is
      *
      * @custom:access-control Available to any caller (view function)
      */
-    function getOwnerBaseAssets(
-        address marketOwner
-    ) external view returns (address[] memory) {
+    function getOwnerBaseAssets(address marketOwner) external view returns (address[] memory) {
         return ownerBaseAssets[marketOwner].values();
     }
 
@@ -674,11 +570,7 @@ contract LendefiMarketFactory is
      *                            which can be gas-intensive with many markets
      * @custom:access-control Available to any caller (view function)
      */
-    function getAllActiveMarkets()
-        external
-        view
-        returns (IPROTOCOL.Market[] memory)
-    {
+    function getAllActiveMarkets() external view returns (IPROTOCOL.Market[] memory) {
         // Use allMarkets array which already has all markets
         uint256 totalMarkets = allMarkets.length;
         uint256 activeCount;
@@ -693,9 +585,7 @@ contract LendefiMarketFactory is
         }
 
         // Allocate result array
-        IPROTOCOL.Market[] memory activeMarkets = new IPROTOCOL.Market[](
-            activeCount
-        );
+        IPROTOCOL.Market[] memory activeMarkets = new IPROTOCOL.Market[](activeCount);
 
         // Second pass: populate active markets
         if (activeCount > 0) {
@@ -735,9 +625,7 @@ contract LendefiMarketFactory is
      *
      * @custom:access-control Available to any caller (view function)
      */
-    function getMarketOwnerByIndex(
-        uint256 index
-    ) external view returns (address) {
+    function getMarketOwnerByIndex(uint256 index) external view returns (address) {
         require(index < allMarketOwners.length, "Index out of bounds");
         return allMarketOwners[index];
     }
@@ -763,9 +651,7 @@ contract LendefiMarketFactory is
      * @custom:access-control Available to any caller (view function)
      * @custom:gas-efficient Uses EnumerableSet's efficient contains() method
      */
-    function isBaseAssetAllowed(
-        address baseAsset
-    ) external view returns (bool) {
+    function isBaseAssetAllowed(address baseAsset) external view returns (bool) {
         return allowedBaseAssets.contains(baseAsset);
     }
 
@@ -802,25 +688,18 @@ contract LendefiMarketFactory is
      * @dev Implements the upgrade verification and authorization logic
      * @param newImplementation Address of new implementation contract
      */
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal override onlyRole(LendefiConstants.UPGRADER_ROLE) {
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(LendefiConstants.UPGRADER_ROLE) {
         if (!pendingUpgrade.exists) {
             revert UpgradeNotScheduled();
         }
 
         if (pendingUpgrade.implementation != newImplementation) {
-            revert ImplementationMismatch(
-                pendingUpgrade.implementation,
-                newImplementation
-            );
+            revert ImplementationMismatch(pendingUpgrade.implementation, newImplementation);
         }
 
         uint256 timeElapsed = block.timestamp - pendingUpgrade.scheduledTime;
         if (timeElapsed < LendefiConstants.UPGRADE_TIMELOCK_DURATION) {
-            revert UpgradeTimelockActive(
-                LendefiConstants.UPGRADE_TIMELOCK_DURATION - timeElapsed
-            );
+            revert UpgradeTimelockActive(LendefiConstants.UPGRADE_TIMELOCK_DURATION - timeElapsed);
         }
 
         // Clear the scheduled upgrade

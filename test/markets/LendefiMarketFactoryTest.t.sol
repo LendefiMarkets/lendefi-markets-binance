@@ -757,4 +757,6 @@ contract LendefiMarketFactoryTest is BasicDeploy {
         assertTrue(foundAliceDAI, "Alice's DAI market should be found");
         assertTrue(foundAliceUSDT, "Alice's USDT market should be found");
     }
+
+    // ============ Additional Coverage Tests ============
 }

@@ -106,8 +106,7 @@ contract LendefiCore is
 
     /// @notice Collateral tracking for each position
     /// @dev Maps user => positionId => EnumerableMap of (asset => amount)
-    mapping(address => mapping(uint256 => EnumerableMap.AddressToUintMap))
-        internal positionCollateral;
+    mapping(address => mapping(uint256 => EnumerableMap.AddressToUintMap)) internal positionCollateral;
 
     /// @notice Storage gap for future upgrades
     /// @dev Reserves storage slots for upgradeable contract pattern
@@ -131,8 +130,9 @@ contract LendefiCore is
     /// @param positionId Index of the position in user's position array
     modifier activePosition(address user, uint256 positionId) {
         if (positionId >= positions[user].length) revert InvalidPosition();
-        if (positions[user][positionId].status != PositionStatus.ACTIVE)
+        if (positions[user][positionId].status != PositionStatus.ACTIVE) {
             revert InactivePosition();
+        }
         _;
     }
 
@@ -251,13 +251,11 @@ contract LendefiCore is
      * @custom:error-cases
      *   - InvalidLiquidatorThreshold: Thrown when threshold is below minimum
      */
-    function setLiquidatorThreshold(
-        uint256 threshold
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setLiquidatorThreshold(uint256 threshold) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (threshold < 10 ether) revert InvalidLiquidatorThreshold();
-        
+
         liquidatorThreshold = threshold;
-        
+
         emit LiquidatorThresholdUpdated(threshold);
     }
 
@@ -292,21 +290,18 @@ contract LendefiCore is
      * @custom:emits
      *   - DepositLiquidity(msg.sender, amount)
      */
-    function depositLiquidity(
-        uint256 amount,
-        uint256 expectedShares,
-        uint32 maxSlippageBps
-    ) external validAmount(amount) nonReentrant whenNotPaused {
+    function depositLiquidity(uint256 amount, uint256 expectedShares, uint32 maxSlippageBps)
+        external
+        validAmount(amount)
+        nonReentrant
+        whenNotPaused
+    {
         // Cache state variables to avoid multiple SLOADs
         address cachedBaseAsset = baseAsset;
         ILendefiMarketVault cachedBaseVault = baseVault;
 
         // Transfer tokens from user to this contract
-        IERC20(cachedBaseAsset).safeTransferFrom(
-            msg.sender,
-            address(this),
-            amount
-        );
+        IERC20(cachedBaseAsset).safeTransferFrom(msg.sender, address(this), amount);
 
         // Approve vault to spend tokens
         IERC20(cachedBaseAsset).forceApprove(address(cachedBaseVault), amount);
@@ -329,22 +324,19 @@ contract LendefiCore is
      * @param expectedAmount Expected amount of base asset to receive
      * @param maxSlippageBps Maximum slippage percentage allowed
      */
-    function mintShares(
-        uint256 shares,
-        uint256 expectedAmount,
-        uint32 maxSlippageBps
-    ) external validAmount(shares) nonReentrant whenNotPaused {
+    function mintShares(uint256 shares, uint256 expectedAmount, uint32 maxSlippageBps)
+        external
+        validAmount(shares)
+        nonReentrant
+        whenNotPaused
+    {
         address cachedBaseAsset = baseAsset;
         ILendefiMarketVault cachedBaseVault = baseVault;
         // Calculate required assets for minting shares
         uint256 assets = cachedBaseVault.previewMint(shares);
 
         // Transfer tokens from user to this contract
-        IERC20(cachedBaseAsset).safeTransferFrom(
-            msg.sender,
-            address(this),
-            assets
-        );
+        IERC20(cachedBaseAsset).safeTransferFrom(msg.sender, address(this), assets);
 
         // Approve vault to spend tokens
         IERC20(cachedBaseAsset).forceApprove(address(cachedBaseVault), assets);
@@ -368,11 +360,12 @@ contract LendefiCore is
      * @param expectedAmount Expected amount of base asset to receive
      * @param maxSlippageBps Maximum slippage percentage allowed
      */
-    function redeemLiquidityShares(
-        uint256 shares,
-        uint256 expectedAmount,
-        uint32 maxSlippageBps
-    ) external validAmount(shares) nonReentrant whenNotPaused {
+    function redeemLiquidityShares(uint256 shares, uint256 expectedAmount, uint32 maxSlippageBps)
+        external
+        validAmount(shares)
+        nonReentrant
+        whenNotPaused
+    {
         // Withdraw from vault - tokens go directly to user
         uint256 actualAmount = baseVault.redeem(shares, msg.sender, msg.sender);
         // Slippage protection on base asset received
@@ -393,17 +386,14 @@ contract LendefiCore is
      * @param expectedShares Expected number of shares to burn
      * @param maxSlippageBps Maximum slippage percentage allowed
      */
-    function withdrawLiquidity(
-        uint256 amount,
-        uint256 expectedShares,
-        uint32 maxSlippageBps
-    ) external validAmount(amount) nonReentrant whenNotPaused {
+    function withdrawLiquidity(uint256 amount, uint256 expectedShares, uint32 maxSlippageBps)
+        external
+        validAmount(amount)
+        nonReentrant
+        whenNotPaused
+    {
         // Withdraw from vault - tokens go directly to user
-        uint256 actualShares = baseVault.withdraw(
-            amount,
-            msg.sender,
-            msg.sender
-        );
+        uint256 actualShares = baseVault.withdraw(amount, msg.sender, msg.sender);
         _validateSlippage(actualShares, expectedShares, maxSlippageBps);
         emit WithdrawLiquidity(msg.sender, amount);
     }
@@ -435,18 +425,16 @@ contract LendefiCore is
      * @custom:emits
      *   - PositionCreated(msg.sender, positionId, isIsolated)
      */
-    function createPosition(
-        address asset,
-        bool isIsolated
-    )
+    function createPosition(address asset, bool isIsolated)
         external
         validAsset(asset)
         nonReentrant
         whenNotPaused
         returns (uint256 positionId)
     {
-        if (positions[msg.sender].length >= 1000)
-            revert MaxPositionLimitReached(); // Max position limit
+        if (positions[msg.sender].length >= 1000) {
+            revert MaxPositionLimitReached();
+        } // Max position limit
         UserPosition storage newPosition = positions[msg.sender].push();
         positionId = positions[msg.sender].length - 1;
 
@@ -461,10 +449,8 @@ contract LendefiCore is
         newPosition.status = PositionStatus.ACTIVE;
 
         if (isIsolated) {
-            EnumerableMap.AddressToUintMap
-                storage collaterals = positionCollateral[msg.sender][
-                    positions[msg.sender].length - 1
-                ];
+            EnumerableMap.AddressToUintMap storage collaterals =
+                positionCollateral[msg.sender][positions[msg.sender].length - 1];
             collaterals.set(asset, 0); // Register the asset with zero initial amount
         }
 
@@ -498,36 +484,24 @@ contract LendefiCore is
      * @custom:emits
      *   - PositionClosed(msg.sender, positionId)
      */
-    function exitPosition(
-        uint256 positionId,
-        uint256 expectedDebt,
-        uint32 maxSlippageBps
-    ) external nonReentrant whenNotPaused {
+    function exitPosition(uint256 positionId, uint256 expectedDebt, uint32 maxSlippageBps)
+        external
+        nonReentrant
+        whenNotPaused
+    {
         UserPosition storage position = positions[msg.sender][positionId];
-        uint256 actualAmount = _processRepay(
-            positionId,
-            type(uint256).max,
-            position,
-            expectedDebt,
-            maxSlippageBps
-        );
+        uint256 actualAmount = _processRepay(positionId, type(uint256).max, position, expectedDebt, maxSlippageBps);
         position.status = PositionStatus.CLOSED;
         if (actualAmount > 0) {
             // Transfer from user to core
-            IERC20(baseAsset).safeTransferFrom(
-                msg.sender,
-                address(this),
-                actualAmount
-            );
+            IERC20(baseAsset).safeTransferFrom(msg.sender, address(this), actualAmount);
             // Approve vault to pull tokens
             IERC20(baseAsset).forceApprove(address(baseVault), actualAmount);
             // Repay to vault
             baseVault.repay(actualAmount, msg.sender);
         }
 
-        EnumerableMap.AddressToUintMap storage collaterals = positionCollateral[
-            msg.sender
-        ][positionId];
+        EnumerableMap.AddressToUintMap storage collaterals = positionCollateral[msg.sender][positionId];
         address vault = positions[msg.sender][positionId].vault;
 
         // Cache vault reference only to reduce stack depth
@@ -603,11 +577,12 @@ contract LendefiCore is
      *   - InvalidAssetForIsolation: Thrown when supplying an asset that doesn't match the isolated position's asset
      *   - MaximumAssetsReached: Thrown when position already has 20 different asset types
      */
-    function supplyCollateral(
-        address asset,
-        uint256 amount,
-        uint256 positionId
-    ) external validAmount(amount) nonReentrant whenNotPaused {
+    function supplyCollateral(address asset, uint256 amount, uint256 positionId)
+        external
+        validAmount(amount)
+        nonReentrant
+        whenNotPaused
+    {
         _processDeposit(asset, amount, positionId);
         address vault = positions[msg.sender][positionId].vault;
         emit SupplyCollateral(msg.sender, positionId, asset, amount);
@@ -669,18 +644,13 @@ contract LendefiCore is
         uint256 positionId,
         uint256 expectedCreditLimit,
         uint32 maxSlippageBps
-    )
-        external
-        validAmount(amount)
-        activePosition(msg.sender, positionId)
-        nonReentrant
-        whenNotPaused
-    {
+    ) external validAmount(amount) activePosition(msg.sender, positionId) nonReentrant whenNotPaused {
         UserPosition storage position = positions[msg.sender][positionId];
 
         // MEV protection: prevent same-block operations
-        if (position.lastInterestAccrual >= block.timestamp)
+        if (position.lastInterestAccrual >= block.timestamp) {
             revert MEVSameBlockOperation();
+        }
         position.lastInterestAccrual = block.timestamp;
         // Slippage protection on credit limit
         uint256 creditLimit = calculateCreditLimit(msg.sender, positionId);
@@ -724,25 +694,14 @@ contract LendefiCore is
      * @custom:emits
      *   - Borrow(msg.sender, positionId, amount)
      */
-    function borrow(
-        uint256 positionId,
-        uint256 amount,
-        uint256 expectedCreditLimit,
-        uint32 maxSlippageBps
-    )
+    function borrow(uint256 positionId, uint256 amount, uint256 expectedCreditLimit, uint32 maxSlippageBps)
         external
         validAmount(amount)
         activePosition(msg.sender, positionId)
         nonReentrant
         whenNotPaused
     {
-        _processBorrow(
-            msg.sender,
-            positionId,
-            amount,
-            expectedCreditLimit,
-            maxSlippageBps
-        );
+        _processBorrow(msg.sender, positionId, amount, expectedCreditLimit, maxSlippageBps);
         emit Borrow(msg.sender, positionId, amount);
         baseVault.borrow(amount, msg.sender);
     }
@@ -787,27 +746,16 @@ contract LendefiCore is
      *   - LowBalance: Thrown when not enough collateral balance to repay
      *   - CreditLimitExceeded: Thrown when repayment would leave position undercollateralized
      */
-    function repay(
-        uint256 positionId,
-        uint256 amount,
-        uint256 expectedDebt,
-        uint32 maxSlippageBps
-    ) external nonReentrant whenNotPaused {
+    function repay(uint256 positionId, uint256 amount, uint256 expectedDebt, uint32 maxSlippageBps)
+        external
+        nonReentrant
+        whenNotPaused
+    {
         UserPosition storage position = positions[msg.sender][positionId];
-        uint256 actualAmount = _processRepay(
-            positionId,
-            amount,
-            position,
-            expectedDebt,
-            maxSlippageBps
-        );
+        uint256 actualAmount = _processRepay(positionId, amount, position, expectedDebt, maxSlippageBps);
         if (actualAmount > 0) {
             // Transfer from user to core
-            IERC20(baseAsset).safeTransferFrom(
-                msg.sender,
-                address(this),
-                actualAmount
-            );
+            IERC20(baseAsset).safeTransferFrom(msg.sender, address(this), actualAmount);
             // Approve vault to pull tokens
             IERC20(baseAsset).forceApprove(address(baseVault), actualAmount);
             // Repay to vault
@@ -844,32 +792,21 @@ contract LendefiCore is
      *   - InvalidPosition: Thrown when position doesn't exist
      *   - InactivePosition: Thrown when position is not in ACTIVE status
      */
-    function liquidate(
-        address user,
-        uint256 positionId,
-        uint256 expectedCost,
-        uint32 maxSlippageBps
-    ) external activePosition(user, positionId) nonReentrant whenNotPaused {
-        if (
-            IERC20(govToken).balanceOf(msg.sender) < liquidatorThreshold
-        ) {
+    function liquidate(address user, uint256 positionId, uint256 expectedCost, uint32 maxSlippageBps)
+        external
+        activePosition(user, positionId)
+        nonReentrant
+        whenNotPaused
+    {
+        if (IERC20(govToken).balanceOf(msg.sender) < liquidatorThreshold) {
             revert NotEnoughGovernanceTokens();
         }
         if (!isLiquidatable(user, positionId)) revert NotLiquidatable();
 
-        uint256 totalCost = _processLiquidation(
-            user,
-            positionId,
-            expectedCost,
-            maxSlippageBps
-        );
+        uint256 totalCost = _processLiquidation(user, positionId, expectedCost, maxSlippageBps);
 
         // Transfer liquidation payment from liquidator
-        IERC20(baseAsset).safeTransferFrom(
-            msg.sender,
-            address(this),
-            totalCost
-        );
+        IERC20(baseAsset).safeTransferFrom(msg.sender, address(this), totalCost);
         // Repay the debt
         IERC20(baseAsset).forceApprove(address(baseVault), totalCost);
         baseVault.repay(totalCost, user);
@@ -891,10 +828,12 @@ contract LendefiCore is
      * @param positionId ID of the position to calculate debt for
      * @return The total debt amount including principal and accrued interest
      */
-    function calculateDebtWithInterest(
-        address user,
-        uint256 positionId
-    ) public view validPosition(user, positionId) returns (uint256) {
+    function calculateDebtWithInterest(address user, uint256 positionId)
+        public
+        view
+        validPosition(user, positionId)
+        returns (uint256)
+    {
         UserPosition storage position = positions[user][positionId];
         if (position.debtAmount == 0) return 0;
 
@@ -902,12 +841,7 @@ contract LendefiCore is
         uint256 borrowRate = getBorrowRate(tier);
         uint256 timeElapsed = block.timestamp - position.lastInterestAccrual;
 
-        return
-            LendefiRates.calculateDebtWithInterest(
-                position.debtAmount,
-                borrowRate,
-                timeElapsed
-            );
+        return LendefiRates.calculateDebtWithInterest(position.debtAmount, borrowRate, timeElapsed);
     }
 
     /**
@@ -917,11 +851,8 @@ contract LendefiCore is
      * @param positionId ID of the position to calculate credit limit for
      * @return The credit limit for the position
      */
-    function calculateCreditLimit(
-        address user,
-        uint256 positionId
-    ) public view returns (uint256) {
-        (, uint256 liqLevel, ) = calculateLimits(user, positionId);
+    function calculateCreditLimit(address user, uint256 positionId) public view returns (uint256) {
+        (, uint256 liqLevel,) = calculateLimits(user, positionId);
         return liqLevel;
     }
 
@@ -932,11 +863,8 @@ contract LendefiCore is
      * @param positionId ID of the position to calculate value for
      * @return value - The total USD value of all collateral assets in the position
      */
-    function calculateCollateralValue(
-        address user,
-        uint256 positionId
-    ) public view returns (uint256 value) {
-        (, , value) = calculateLimits(user, positionId);
+    function calculateCollateralValue(address user, uint256 positionId) public view returns (uint256 value) {
+        (,, value) = calculateLimits(user, positionId);
     }
 
     /**
@@ -948,13 +876,10 @@ contract LendefiCore is
      * @custom:error-cases
      *   - InvalidPosition: Thrown when position doesn't exist
      */
-    function healthFactor(
-        address user,
-        uint256 positionId
-    ) public view returns (uint256) {
+    function healthFactor(address user, uint256 positionId) public view returns (uint256) {
         uint256 debt = calculateDebtWithInterest(user, positionId);
         if (debt == 0) return type(uint256).max;
-        (, uint256 liqLevel, ) = calculateLimits(user, positionId);
+        (, uint256 liqLevel,) = calculateLimits(user, positionId);
         return Math.mulDiv(liqLevel, baseDecimals, debt, Math.Rounding.Floor);
     }
 
@@ -967,57 +892,39 @@ contract LendefiCore is
      * @return liqLevel - The collateral value level where liquidation will occur
      * @return value - The total USD value of all collateral assets in the position
      */
-    function calculateLimits(
-        address user,
-        uint256 positionId
-    )
+    function calculateLimits(address user, uint256 positionId)
         public
         view
         validPosition(user, positionId)
         returns (uint256 credit, uint256 liqLevel, uint256 value)
     {
-        EnumerableMap.AddressToUintMap storage collaterals = positionCollateral[
-            user
-        ][positionId];
+        EnumerableMap.AddressToUintMap storage collaterals = positionCollateral[user][positionId];
         uint256 len = collaterals.length();
 
         // Early exit for empty positions
         if (len == 0) return (0, 0, 0);
 
         // Cache base asset params to avoid repeated calls
-        IASSETS.AssetCalculationParams memory paramsBase = assetsModule
-            .getAssetCalculationParams(baseAsset);
+        IASSETS.AssetCalculationParams memory paramsBase = assetsModule.getAssetCalculationParams(baseAsset);
 
         for (uint256 i; i < len; i++) {
             (address asset, uint256 amount) = collaterals.at(i);
             if (amount == 0) continue;
 
-            IASSETS.AssetCalculationParams memory params = assetsModule
-                .getAssetCalculationParams(asset);
+            IASSETS.AssetCalculationParams memory params = assetsModule.getAssetCalculationParams(asset);
 
             // Use Math.mulDiv for maximum precision without overflow
             // First calculate the base value conversion
-            uint256 assetValueInbaseDecimals = Math.mulDiv(
-                amount * params.price,
-                baseDecimals,
-                paramsBase.price * (10 ** params.decimals)
-            );
+            uint256 assetValueInbaseDecimals =
+                Math.mulDiv(amount * params.price, baseDecimals, paramsBase.price * (10 ** params.decimals));
 
             value += assetValueInbaseDecimals;
 
             // Calculate credit with full precision using mulDiv
-            credit += Math.mulDiv(
-                assetValueInbaseDecimals,
-                params.borrowThreshold,
-                1000
-            );
+            credit += Math.mulDiv(assetValueInbaseDecimals, params.borrowThreshold, 1000);
 
             // Calculate liquidation level with full precision using mulDiv
-            liqLevel += Math.mulDiv(
-                assetValueInbaseDecimals,
-                params.liquidationThreshold,
-                1000
-            );
+            liqLevel += Math.mulDiv(assetValueInbaseDecimals, params.liquidationThreshold, 1000);
         }
     }
 
@@ -1037,9 +944,7 @@ contract LendefiCore is
      * @param user Address of the user to query
      * @return Array of UserPosition structs for all the user's positions
      */
-    function getUserPositions(
-        address user
-    ) public view returns (UserPosition[] memory) {
+    function getUserPositions(address user) public view returns (UserPosition[] memory) {
         return positions[user];
     }
 
@@ -1049,10 +954,7 @@ contract LendefiCore is
      * @param positionId The ID of the position
      * @return The user position data
      */
-    function getUserPosition(
-        address user,
-        uint256 positionId
-    )
+    function getUserPosition(address user, uint256 positionId)
         public
         view
         validPosition(user, positionId)
@@ -1068,10 +970,12 @@ contract LendefiCore is
      * @param positionId ID of the position to query
      * @return The liquidation fee percentage in baseDecimals format (e.g., 0.05e6 = 5%)
      */
-    function getPositionLiquidationFee(
-        address user,
-        uint256 positionId
-    ) public view validPosition(user, positionId) returns (uint256) {
+    function getPositionLiquidationFee(address user, uint256 positionId)
+        public
+        view
+        validPosition(user, positionId)
+        returns (uint256)
+    {
         IASSETS.CollateralTier tier = getPositionTier(user, positionId);
         return assetsModule.getLiquidationFee(tier);
     }
@@ -1083,18 +987,13 @@ contract LendefiCore is
      * @param positionId ID of the position to check
      * @return tier The position's collateral tier (STABLE, CROSS_A, CROSS_B, or ISOLATED)
      */
-    function getPositionTier(
-        address user,
-        uint256 positionId
-    )
+    function getPositionTier(address user, uint256 positionId)
         public
         view
         validPosition(user, positionId)
         returns (IASSETS.CollateralTier tier)
     {
-        EnumerableMap.AddressToUintMap storage collaterals = positionCollateral[
-            user
-        ][positionId];
+        EnumerableMap.AddressToUintMap storage collaterals = positionCollateral[user][positionId];
         uint256 len = collaterals.length();
         tier = IASSETS.CollateralTier.STABLE;
 
@@ -1102,16 +1001,13 @@ contract LendefiCore is
             (address asset, uint256 amount) = collaterals.at(i);
 
             if (amount > 0) {
-                IASSETS.CollateralTier assetTier = assetsModule.getAssetTier(
-                    asset
-                );
+                IASSETS.CollateralTier assetTier = assetsModule.getAssetTier(asset);
                 if (uint8(assetTier) > uint8(tier)) {
                     tier = assetTier;
                 }
             }
         }
     }
-
 
     /**
      * @notice Returns the market information
@@ -1121,17 +1017,18 @@ contract LendefiCore is
         return marketInfo;
     }
 
-
     /**
      * @notice Returns the collateral assets for a specific position
      * @param user The address of the position owner
      * @param positionId The ID of the position
      * @return An array of collateral assets
      */
-    function getPositionCollateralAssets(
-        address user,
-        uint256 positionId
-    ) public view validPosition(user, positionId) returns (address[] memory) {
+    function getPositionCollateralAssets(address user, uint256 positionId)
+        public
+        view
+        validPosition(user, positionId)
+        returns (address[] memory)
+    {
         return positionCollateral[user][positionId].keys();
     }
 
@@ -1142,13 +1039,13 @@ contract LendefiCore is
      * @param asset Address of the collateral asset
      * @return The amount of the specified asset in the position
      */
-    function getCollateralAmount(
-        address user,
-        uint256 positionId,
-        address asset
-    ) public view validPosition(user, positionId) returns (uint256) {
-        (bool exists, uint256 amount) = positionCollateral[user][positionId]
-            .tryGet(asset);
+    function getCollateralAmount(address user, uint256 positionId, address asset)
+        public
+        view
+        validPosition(user, positionId)
+        returns (uint256)
+    {
+        (bool exists, uint256 amount) = positionCollateral[user][positionId].tryGet(asset);
         return exists ? amount : 0;
     }
 
@@ -1159,9 +1056,7 @@ contract LendefiCore is
      * @return tvlUSD Total value locked in USD
      * @return lastUpdate Timestamp of last update
      */
-    function getAssetTVL(
-        address asset
-    ) public view returns (uint256 tvl, uint256 tvlUSD, uint256 lastUpdate) {
+    function getAssetTVL(address asset) public view returns (uint256 tvl, uint256 tvlUSD, uint256 lastUpdate) {
         AssetTracking memory tracking = assetTVL[asset];
         return (tracking.tvl, tracking.tvlUSD, tracking.lastUpdate);
     }
@@ -1181,9 +1076,7 @@ contract LendefiCore is
      * @param tier The collateral tier to calculate the borrow rate for
      * @return The current annual borrow interest rate in baseDecimals format
      */
-    function getBorrowRate(
-        IASSETS.CollateralTier tier
-    ) public view returns (uint256) {
+    function getBorrowRate(IASSETS.CollateralTier tier) public view returns (uint256) {
         return baseVault.getBorrowRate(tier);
     }
 
@@ -1194,10 +1087,12 @@ contract LendefiCore is
      * @param positionId ID of the position to check
      * @return True if the position can be liquidated, false otherwise
      */
-    function isLiquidatable(
-        address user,
-        uint256 positionId
-    ) public view activePosition(user, positionId) returns (bool) {
+    function isLiquidatable(address user, uint256 positionId)
+        public
+        view
+        activePosition(user, positionId)
+        returns (bool)
+    {
         if (positions[user][positionId].debtAmount == 0) return false;
         // Use the health factor which properly accounts for liquidation thresholds
         // Health factor < 1.0 means position is undercollateralized based on liquidation parameters
@@ -1213,11 +1108,7 @@ contract LendefiCore is
      * @return isProtocolSolvent True if the protocol is solvent, false otherwise
      * @return totalAssetValue Total value of all assets in the protocol (base asset + collateral)
      */
-    function isCollateralized()
-        public
-        view
-        returns (bool isProtocolSolvent, uint256 totalAssetValue)
-    {
+    function isCollateralized() public view returns (bool isProtocolSolvent, uint256 totalAssetValue) {
         uint256 totalBorrowAmount = baseVault.totalBorrow();
 
         // Start with base vault assets minus borrowed amount
@@ -1227,7 +1118,7 @@ contract LendefiCore is
         address[] memory listedAssets = assetsModule.getListedAssets();
         uint256 len = listedAssets.length;
         for (uint256 i = 0; i < len; i++) {
-            (, uint256 tvlUSD, ) = getAssetTVL(listedAssets[i]);
+            (, uint256 tvlUSD,) = getAssetTVL(listedAssets[i]);
             totalAssetValue += tvlUSD;
         }
 
@@ -1245,12 +1136,10 @@ contract LendefiCore is
      * @param maxSlippageBps Maximum slippage percentage allowed
      * @return totalCost Total cost of liquidation including fees
      */
-    function _processLiquidation(
-        address user,
-        uint256 positionId,
-        uint256 expectedCost,
-        uint32 maxSlippageBps
-    ) internal returns (uint256 totalCost) {
+    function _processLiquidation(address user, uint256 positionId, uint256 expectedCost, uint32 maxSlippageBps)
+        internal
+        returns (uint256 totalCost)
+    {
         UserPosition storage position = positions[user][positionId];
 
         // Cache vault address before position is modified
@@ -1271,12 +1160,7 @@ contract LendefiCore is
         }
 
         uint256 liquidationFee = getPositionLiquidationFee(user, positionId);
-        uint256 fee = Math.mulDiv(
-            debtWithInterest,
-            liquidationFee,
-            baseDecimals,
-            Math.Rounding.Floor
-        );
+        uint256 fee = Math.mulDiv(debtWithInterest, liquidationFee, baseDecimals, Math.Rounding.Floor);
         totalCost = debtWithInterest + fee;
 
         // Slippage protection on total liquidation cost
@@ -1287,16 +1171,10 @@ contract LendefiCore is
         position.status = PositionStatus.LIQUIDATED;
 
         // Get collateral assets before clearing
-        address[] memory collateralAssets = getPositionCollateralAssets(
-            user,
-            positionId
-        );
+        address[] memory collateralAssets = getPositionCollateralAssets(user, positionId);
 
         // Transfer all assets from vault to liquidator using cached vault address
-        ILendefiPositionVault(cachedVault).liquidate(
-            collateralAssets,
-            msg.sender
-        );
+        ILendefiPositionVault(cachedVault).liquidate(collateralAssets, msg.sender);
         // Clear all collateral assets
         positionCollateral[user][positionId].clear();
 
@@ -1345,15 +1223,13 @@ contract LendefiCore is
      *   - InvalidAssetForIsolation: Thrown when asset doesn't match isolated position's asset
      *   - MaximumAssetsReached: Thrown when position already has 20 different asset types
      */
-    function _processDeposit(
-        address asset,
-        uint256 amount,
-        uint256 positionId
-    ) internal validAsset(asset) activePosition(msg.sender, positionId) {
+    function _processDeposit(address asset, uint256 amount, uint256 positionId)
+        internal
+        validAsset(asset)
+        activePosition(msg.sender, positionId)
+    {
         uint256 tvl = assetTVL[asset].tvl;
-        EnumerableMap.AddressToUintMap storage collaterals = positionCollateral[
-            msg.sender
-        ][positionId];
+        EnumerableMap.AddressToUintMap storage collaterals = positionCollateral[msg.sender][positionId];
 
         // Early capacity check using direct access
         if (assetsModule.isAssetAtCapacity(asset, amount, tvl)) {
@@ -1362,26 +1238,23 @@ contract LendefiCore is
 
         // Handle isolation checks in one block
         if (
-            assetsModule.getAssetTier(asset) ==
-            IASSETS.CollateralTier.ISOLATED &&
-            !positions[msg.sender][positionId].isIsolated
+            assetsModule.getAssetTier(asset) == IASSETS.CollateralTier.ISOLATED
+                && !positions[msg.sender][positionId].isIsolated
         ) {
             revert IsolatedAssetViolation();
         }
 
         // Check asset isolation for isolated positions
-        if (
-            positions[msg.sender][positionId].isIsolated &&
-            collaterals.length() > 0
-        ) {
-            (address firstAsset, ) = collaterals.at(0);
+        if (positions[msg.sender][positionId].isIsolated && collaterals.length() > 0) {
+            (address firstAsset,) = collaterals.at(0);
             if (asset != firstAsset) revert InvalidAssetForIsolation();
         }
 
         // Process collateral with capacity check
         (bool exists, uint256 currentAmount) = collaterals.tryGet(asset);
-        if (!exists && collaterals.length() >= 20)
+        if (!exists && collaterals.length() >= 20) {
             revert MaximumAssetsReached();
+        }
 
         uint256 newAmount = exists ? currentAmount + amount : amount;
         if (assetsModule.poolLiquidityLimit(asset, newAmount)) {
@@ -1438,14 +1311,8 @@ contract LendefiCore is
      *   - LowBalance: Thrown when position doesn't have sufficient balance of the asset
      *   - CreditLimitExceeded: Thrown when withdrawal would leave position undercollateralized
      */
-    function _processWithdrawal(
-        address asset,
-        uint256 amount,
-        uint256 positionId
-    ) internal {
-        EnumerableMap.AddressToUintMap storage collaterals = positionCollateral[
-            msg.sender
-        ][positionId];
+    function _processWithdrawal(address asset, uint256 amount, uint256 positionId) internal {
+        EnumerableMap.AddressToUintMap storage collaterals = positionCollateral[msg.sender][positionId];
 
         // Check balance and update collateral in one operation
         (bool exists, uint256 currentAmount) = collaterals.tryGet(asset);
@@ -1467,10 +1334,7 @@ contract LendefiCore is
         });
 
         // Verify collateralization after withdrawal
-        if (
-            calculateCreditLimit(msg.sender, positionId) <
-            positions[msg.sender][positionId].debtAmount
-        ) {
+        if (calculateCreditLimit(msg.sender, positionId) < positions[msg.sender][positionId].debtAmount) {
             revert CreditLimitExceeded();
         }
 
@@ -1493,12 +1357,7 @@ contract LendefiCore is
         UserPosition storage position,
         uint256 expectedDebt,
         uint32 maxSlippageBps
-    )
-        internal
-        activePosition(msg.sender, positionId)
-        validAmount(proposedAmount)
-        returns (uint256 actualAmount)
-    {
+    ) internal activePosition(msg.sender, positionId) validAmount(proposedAmount) returns (uint256 actualAmount) {
         uint256 cachedDebtAmount = position.debtAmount;
         if (cachedDebtAmount > 0) {
             // Accrue interest for this position
@@ -1560,10 +1419,10 @@ contract LendefiCore is
         }
 
         // Check protocol liquidity from vault
-        uint256 availableLiquidity = baseVault.totalAssets() -
-            baseVault.totalBorrow();
-        if (accruedInterest + amount > availableLiquidity)
+        uint256 availableLiquidity = baseVault.totalAssets() - baseVault.totalBorrow();
+        if (accruedInterest + amount > availableLiquidity) {
             revert LowLiquidity();
+        }
 
         // Check isolation debt cap if position is isolated
         if (position.isIsolated) {
@@ -1587,12 +1446,8 @@ contract LendefiCore is
      * @param positionId ID of the position
      * @param newDebt The new total debt amount
      */
-    function _checkIsolationDebtCap(
-        address user,
-        uint256 positionId,
-        uint256 newDebt
-    ) internal view {
-        (address posAsset, ) = positionCollateral[user][positionId].at(0);
+    function _checkIsolationDebtCap(address user, uint256 positionId, uint256 newDebt) internal view {
+        (address posAsset,) = positionCollateral[user][positionId].at(0);
         uint256 isolationDebtCap = assetsModule.getIsolationDebtCap(posAsset);
         if (newDebt > isolationDebtCap) revert IsolationDebtCapExceeded();
     }
@@ -1604,21 +1459,17 @@ contract LendefiCore is
      * @param expectedAmount The expected amount from the user
      * @param maxSlippageBps Maximum allowed slippage in basis points
      */
-    function _validateSlippage(
-        uint256 actualAmount,
-        uint256 expectedAmount,
-        uint32 maxSlippageBps
-    )
+    function _validateSlippage(uint256 actualAmount, uint256 expectedAmount, uint32 maxSlippageBps)
         internal
         pure
         validAmount(actualAmount)
         validAmount(expectedAmount)
         validAmount(maxSlippageBps)
     {
-        uint256 deviation = actualAmount > expectedAmount
-            ? actualAmount - expectedAmount
-            : expectedAmount - actualAmount;
-        if (deviation * 10000 > expectedAmount * maxSlippageBps)
+        uint256 deviation =
+            actualAmount > expectedAmount ? actualAmount - expectedAmount : expectedAmount - actualAmount;
+        if (deviation * 10000 > expectedAmount * maxSlippageBps) {
             revert MEVSlippageExceeded();
+        }
     }
 }
