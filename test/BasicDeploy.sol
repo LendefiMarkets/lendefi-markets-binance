@@ -791,6 +791,8 @@ contract BasicDeploy is Test {
         vm.startPrank(address(timelockInstance));
         ecoInstance.grantRole(REWARDER_ROLE, address(marketCoreInstance));
         assetsInstance.setCoreAddress(address(marketCoreInstance));
+        // Grant market owner MANAGER_ROLE on vault (since factory can't do it without DEFAULT_ADMIN_ROLE)
+        marketVaultInstance.grantRole(LendefiConstants.MANAGER_ROLE, charlie);
         vm.stopPrank();
     }
 
