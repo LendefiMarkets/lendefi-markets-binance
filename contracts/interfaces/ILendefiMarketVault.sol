@@ -6,6 +6,21 @@ import {IPROTOCOL} from "./IProtocol.sol";
 import {IASSETS} from "./IASSETS.sol";
 
 interface ILendefiMarketVault is IERC4626 {
+    // ========== STRUCTS ==========
+
+    /**
+     * @notice Configuration parameters for protocol operations and rewards
+     * @dev Centralized storage for all adjustable protocol parameters
+     */
+    struct ProtocolConfig {
+        uint256 profitTargetRate; // Rate in 1e6
+        uint256 borrowRate; // Rate in 1e6
+        uint256 rewardAmount; // Amount of governance tokens
+        uint256 rewardInterval; // Reward interval in blocks
+        uint256 rewardableSupply; // Minimum rewardable supply
+        uint32 flashLoanFee; // Flash loan fee in basis points (max 100 = 1%)
+    }
+
     // ========== EVENTS ==========
 
     event Initialized(address indexed admin);
@@ -13,7 +28,8 @@ interface ILendefiMarketVault is IERC4626 {
     event YieldBoosted(address indexed user, uint256 amount);
     event Exchange(address indexed user, uint256 shares, uint256 amount);
     event FlashLoan(address indexed user, address indexed receiver, address indexed asset, uint256 amount, uint256 fee);
-    event ProtocolConfigUpdated(IPROTOCOL.ProtocolConfig config);
+    event ProtocolConfigUpdated(ProtocolConfig config);
+    event MarketParametersUpdated(uint256 borrowRate, uint32 flashLoanFee);
     event Reward(address indexed user, uint256 amount);
 
     // ========== ERRORS ==========
@@ -37,6 +53,7 @@ interface ILendefiMarketVault is IERC4626 {
     function lendefiCore() external view returns (address);
     function ecosystem() external view returns (address);
     function borrowerDebt(address borrower) external view returns (uint256);
+    function protocolConfig() external view returns (ProtocolConfig memory);
 
     // ========== INITIALIZATION ==========
 
@@ -66,7 +83,8 @@ interface ILendefiMarketVault is IERC4626 {
 
     function pause() external;
     function unpause() external;
-    function setProtocolConfig(IPROTOCOL.ProtocolConfig calldata _config) external;
+    function loadProtocolConfig(ProtocolConfig calldata config) external;
+    function updateMarketParameters(uint256 borrowRate, uint32 flashLoanFee) external;
 
     // ========== VIEW FUNCTIONS ==========
 
