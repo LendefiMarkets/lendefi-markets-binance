@@ -80,8 +80,8 @@ contract LendefiCore is
     /// @notice Market configuration including core addresses and parameters
     Market internal marketInfo;
 
-    /// @notice Protocol-wide configuration parameters (rates, rewards, thresholds)
-    ProtocolConfig internal mainConfig;
+    /// @notice Minimum governance tokens required to perform liquidations
+    uint256 public liquidatorThreshold;
 
     /// @notice Interface to the assets module for collateral management and oracles
     IASSETS internal assetsModule;
@@ -184,8 +184,6 @@ contract LendefiCore is
         __ReentrancyGuard_init();
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
-        _grantRole(LendefiConstants.MANAGER_ROLE, admin);
-        _grantRole(LendefiConstants.MANAGER_ROLE, marketOwner);
         _grantRole(LendefiConstants.PAUSER_ROLE, admin);
         _grantRole(LendefiConstants.PAUSER_ROLE, marketOwner);
         _grantRole(LendefiConstants.UPGRADER_ROLE, admin);
@@ -238,67 +236,29 @@ contract LendefiCore is
         uint8 assetDecimals = IERC20Metadata(baseAsset).decimals();
         baseDecimals = 10 ** assetDecimals;
 
-        // Initialize default parameters using dynamic baseDecimals
-        mainConfig = ProtocolConfig({
-            profitTargetRate: 0.0025e6, // 1%
-            borrowRate: 0.06e6, // 6%
-            rewardAmount: 2_000 ether, // 2,000 governance tokens
-            rewardInterval: 180 * 24 * 60 * 5, // 180 days in blocks
-            rewardableSupply: 100_000 * baseDecimals, // 100,000 base asset units
-            liquidatorThreshold: 20_000 ether, // 20,000 governance tokens
-            flashLoanFee: 9 // 9 basis points (0.09%)
-        });
-
-        // Update the vault's cached protocol config
-        baseVault.setProtocolConfig(mainConfig);
+        // Initialize liquidator threshold
+        liquidatorThreshold = 20_000 ether; // 20,000 governance tokens
 
         emit Initialized(marketInfo.baseAsset);
     }
 
     /**
-     * @notice Updates protocol parameters from a configuration struct
-     * @dev Validates all parameters against minimum/maximum constraints before applying
-     * @param config The new protocol configuration to apply
-     * @custom:access-control Restricted to LendefiConstants.MANAGER_ROLE
-     * @custom:events Emits a ProtocolConfigUpdated event
+     * @notice Updates the liquidator threshold (DAO-only)
+     * @dev Sets the minimum governance tokens required to perform liquidations
+     * @param threshold The new liquidator threshold
+     * @custom:access-control Restricted to DEFAULT_ADMIN_ROLE
+     * @custom:events Emits a LiquidatorThresholdUpdated event
      * @custom:error-cases
-     *   - InvalidProfitTarget: Thrown when profit target rate is below minimum
-     *   - InvalidBorrowRate: Thrown when borrow rate is below minimum
-     *   - InvalidRewardAmount: Thrown when reward amount exceeds maximum
-     *   - InvalidInterval: Thrown when interval is below minimum
-     *   - InvalidSupplyAmount: Thrown when supply amount is below minimum
-     *   - InvalidLiquidatorThreshold: Thrown when liquidator threshold is below minimum
+     *   - InvalidLiquidatorThreshold: Thrown when threshold is below minimum
      */
-    function loadProtocolConfig(
-        ProtocolConfig calldata config
-    ) external onlyRole(LendefiConstants.MANAGER_ROLE) {
-        // Validate all parameters
-        if (config.profitTargetRate < 0.0025e6) revert InvalidProfitTarget();
-        if (config.borrowRate < 0.01e6) revert InvalidBorrowRate();
-        if (config.rewardAmount > 10_000 ether) revert InvalidRewardAmount();
-        if (config.rewardInterval < 90 * 24 * 60 * 5) revert InvalidInterval(); // 90 days in blocks (5 blocks per minute)
-        if (config.rewardableSupply < 20_000 * baseDecimals)
-            revert InvalidSupplyAmount();
-        if (config.liquidatorThreshold < 10 ether)
-            revert InvalidLiquidatorThreshold();
-        if (config.flashLoanFee > 100 || config.flashLoanFee < 1)
-            revert InvalidFee();
-
-        // Update the mainConfig struct
-        mainConfig = config;
-
-        // Update the vault's cached protocol config
-        baseVault.setProtocolConfig(config);
-
-        // Emit a single consolidated event
-        emit ProtocolConfigUpdated(
-            config.profitTargetRate,
-            config.borrowRate,
-            config.rewardAmount,
-            config.rewardInterval,
-            config.rewardableSupply,
-            config.liquidatorThreshold
-        );
+    function setLiquidatorThreshold(
+        uint256 threshold
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (threshold < 10 ether) revert InvalidLiquidatorThreshold();
+        
+        liquidatorThreshold = threshold;
+        
+        emit LiquidatorThresholdUpdated(threshold);
     }
 
     /**
@@ -891,8 +851,7 @@ contract LendefiCore is
         uint32 maxSlippageBps
     ) external activePosition(user, positionId) nonReentrant whenNotPaused {
         if (
-            IERC20(govToken).balanceOf(msg.sender) <
-            mainConfig.liquidatorThreshold
+            IERC20(govToken).balanceOf(msg.sender) < liquidatorThreshold
         ) {
             revert NotEnoughGovernanceTokens();
         }
@@ -1153,13 +1112,6 @@ contract LendefiCore is
         }
     }
 
-    /**
-     * @notice Returns the protocol configuration
-     * @return The protocol configuration
-     */
-    function getConfig() public view returns (ProtocolConfig memory) {
-        return mainConfig;
-    }
 
     /**
      * @notice Returns the market information
@@ -1169,13 +1121,6 @@ contract LendefiCore is
         return marketInfo;
     }
 
-    /**
-     * @notice Returns the main protocol configuration
-     * @return The protocol configuration struct
-     */
-    function getMainConfig() public view returns (ProtocolConfig memory) {
-        return mainConfig;
-    }
 
     /**
      * @notice Returns the collateral assets for a specific position
