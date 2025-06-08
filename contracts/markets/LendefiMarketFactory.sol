@@ -384,6 +384,9 @@ contract LendefiMarketFactory is
             markets[marketOwner][baseAsset]
         );
 
+        // Note: Market owner MANAGER_ROLE must be granted separately by timelock
+        // since factory doesn't have DEFAULT_ADMIN_ROLE on the vault
+
         emit MarketCreated(
             marketOwner,
             baseAsset,
