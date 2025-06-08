@@ -5,6 +5,7 @@ import "../BasicDeploy.sol";
 import {LendefiView} from "../../contracts/markets/helper/LendefiView.sol";
 import {ILENDEFIVIEW} from "../../contracts/interfaces/ILendefiView.sol";
 import {IPROTOCOL} from "../../contracts/interfaces/IProtocol.sol";
+import {ILendefiMarketVault} from "../../contracts/interfaces/ILendefiMarketVault.sol";
 import {IASSETS} from "../../contracts/interfaces/IASSETS.sol";
 import {MockPriceOracle} from "../../contracts/mock/MockPriceOracle.sol";
 import {WETHPriceConsumerV3} from "../../contracts/mock/WETHOracle.sol";
@@ -259,14 +260,14 @@ contract LendefiViewTest is BasicDeploy {
 
     function test_GetProtocolSnapshot_ConfigValues() public {
         // Test that snapshot correctly reflects protocol configuration
-        IPROTOCOL.ProtocolConfig memory config = marketCoreInstance.getConfig();
+        ILendefiMarketVault.ProtocolConfig memory config = ILendefiMarketVault(address(marketVaultInstance)).protocolConfig();
         ILENDEFIVIEW.ProtocolSnapshot memory snapshot = lendefiView.getProtocolSnapshot();
 
         assertEq(snapshot.targetReward, config.rewardAmount, "Target reward should match config");
         assertEq(snapshot.rewardInterval, config.rewardInterval, "Reward interval should match config");
         assertEq(snapshot.rewardableSupply, config.rewardableSupply, "Rewardable supply should match config");
         assertEq(snapshot.baseProfitTarget, config.profitTargetRate, "Base profit target should match config");
-        assertEq(snapshot.liquidatorThreshold, config.liquidatorThreshold, "Liquidator threshold should match config");
+        assertEq(snapshot.liquidatorThreshold, marketCoreInstance.liquidatorThreshold(), "Liquidator threshold should match core");
         assertEq(snapshot.flashLoanFee, config.flashLoanFee, "Flash loan fee should match config");
     }
 
@@ -318,11 +319,11 @@ contract LendefiViewTest is BasicDeploy {
         ecoInstance.grantRole(REWARDER_ROLE, address(marketVaultInstance));
 
         // Configure protocol for rewards
-        IPROTOCOL.ProtocolConfig memory config = marketCoreInstance.getConfig();
+        ILendefiMarketVault.ProtocolConfig memory config = ILendefiMarketVault(address(marketVaultInstance)).protocolConfig();
         config.rewardAmount = 1_000e18; // Set target reward to 1000 tokens
         config.rewardInterval = 180 * 24 * 60 * 5; // 180 days in blocks (5 blocks per minute)
         config.rewardableSupply = 50_000e6; // Set rewardable supply threshold to 50k USDC
-        marketCoreInstance.loadProtocolConfig(config);
+        marketVaultInstance.loadProtocolConfig(config);
 
         vm.stopPrank();
 
