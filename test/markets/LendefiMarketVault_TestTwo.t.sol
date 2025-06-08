@@ -3,6 +3,7 @@ pragma solidity 0.8.23;
 
 import "../BasicDeploy.sol";
 import {MockFlashLoanReceiver} from "../../contracts/mock/MockFlashLoanReceiver.sol";
+import {ILendefiMarketVault} from "../../contracts/interfaces/ILendefiMarketVault.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {LendefiMarketVault} from "../../contracts/markets/LendefiMarketVault.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -291,7 +292,7 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
         bytes memory params = "";
 
         // Get expected fee from protocol config
-        (,,,,,, uint32 fee) = marketVaultInstance.protocolConfig();
+        (,,,,, uint32 fee) = marketVaultInstance.protocolConfig();
         uint256 expectedFee = (loanAmount * fee) / 10000;
 
         uint256 vaultBalanceBefore = usdcInstance.balanceOf(address(marketVaultInstance));
@@ -319,10 +320,10 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
     function test_Revert_FlashLoan_InsufficientRepayment() public {
         // Since protocolConfig might not be properly initialized during factory deployment,
         // we need to set it manually
-        IPROTOCOL.ProtocolConfig memory config = marketCoreInstance.getConfig();
+        ILendefiMarketVault.ProtocolConfig memory config = ILendefiMarketVault(address(marketVaultInstance)).protocolConfig();
 
-        vm.prank(address(marketCoreInstance));
-        marketVaultInstance.setProtocolConfig(config);
+        vm.prank(address(timelockInstance));
+        marketVaultInstance.loadProtocolConfig(config);
 
         flashReceiver.setShouldReturnLessFunds(true);
 
