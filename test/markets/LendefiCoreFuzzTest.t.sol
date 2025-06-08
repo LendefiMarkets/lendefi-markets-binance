@@ -2,6 +2,7 @@
 pragma solidity 0.8.23;
 
 import "../BasicDeploy.sol";
+import {ILendefiMarketVault} from "../../contracts/interfaces/ILendefiMarketVault.sol";
 import {WETHPriceConsumerV3} from "../../contracts/mock/WETHOracle.sol";
 import {MockPriceOracle} from "../../contracts/mock/MockPriceOracle.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -410,20 +411,24 @@ contract LendefiCoreFuzzTest is BasicDeploy {
         borrowRate = bound(borrowRate, 0.01e6, 0.5e6); // 1% - 50%
         flashFee = bound(flashFee, 1, 100); // 0.01% - 1%
 
-        IPROTOCOL.ProtocolConfig memory config = IPROTOCOL.ProtocolConfig({
+        ILendefiMarketVault.ProtocolConfig memory config = ILendefiMarketVault.ProtocolConfig({
             profitTargetRate: profitTarget,
             borrowRate: borrowRate,
             rewardAmount: 1_000 ether,
             rewardInterval: 180 days,
             rewardableSupply: 100_000e6,
-            liquidatorThreshold: 20_000 ether,
             flashLoanFee: uint32(flashFee)
         });
 
+        // Load protocol config to vault (DAO-only)
         vm.prank(address(timelockInstance));
-        marketCoreInstance.loadProtocolConfig(config);
+        marketVaultInstance.loadProtocolConfig(config);
 
-        IPROTOCOL.ProtocolConfig memory loadedConfig = marketCoreInstance.getConfig();
+        // Set liquidator threshold on core (DAO-only)
+        vm.prank(address(timelockInstance));
+        marketCoreInstance.setLiquidatorThreshold(20_000 ether);
+
+        ILendefiMarketVault.ProtocolConfig memory loadedConfig = ILendefiMarketVault(address(marketVaultInstance)).protocolConfig();
         assertEq(loadedConfig.profitTargetRate, profitTarget);
         assertEq(loadedConfig.borrowRate, borrowRate);
     }
