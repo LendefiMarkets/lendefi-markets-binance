@@ -30,6 +30,7 @@ pragma solidity 0.8.23;
  */
 
 import {IPROTOCOL} from "../interfaces/IProtocol.sol";
+import {ILendefiMarketVault} from "../interfaces/ILendefiMarketVault.sol";
 import {IECOSYSTEM} from "../interfaces/IEcosystem.sol";
 import {IASSETS} from "../interfaces/IASSETS.sol";
 import {IPoRFeed} from "../interfaces/IPoRFeed.sol";
@@ -124,7 +125,7 @@ contract LendefiMarketVaultV2 is
 
     /// @notice Cached protocol configuration to avoid repeated external calls
     /// @dev Contains interest rates, fees, and reward parameters
-    IPROTOCOL.ProtocolConfig public protocolConfig;
+    ILendefiMarketVault.ProtocolConfig public protocolConfig;
 
     /// @notice Mapping of borrower addresses to their outstanding debt amounts
     /// @dev Tracks individual borrower positions for repayment calculations
@@ -175,7 +176,7 @@ contract LendefiMarketVaultV2 is
 
     /// @notice Emitted when the protocol configuration is updated
     /// @param config The new protocol configuration
-    event ProtocolConfigUpdated(IPROTOCOL.ProtocolConfig config);
+    event ProtocolConfigUpdated(ILendefiMarketVault.ProtocolConfig config);
 
     /// @notice Emitted when governance rewards are claimed by a liquidity provider
     /// @param user Address of the user claiming rewards
@@ -305,8 +306,7 @@ contract LendefiMarketVaultV2 is
         lastTimeStamp = block.timestamp;
         porFeed = address(new LendefiPoRFeed());
         IPoRFeed(porFeed).initialize(baseAsset, address(this), _timelock);
-        // Initialize protocol config from core
-        protocolConfig = IPROTOCOL(core).getConfig();
+        // Protocol config is now initialized in vault initialization
 
         __ERC4626_init(IERC20(baseAsset));
         __ERC20_init(name, symbol);
@@ -319,6 +319,16 @@ contract LendefiMarketVaultV2 is
         _grantRole(LendefiConstants.PROTOCOL_ROLE, core);
         _grantRole(LendefiConstants.UPGRADER_ROLE, _timelock);
         _grantRole(LendefiConstants.MANAGER_ROLE, _timelock);
+
+        // Initialize default protocol configuration
+        protocolConfig = ILendefiMarketVault.ProtocolConfig({
+            profitTargetRate: 0.0025e6, // 0.25%
+            borrowRate: 0.06e6, // 6%
+            rewardAmount: 2_000 ether, // 2,000 governance tokens
+            rewardInterval: 180 * 24 * 60 * 5, // 180 days in blocks
+            rewardableSupply: 100_000 * baseDecimals, // 100,000 base asset units
+            flashLoanFee: 9 // 9 basis points (0.09%)
+        });
 
         emit Initialized(msg.sender);
     }
@@ -343,7 +353,7 @@ contract LendefiMarketVaultV2 is
      * @custom:access-control Restricted to PROTOCOL_ROLE
      */
     function setProtocolConfig(
-        IPROTOCOL.ProtocolConfig calldata _config
+        ILendefiMarketVault.ProtocolConfig calldata _config
     ) external onlyRole(LendefiConstants.PROTOCOL_ROLE) {
         // No validation needed - Core contract already validates before calling this
         protocolConfig = _config;
@@ -581,9 +591,8 @@ contract LendefiMarketVaultV2 is
         returns (uint256 finalReward)
     {
         if (isRewardable(msg.sender)) {
-            // Get config from core
-            IPROTOCOL.ProtocolConfig memory config = IPROTOCOL(lendefiCore)
-                .getConfig();
+            // Use cached protocol config
+            ILendefiMarketVault.ProtocolConfig memory config = protocolConfig;
 
             // Cache ecosystem contract to avoid multiple storage reads
             IECOSYSTEM cachedEcosystem = IECOSYSTEM(ecosystem);
@@ -1015,7 +1024,7 @@ contract LendefiMarketVaultV2 is
         uint256 lastBlock = liquidityOperationBlock[user];
         if (lastBlock == 0) return false; // Never had liquidity operation
 
-        IPROTOCOL.ProtocolConfig memory config = protocolConfig;
+        ILendefiMarketVault.ProtocolConfig memory config = protocolConfig;
         if (config.rewardAmount == 0) return false; // Rewards disabled
         uint256 baseAmount = previewRedeem(balanceOf(user));
 
