@@ -42,20 +42,6 @@ interface IPROTOCOL {
     // ========== STRUCTS ==========
 
     /**
-     * @notice Configuration parameters for protocol operations and rewards
-     * @dev Centralized storage for all adjustable protocol parameters
-     */
-    struct ProtocolConfig {
-        uint256 profitTargetRate; // Rate in 1e6
-        uint256 borrowRate; // Rate in 1e6
-        uint256 rewardAmount; // Amount of governance tokens
-        uint256 rewardInterval; // Reward interval in blocks
-        uint256 rewardableSupply; // Minimum rewardable supply
-        uint256 liquidatorThreshold; // Minimum liquidator token threshold
-        uint32 flashLoanFee; // Flash loan fee in basis points (max 100 = 1%)
-    }
-
-    /**
      * @notice User borrowing position data
      * @dev Core data structure tracking user's debt and position configuration
      */
@@ -250,8 +236,14 @@ interface IPROTOCOL {
         uint256 rewardAmount,
         uint256 rewardInterval,
         uint256 rewardableSupply,
-        uint256 liquidatorThreshold
+        uint32 flashLoanFee
     );
+
+    /**
+     * @notice Emitted when liquidator threshold is updated
+     * @param threshold New liquidator threshold
+     */
+    event LiquidatorThresholdUpdated(uint256 threshold);
 
     /**
      * @notice Emitted when TVL is updated for an asset
@@ -368,10 +360,10 @@ interface IPROTOCOL {
     function initializeMarket(Market calldata marketInfo) external;
 
     /**
-     * @notice Loads a new protocol configuration
-     * @param config The new protocol configuration to apply
+     * @notice Sets the liquidator threshold (DAO-only)
+     * @param threshold The new liquidator threshold
      */
-    function loadProtocolConfig(ProtocolConfig calldata config) external;
+    function setLiquidatorThreshold(uint256 threshold) external;
 
     // ========== LIQUIDITY MANAGEMENT FUNCTIONS ==========
 
@@ -521,16 +513,17 @@ interface IPROTOCOL {
     function baseDecimals() external view returns (uint256);
 
     /**
+     * @notice Gets the liquidator threshold
+     * @return The minimum governance tokens required to perform liquidations
+     */
+    function liquidatorThreshold() external view returns (uint256);
+
+    /**
      * @notice Gets the market configuration data
      * @return The market configuration struct
      */
     function market() external view returns (Market memory);
 
-    /**
-     * @notice Gets the main protocol configuration
-     * @return The protocol configuration struct
-     */
-    function getMainConfig() external view returns (ProtocolConfig memory);
 
     /**
      * @notice Gets the total value locked for a specific asset
@@ -542,11 +535,6 @@ interface IPROTOCOL {
     function getAssetTVL(address asset) external view returns (uint256 tvl, uint256 tvlUSD, uint256 lastUpdate);
 
     // Configuration
-    /**
-     * @notice Gets the current protocol configuration
-     * @return The current protocol configuration struct
-     */
-    function getConfig() external view returns (ProtocolConfig memory);
 
     // Position Information
     /**
