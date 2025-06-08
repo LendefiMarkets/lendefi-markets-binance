@@ -4,6 +4,7 @@ pragma solidity ^0.8.23;
 import "../BasicDeploy.sol";
 import {console2} from "forge-std/console2.sol";
 import {IPROTOCOL} from "../../contracts/interfaces/IProtocol.sol";
+import {ILendefiMarketVault} from "../../contracts/interfaces/ILendefiMarketVault.sol";
 import {IASSETS} from "../../contracts/interfaces/IASSETS.sol";
 import {IECOSYSTEM} from "../../contracts/interfaces/IEcosystem.sol";
 import {IPoRFeed} from "../../contracts/interfaces/IPoRFeed.sol";
@@ -104,7 +105,7 @@ contract LendefiMarketVault_TestOne is BasicDeploy {
         ecoInstance.grantRole(REWARDER_ROLE, address(marketVaultInstance));
 
         // Initialize reward parameters via timelock using the config approach
-        IPROTOCOL.ProtocolConfig memory config = marketCoreInstance.getConfig();
+        ILendefiMarketVault.ProtocolConfig memory config = ILendefiMarketVault(address(marketVaultInstance)).protocolConfig();
 
         // Update specific parameters while keeping others
         config.rewardAmount = 1_000e18; // Set target reward to 1000 tokens
@@ -112,7 +113,7 @@ contract LendefiMarketVault_TestOne is BasicDeploy {
         config.rewardableSupply = 100_000e6; // Set rewardable supply to 100k USDC
 
         // Apply updated config
-        marketCoreInstance.loadProtocolConfig(config);
+        marketVaultInstance.loadProtocolConfig(config);
 
         vm.stopPrank();
     }
@@ -222,7 +223,7 @@ contract LendefiMarketVault_TestOne is BasicDeploy {
 
     function test_IsRewardable_SufficientBalanceAndTime() public {
         // Get the updated config
-        IPROTOCOL.ProtocolConfig memory config = marketCoreInstance.getConfig();
+        ILendefiMarketVault.ProtocolConfig memory config = ILendefiMarketVault(address(marketVaultInstance)).protocolConfig();
 
         // Charlie deposits enough to meet threshold
         usdcInstance.mint(charlie, 150_000e6); // More than 100k threshold
@@ -251,7 +252,7 @@ contract LendefiMarketVault_TestOne is BasicDeploy {
 
     function test_ClaimReward_EligibleUser() public {
         // Get the updated config
-        IPROTOCOL.ProtocolConfig memory config = marketCoreInstance.getConfig();
+        ILendefiMarketVault.ProtocolConfig memory config = ILendefiMarketVault(address(marketVaultInstance)).protocolConfig();
 
         // Charlie deposits enough to meet threshold
         usdcInstance.mint(charlie, 150_000e6);
