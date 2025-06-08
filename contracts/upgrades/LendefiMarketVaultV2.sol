@@ -178,6 +178,11 @@ contract LendefiMarketVaultV2 is
     /// @param config The new protocol configuration
     event ProtocolConfigUpdated(ILendefiMarketVault.ProtocolConfig config);
 
+    /// @notice Emitted when market parameters are updated by market owner
+    /// @param borrowRate The new borrow rate
+    /// @param flashLoanFee The new flash loan fee
+    event MarketParametersUpdated(uint256 borrowRate, uint32 flashLoanFee);
+
     /// @notice Emitted when governance rewards are claimed by a liquidity provider
     /// @param user Address of the user claiming rewards
     /// @param amount Amount of governance tokens rewarded
@@ -220,6 +225,21 @@ contract LendefiMarketVaultV2 is
 
     /// @notice Thrown when an invalid fee parameter is provided
     error InvalidFee();
+
+    /// @notice Thrown when profit target rate is invalid
+    error InvalidProfitTarget();
+
+    /// @notice Thrown when borrow rate is invalid
+    error InvalidBorrowRate();
+
+    /// @notice Thrown when reward amount is invalid
+    error InvalidRewardAmount();
+
+    /// @notice Thrown when interval is invalid
+    error InvalidInterval();
+
+    /// @notice Thrown when supply amount is invalid
+    error InvalidSupplyAmount();
 
     /// @notice Validates that an amount parameter is greater than zero
     /// @param amount The amount to validate
@@ -306,7 +326,6 @@ contract LendefiMarketVaultV2 is
         lastTimeStamp = block.timestamp;
         porFeed = address(new LendefiPoRFeed());
         IPoRFeed(porFeed).initialize(baseAsset, address(this), _timelock);
-        // Protocol config is now initialized in vault initialization
 
         __ERC4626_init(IERC20(baseAsset));
         __ERC20_init(name, symbol);
@@ -336,29 +355,64 @@ contract LendefiMarketVaultV2 is
     // ========== CONFIGURATION FUNCTIONS ==========
 
     /**
-     * @notice Updates the cached protocol configuration with new parameters
-     * @dev Synchronizes the vault's cached config with updates from the core contract.
-     *      This function is called by the core contract when protocol parameters change
-     *      to ensure the vault operates with current settings.
-     * @param _config The new protocol configuration containing updated parameters
-     *
-     * @custom:requirements
-     *   - Caller must have PROTOCOL_ROLE (typically the LendefiCore contract)
-     *
-     * @custom:state-changes
-     *   - Updates the protocolConfig state variable with new configuration
-     *
-     * @custom:emits
-     *   - ProtocolConfigUpdated: Always emitted with the new configuration
-     * @custom:access-control Restricted to PROTOCOL_ROLE
+     * @notice Updates the protocol configuration (DAO-only)
+     * @dev Allows DAO to update all protocol parameters including rates and rewards
+     * @param config The new protocol configuration
+     * @custom:access-control Restricted to DEFAULT_ADMIN_ROLE
+     * @custom:events Emits a ProtocolConfigUpdated event
+     * @custom:error-cases
+     *   - InvalidProfitTarget: Thrown when profit target rate is below minimum
+     *   - InvalidBorrowRate: Thrown when borrow rate is below minimum
+     *   - InvalidRewardAmount: Thrown when reward amount exceeds maximum
+     *   - InvalidInterval: Thrown when interval is below minimum
+     *   - InvalidSupplyAmount: Thrown when supply amount is below minimum
+     *   - InvalidFee: Thrown when flash loan fee is invalid
      */
-    function setProtocolConfig(
-        ILendefiMarketVault.ProtocolConfig calldata _config
-    ) external onlyRole(LendefiConstants.PROTOCOL_ROLE) {
-        // No validation needed - Core contract already validates before calling this
-        protocolConfig = _config;
+    function loadProtocolConfig(
+        ILendefiMarketVault.ProtocolConfig calldata config
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        // Validate all parameters
+        if (config.profitTargetRate < 0.0025e6) revert InvalidProfitTarget();
+        if (config.borrowRate < 0.01e6) revert InvalidBorrowRate();
+        if (config.rewardAmount > 10_000 ether) revert InvalidRewardAmount();
+        if (config.rewardInterval < 90 * 24 * 60 * 5) revert InvalidInterval(); // 90 days in blocks
+        if (config.rewardableSupply < 20_000 * baseDecimals)
+            revert InvalidSupplyAmount();
+        if (config.flashLoanFee > 100 || config.flashLoanFee < 1)
+            revert InvalidFee();
+
+        // Update the protocol config
+        protocolConfig = config;
+
         // Emit event for protocol config update
-        emit ProtocolConfigUpdated(_config);
+        emit ProtocolConfigUpdated(config);
+    }
+
+    /**
+     * @notice Updates market-specific parameters (Market Owner only)
+     * @dev Allows market owners to adjust borrowRate and flashLoanFee
+     * @param borrowRate The new base borrow rate in 1e6 format
+     * @param flashLoanFee The new flash loan fee in basis points (max 100 = 1%)
+     * @custom:access-control Restricted to MANAGER_ROLE
+     * @custom:events Emits a MarketParametersUpdated event
+     * @custom:error-cases
+     *   - InvalidBorrowRate: Thrown when borrow rate is below minimum
+     *   - InvalidFee: Thrown when flash loan fee is invalid
+     */
+    function updateMarketParameters(
+        uint256 borrowRate,
+        uint32 flashLoanFee
+    ) external onlyRole(LendefiConstants.MANAGER_ROLE) {
+        // Validate parameters
+        if (borrowRate < 0.01e6) revert InvalidBorrowRate();
+        if (flashLoanFee > 100 || flashLoanFee < 1) revert InvalidFee();
+
+        // Update the protocol config
+        protocolConfig.borrowRate = borrowRate;
+        protocolConfig.flashLoanFee = flashLoanFee;
+
+        // Emit event for market parameter updates
+        emit MarketParametersUpdated(borrowRate, flashLoanFee);
     }
 
     // ========== FLASH LOAN FUNCTIONS ==========
