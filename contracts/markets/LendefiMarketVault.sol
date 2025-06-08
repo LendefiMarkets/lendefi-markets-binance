@@ -30,6 +30,7 @@ pragma solidity 0.8.23;
  */
 
 import {IPROTOCOL} from "../interfaces/IProtocol.sol";
+import {ILendefiMarketVault} from "../interfaces/ILendefiMarketVault.sol";
 import {IECOSYSTEM} from "../interfaces/IEcosystem.sol";
 import {IASSETS} from "../interfaces/IASSETS.sol";
 import {IPoRFeed} from "../interfaces/IPoRFeed.sol";
@@ -124,7 +125,7 @@ contract LendefiMarketVault is
 
     /// @notice Cached protocol configuration to avoid repeated external calls
     /// @dev Contains interest rates, fees, and reward parameters
-    IPROTOCOL.ProtocolConfig public protocolConfig;
+    ILendefiMarketVault.ProtocolConfig public protocolConfig;
 
     /// @notice Mapping of borrower addresses to their outstanding debt amounts
     /// @dev Tracks individual borrower positions for repayment calculations
@@ -175,7 +176,12 @@ contract LendefiMarketVault is
 
     /// @notice Emitted when the protocol configuration is updated
     /// @param config The new protocol configuration
-    event ProtocolConfigUpdated(IPROTOCOL.ProtocolConfig config);
+    event ProtocolConfigUpdated(ILendefiMarketVault.ProtocolConfig config);
+
+    /// @notice Emitted when market parameters are updated by market owner
+    /// @param borrowRate The new borrow rate
+    /// @param flashLoanFee The new flash loan fee
+    event MarketParametersUpdated(uint256 borrowRate, uint32 flashLoanFee);
 
     /// @notice Emitted when governance rewards are claimed by a liquidity provider
     /// @param user Address of the user claiming rewards
@@ -219,6 +225,21 @@ contract LendefiMarketVault is
 
     /// @notice Thrown when an invalid fee parameter is provided
     error InvalidFee();
+
+    /// @notice Thrown when profit target rate is invalid
+    error InvalidProfitTarget();
+
+    /// @notice Thrown when borrow rate is invalid
+    error InvalidBorrowRate();
+
+    /// @notice Thrown when reward amount is invalid
+    error InvalidRewardAmount();
+
+    /// @notice Thrown when interval is invalid
+    error InvalidInterval();
+
+    /// @notice Thrown when supply amount is invalid
+    error InvalidSupplyAmount();
 
     /// @notice Validates that an amount parameter is greater than zero
     /// @param amount The amount to validate
@@ -305,8 +326,6 @@ contract LendefiMarketVault is
         lastTimeStamp = block.timestamp;
         porFeed = address(new LendefiPoRFeed());
         IPoRFeed(porFeed).initialize(baseAsset, address(this), _timelock);
-        // Initialize protocol config from core
-        protocolConfig = IPROTOCOL(core).getConfig();
 
         __ERC4626_init(IERC20(baseAsset));
         __ERC20_init(name, symbol);
@@ -320,35 +339,78 @@ contract LendefiMarketVault is
         _grantRole(LendefiConstants.UPGRADER_ROLE, _timelock);
         _grantRole(LendefiConstants.MANAGER_ROLE, _timelock);
 
+        // Initialize default protocol configuration
+        protocolConfig = ILendefiMarketVault.ProtocolConfig({
+            profitTargetRate: 0.0025e6, // 0.25%
+            borrowRate: 0.06e6, // 6%
+            rewardAmount: 2_000 ether, // 2,000 governance tokens
+            rewardInterval: 180 * 24 * 60 * 5, // 180 days in blocks
+            rewardableSupply: 100_000 * baseDecimals, // 100,000 base asset units
+            flashLoanFee: 9 // 9 basis points (0.09%)
+        });
+
         emit Initialized(msg.sender);
     }
 
     // ========== CONFIGURATION FUNCTIONS ==========
 
     /**
-     * @notice Updates the cached protocol configuration with new parameters
-     * @dev Synchronizes the vault's cached config with updates from the core contract.
-     *      This function is called by the core contract when protocol parameters change
-     *      to ensure the vault operates with current settings.
-     * @param _config The new protocol configuration containing updated parameters
-     *
-     * @custom:requirements
-     *   - Caller must have PROTOCOL_ROLE (typically the LendefiCore contract)
-     *
-     * @custom:state-changes
-     *   - Updates the protocolConfig state variable with new configuration
-     *
-     * @custom:emits
-     *   - ProtocolConfigUpdated: Always emitted with the new configuration
-     * @custom:access-control Restricted to PROTOCOL_ROLE
+     * @notice Updates the protocol configuration (DAO-only)
+     * @dev Allows DAO to update all protocol parameters including rates and rewards
+     * @param config The new protocol configuration
+     * @custom:access-control Restricted to DEFAULT_ADMIN_ROLE
+     * @custom:events Emits a ProtocolConfigUpdated event
+     * @custom:error-cases
+     *   - InvalidProfitTarget: Thrown when profit target rate is below minimum
+     *   - InvalidBorrowRate: Thrown when borrow rate is below minimum
+     *   - InvalidRewardAmount: Thrown when reward amount exceeds maximum
+     *   - InvalidInterval: Thrown when interval is below minimum
+     *   - InvalidSupplyAmount: Thrown when supply amount is below minimum
+     *   - InvalidFee: Thrown when flash loan fee is invalid
      */
-    function setProtocolConfig(
-        IPROTOCOL.ProtocolConfig calldata _config
-    ) external onlyRole(LendefiConstants.PROTOCOL_ROLE) {
-        // No validation needed - Core contract already validates before calling this
-        protocolConfig = _config;
+    function loadProtocolConfig(
+        ILendefiMarketVault.ProtocolConfig calldata config
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        // Validate all parameters
+        if (config.profitTargetRate < 0.0025e6) revert InvalidProfitTarget();
+        if (config.borrowRate < 0.01e6) revert InvalidBorrowRate();
+        if (config.rewardAmount > 10_000 ether) revert InvalidRewardAmount();
+        if (config.rewardInterval < 90 * 24 * 60 * 5) revert InvalidInterval(); // 90 days in blocks
+        if (config.rewardableSupply < 20_000 * baseDecimals) revert InvalidSupplyAmount();
+        if (config.flashLoanFee > 100 || config.flashLoanFee < 1) revert InvalidFee();
+
+        // Update the protocol config
+        protocolConfig = config;
+        
         // Emit event for protocol config update
-        emit ProtocolConfigUpdated(_config);
+        emit ProtocolConfigUpdated(config);
+    }
+
+    /**
+     * @notice Updates market-specific parameters (Market Owner only)
+     * @dev Allows market owners to adjust borrowRate and flashLoanFee
+     * @param borrowRate The new base borrow rate in 1e6 format
+     * @param flashLoanFee The new flash loan fee in basis points (max 100 = 1%)
+     * @custom:access-control Restricted to MANAGER_ROLE
+     * @custom:events Emits a MarketParametersUpdated event
+     * @custom:error-cases
+     *   - InvalidBorrowRate: Thrown when borrow rate is below minimum
+     *   - InvalidFee: Thrown when flash loan fee is invalid
+     */
+    function updateMarketParameters(
+        uint256 borrowRate,
+        uint32 flashLoanFee
+    ) external onlyRole(LendefiConstants.MANAGER_ROLE) {
+        // Validate parameters
+        if (borrowRate < 0.01e6) revert InvalidBorrowRate();
+        if (flashLoanFee > 100 || flashLoanFee < 1) revert InvalidFee();
+
+        // Update the protocol config
+        protocolConfig.borrowRate = borrowRate;
+        protocolConfig.flashLoanFee = flashLoanFee;
+        
+        // Emit event for market parameter updates
+        emit MarketParametersUpdated(borrowRate, flashLoanFee);
     }
 
     // ========== FLASH LOAN FUNCTIONS ==========
@@ -581,9 +643,8 @@ contract LendefiMarketVault is
         returns (uint256 finalReward)
     {
         if (isRewardable(msg.sender)) {
-            // Get config from core
-            IPROTOCOL.ProtocolConfig memory config = IPROTOCOL(lendefiCore)
-                .getConfig();
+            // Use cached protocol config
+            ILendefiMarketVault.ProtocolConfig memory config = protocolConfig;
 
             // Cache ecosystem contract to avoid multiple storage reads
             IECOSYSTEM cachedEcosystem = IECOSYSTEM(ecosystem);
@@ -1015,7 +1076,7 @@ contract LendefiMarketVault is
         uint256 lastBlock = liquidityOperationBlock[user];
         if (lastBlock == 0) return false; // Never had liquidity operation
 
-        IPROTOCOL.ProtocolConfig memory config = protocolConfig;
+        ILendefiMarketVault.ProtocolConfig memory config = protocolConfig;
         if (config.rewardAmount == 0) return false; // Rewards disabled
         uint256 baseAmount = previewRedeem(balanceOf(user));
 
