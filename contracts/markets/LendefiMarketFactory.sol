@@ -190,18 +190,22 @@ contract LendefiMarketFactory is ILendefiMarketFactory, Initializable, AccessCon
      * @param _coreImplementation Address of the LendefiCore implementation contract
      * @param _vaultImplementation Address of the LendefiMarketVault implementation contract
      * @param _positionVaultImplementation Address of the position vault implementation contract
+     * @param _assetsModuleImplementation Address of the LendefiAssets implementation contract
+     * @param _PoRFeed Address of the LendefiPoRFeed implementation contract
      *
      * @custom:requirements
      *   - All implementation addresses must be non-zero
-     *   - Caller must have DEFAULT_ADMIN_ROLE
+     *   - Caller must have MANAGER_ROLE
      *
      * @custom:state-changes
      *   - Updates coreImplementation state variable
      *   - Updates vaultImplementation state variable
      *   - Updates positionVaultImplementation state variable
+     *   - Updates assetsModuleImplementation state variable
+     *   - Updates porFeedImplementation state variable
      *
      * @custom:emits ImplementationsSet event with the new implementation addresses
-     * @custom:access-control Restricted to DEFAULT_ADMIN_ROLE
+     * @custom:access-control Restricted to MANAGER_ROLE
      * @custom:error-cases
      *   - ZeroAddress: When any implementation address is zero
      */
@@ -211,7 +215,7 @@ contract LendefiMarketFactory is ILendefiMarketFactory, Initializable, AccessCon
         address _positionVaultImplementation,
         address _assetsModuleImplementation,
         address _PoRFeed
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external onlyRole(LendefiConstants.MANAGER_ROLE) {
         if (
             _coreImplementation == address(0) || _vaultImplementation == address(0)
                 || _positionVaultImplementation == address(0) || _assetsModuleImplementation == address(0)
