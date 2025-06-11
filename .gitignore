@@ -27,6 +27,8 @@ broadcast/*/*/*
 # Out dir
 out
 script/
+script-anvil/
+script-sepolia/
 
 # Ignores development broadcast logs
 !/broadcast
