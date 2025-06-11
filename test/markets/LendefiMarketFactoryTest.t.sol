@@ -99,7 +99,7 @@ contract LendefiMarketFactoryTest is BasicDeploy {
             address(newCoreImpl), address(newVaultImpl), address(posVaultImpl)
         );
 
-        vm.prank(address(timelockInstance));
+        vm.prank(gnosisSafe);
         marketFactoryInstance.setImplementations(
             address(newCoreImpl),
             address(newVaultImpl),
@@ -120,7 +120,7 @@ contract LendefiMarketFactoryTest is BasicDeploy {
 
         vm.prank(alice);
         vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, alice, DEFAULT_ADMIN_ROLE)
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, alice, LendefiConstants.MANAGER_ROLE)
         );
         marketFactoryInstance.setImplementations(
             address(newCoreImpl), address(0), address(posVaultImpl), address(assetsInstance), address(porFeedImpl)
@@ -422,17 +422,17 @@ contract LendefiMarketFactoryTest is BasicDeploy {
 
     function test_Revert_SetImplementations_ZeroAddress() public {
         // Test zero core implementation
-        vm.prank(address(timelockInstance));
+        vm.prank(gnosisSafe);
         vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
         marketFactoryInstance.setImplementations(address(0), address(0x1), address(0x2), address(0x3), address(0x4));
 
         // Test zero vault implementation
-        vm.prank(address(timelockInstance));
+        vm.prank(gnosisSafe);
         vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
         marketFactoryInstance.setImplementations(address(0x1), address(0), address(0x2), address(0x3), address(0x4));
 
         // Test zero position vault implementation
-        vm.prank(address(timelockInstance));
+        vm.prank(gnosisSafe);
         vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
         marketFactoryInstance.setImplementations(address(0x1), address(0x2), address(0), address(0x3), address(0x4));
     }
