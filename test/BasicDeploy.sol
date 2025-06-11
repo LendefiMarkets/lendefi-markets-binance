@@ -741,7 +741,7 @@ contract BasicDeploy is Test {
         marketFactoryInstance = LendefiMarketFactory(factoryProxy);
 
         // Set implementations - pass the implementation address, NOT the proxy
-        vm.startPrank(address(timelockInstance));
+        vm.startPrank(gnosisSafe);
         marketFactoryInstance.setImplementations(
             address(coreImpl),
             address(marketVaultImpl),
