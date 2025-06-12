@@ -1136,7 +1136,7 @@ contract LendefiAssetsV2 is
         tokenPriceInUSD = getAnyPoolTokenPriceInUSD(
             config.pool,
             asset,
-            LendefiConstants.USDC_ETH_POOL,
+            LendefiConstants.USDC_BNB_POOL,
             config.twapPeriod
         ); // Price on 1e6 scale, USDC
 
