@@ -99,8 +99,8 @@ contract BasicDeploy is Test {
     LendefiPoRFeed internal porFeedImplementation;
     WETH9 internal wethInstance;
     // USDC internal usdcInstance;
-    IERC20 usdcInstance = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48); //real usdc ethereum for fork testing
-    IERC20 usdtInstance = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7); //real usdt ethereum for fork testing
+    IERC20 usdcInstance = IERC20(0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d); //real usdc BSC for fork testing
+    IERC20 usdtInstance = IERC20(0x55d398326f99059fF775485246999027B3197955); //real usdt BSC for fork testing
     IERC20 usd1Instance = IERC20(0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d); //real usd1 ethereum for fork testing
 
     function deployTokenUpgrade() internal {
@@ -1157,8 +1157,8 @@ contract BasicDeploy is Test {
         // Deploy market factory
         _deployMarketFactory();
 
-        // Deploy WETH market (18 decimal base asset)
-        _deployMarket(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2, "Lendefi Yield Token WETH", "LYTWETH");
+        // Deploy WBNB market (18 decimal base asset)
+        _deployMarket(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c, "Lendefi Yield Token WBNB", "LYTWBNB");
     }
 
     /**
