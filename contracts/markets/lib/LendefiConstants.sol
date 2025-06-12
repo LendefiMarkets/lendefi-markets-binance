@@ -11,9 +11,9 @@ library LendefiConstants {
     /// @notice Standard decimals for percentage calculations (1e6 = 100%)
     uint256 internal constant WAD = 1e6;
 
-    /// @notice Address of the Uniswap V3 USDC/ETH pool with 0.05% fee tier
-    address internal constant USDC_ETH_POOL =
-        0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640;
+    /// @notice Address of the PancakeSwap V3 USDC/WBNB pool with 0.01% fee tier
+    address internal constant USDC_BNB_POOL =
+        0xf2688fb5b81049dfb7703ada5e770543770612c4;
 
     /// @notice Role identifier for users authorized to pause/unpause the protocol
     bytes32 internal constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
