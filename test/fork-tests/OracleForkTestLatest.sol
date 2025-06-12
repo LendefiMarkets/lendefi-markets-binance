@@ -11,34 +11,37 @@ import {IUniswapV3Pool} from "../../contracts/interfaces/IUniswapV3Pool.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 contract OracleForkTest is BasicDeploy {
-    // Mainnet addresses
-    address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-    address constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
-    address constant LINK = 0x514910771AF9Ca656af840dff83E8264EcF986CA;
+    // BSC addresses
+    address constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c; // WBNB instead of WETH
+    address constant BTCB = 0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c; // BTCB instead of WBTC
+    address constant LINK = 0xF8A0BF9cF54Bb92F17374d9e9A321E6a111a51bD; // LINK on BSC
+    address constant USDC = 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d; // USDC on BSC
 
-    // Pools and oracles
-    address constant LINK_WETH_POOL =
-        0xa6Cc3C2531FdaA6Ae1A3CA84c2855806728693e8;
-    address constant WBTC_USDC_POOL =
-        0x99ac8cA7087fA4A2A1FB6357269965A2014ABc35;
-    address constant WETH_USDC_POOL =
-        0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640;
+    // PancakeSwap V3 pools on BSC
+    // NOTE: These are placeholder addresses - need to get actual pool addresses
+    address constant LINK_WBNB_POOL =
+        address(0); // TODO: Get LINK/WBNB pool address
+    address constant BTCB_USDC_POOL =
+        address(0); // TODO: Get BTCB/USDC pool address
+    address constant WBNB_USDC_POOL =
+        0xf2688fb5b81049dfb7703ada5e770543770612c4; // WBNB/USDC pool with 0.01% fee
 
-    address constant WETH_CHAINLINK_ORACLE =
-        0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
-    address constant WBTC_CHAINLINK_ORACLE =
-        0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c;
+    // Chainlink oracles on BSC
+    address constant BNB_CHAINLINK_ORACLE =
+        0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE; // BNB/USD oracle
+    address constant BTC_CHAINLINK_ORACLE =
+        0x264990fbd0A4796A3E3d8E37C4d5F87a3aCa5Ebf; // BTC/USD oracle
     address constant LINK_CHAINLINK_ORACLE =
-        0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c;
+        0xca236E327F629f9Fc2c30A4E95775EbF0B89fac8; // LINK/USD oracle
     address constant USDC_CHAINLINK_ORACLE =
-        0xfB6471ACD42c91FF265344Ff73E88353521d099F;
+        0x51597f405303C4377E36123cBc172b13269EA163; // USDC/USD oracle
 
     uint256 mainnetFork;
     address testUser;
 
     function setUp() public {
         // Fork mainnet at a specific block
-        mainnetFork = vm.createFork("mainnet", 22607428);
+        mainnetFork = vm.createFork("bsc", 22607428); // Fork BSC instead of mainnet
         vm.selectFork(mainnetFork);
 
         // Deploy protocol normally
@@ -81,8 +84,8 @@ contract OracleForkTest is BasicDeploy {
         );
 
         // Configure assets
-        _configureWETH();
-        _configureWBTC();
+        _configureWBNB();
+        _configureBTCB();
         _configureLINK();
         _configureUSDC();
     }
@@ -119,15 +122,15 @@ contract OracleForkTest is BasicDeploy {
         vm.stopPrank();
     }
 
-    function _configureWBTC() internal {
+    function _configureBTCB() internal {
         vm.startPrank(address(timelockInstance));
 
-        // Configure WBTC with updated struct format
+        // Configure BTCB with updated struct format
         assetsInstance.updateAssetConfig(
-            WBTC,
+            BTCB,
             IASSETS.Asset({
                 active: 1,
-                decimals: 8, // WBTC has 8 decimals
+                decimals: 18, // BTCB has 18 decimals
                 borrowThreshold: 700,
                 liquidationThreshold: 750,
                 maxSupplyThreshold: 500 * 1e8,
@@ -137,11 +140,11 @@ contract OracleForkTest is BasicDeploy {
                 primaryOracleType: IASSETS.OracleType.CHAINLINK,
                 tier: IASSETS.CollateralTier.CROSS_A,
                 chainlinkConfig: IASSETS.ChainlinkOracleConfig({
-                    oracleUSD: WBTC_CHAINLINK_ORACLE,
+                    oracleUSD: BTC_CHAINLINK_ORACLE,
                     active: 1
                 }),
                 poolConfig: IASSETS.UniswapPoolConfig({
-                    pool: WBTC_USDC_POOL,
+                    pool: BTCB_USDC_POOL,
                     twapPeriod: 1800,
                     active: 1
                 })
@@ -238,7 +241,7 @@ contract OracleForkTest is BasicDeploy {
             ,
             uint256 updatedAt,
 
-        ) = AggregatorV3Interface(WBTC_CHAINLINK_ORACLE).latestRoundData();
+        ) = AggregatorV3Interface(BTC_CHAINLINK_ORACLE).latestRoundData();
         console2.log("Direct BTC/USD oracle call:");
         console2.log("  RoundId:", roundId);
         console2.log("  Price:", uint256(answer) / 1e8);
@@ -337,7 +340,7 @@ contract OracleForkTest is BasicDeploy {
         // Create a user with WETH
         vm.startPrank(testUser);
         (bool success, ) = WETH.call{value: 10000 ether}("");
-        require(success, "ETH to WETH conversion failed");
+        require(success, "BNB to WBNB conversion failed");
 
         // Create a position
         uint256 positionId = marketCoreInstance.createPosition(WETH, false);
@@ -352,16 +355,16 @@ contract OracleForkTest is BasicDeploy {
         vm.stopPrank();
 
         // Get actual WETH balance in the pool
-        uint256 poolWethBalance = IERC20(WETH).balanceOf(WETH_USDC_POOL);
-        console2.log("WETH balance in pool:", poolWethBalance / 1e18, "ETH");
+        uint256 poolWbnbBalance = IERC20(WBNB).balanceOf(WBNB_USDC_POOL);
+        console2.log("WBNB balance in pool:", poolWbnbBalance / 1e18, "BNB");
 
         // Calculate 3% of pool balance
-        uint256 threePercentOfPool = (poolWethBalance * 3) / 100;
-        console2.log("3% of pool WETH:", threePercentOfPool / 1e18, "ETH");
+        uint256 threePercentOfPool = (poolWbnbBalance * 3) / 100;
+        console2.log("3% of pool WBNB:", threePercentOfPool / 1e18, "BNB");
 
         // Add a little extra to ensure we exceed the limit
         uint256 supplyAmount = threePercentOfPool + 1 ether;
-        console2.log("Amount to supply:", supplyAmount / 1e18, "ETH");
+        console2.log("Amount to supply:", supplyAmount / 1e18, "BNB");
 
         // Verify directly that this will trigger the limit
         bool willHitLimit = assetsInstance.poolLiquidityLimit(
@@ -388,7 +391,7 @@ contract OracleForkTest is BasicDeploy {
         // Create a user with WETH
         vm.startPrank(testUser);
         (bool success, ) = WETH.call{value: 50 ether}("");
-        require(success, "ETH to WETH conversion failed");
+        require(success, "BNB to WBNB conversion failed");
 
         // Create a position
         marketCoreInstance.createPosition(WETH, false); // false = cross-collateral position
