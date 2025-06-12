@@ -986,7 +986,7 @@ contract LendefiAssets is
         }
 
         tokenPriceInUSD =
-            getAnyPoolTokenPriceInUSD(config.pool, asset, LendefiConstants.USDC_ETH_POOL, config.twapPeriod); // Price on 1e6 scale, USDC
+            getAnyPoolTokenPriceInUSD(config.pool, asset, LendefiConstants.USDC_BNB_POOL, config.twapPeriod); // Price on 1e6 scale, USDC
 
         if (tokenPriceInUSD <= 0) {
             revert OracleInvalidPrice(config.pool, int256(tokenPriceInUSD));
