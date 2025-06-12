@@ -10,10 +10,14 @@ pragma solidity 0.8.23;
 import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import {ERC20BurnableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
-import {ERC20PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
-import {ERC20VotesUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
-import {ERC20PermitUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
+import {ERC20BurnableUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
+import {ERC20PausableUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
+import {ERC20VotesUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
+import {ERC20PermitUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 import {NoncesUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/NoncesUpgradeable.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -69,11 +73,14 @@ contract GovernanceTokenV2 is
     uint32 public version;
     /// @dev tge initialized variable
     uint32 public tge;
+    /// @dev number of active chains in the ecosystem
+    uint32 public activeChains;
     /// @dev Upgrade request structure
     UpgradeRequest public pendingUpgrade;
     /// @dev the CCIPAdmin can be used to register with the CCIP token admin registry, but has no other special powers,
     /// and can only be transferred by the owner.
-    address internal s_ccipAdmin;
+    address internal ccipAdmin;
+
     /// @dev Storage gap for future upgrades
     uint256[47] private __gap;
 
@@ -103,21 +110,22 @@ contract GovernanceTokenV2 is
      * @param oldMaxBridge Previous maximum bridge amount
      * @param newMaxBridge New maximum bridge amount
      */
-    event MaxBridgeUpdated(
-        address indexed admin,
-        uint256 oldMaxBridge,
-        uint256 newMaxBridge
-    );
+    event MaxBridgeUpdated(address indexed admin, uint256 oldMaxBridge, uint256 newMaxBridge);
+
+    /**
+     * @dev Emitted when the maximum bridge amount is updated
+     * @param admin The address that updated the value
+     * @param oldActiveChains Previous maximum bridge amount
+     * @param newActiveChains New maximum bridge amount
+     */
+    event ActiveChainsUpdated(address indexed admin, uint32 oldActiveChains, uint32 newActiveChains);
 
     /**
      * @dev Emitted when a bridge role is assigned
      * @param admin The admin who set the role
-     * @param rounterAddress The bridge address receiving the role
+     * @param bridgeAddress The bridge address receiving the role
      */
-    event BridgeRoleAssigned(
-        address indexed admin,
-        address indexed rounterAddress
-    );
+    event BridgeRoleAssigned(address indexed admin, address indexed bridgeAddress);
 
     /**
      * @dev Emitted when an upgrade is scheduled
@@ -127,10 +135,7 @@ contract GovernanceTokenV2 is
      * @param effectiveTime The time when the upgrade can be executed
      */
     event UpgradeScheduled(
-        address indexed sender,
-        address indexed implementation,
-        uint64 scheduledTime,
-        uint64 effectiveTime
+        address indexed sender, address indexed implementation, uint64 scheduledTime, uint64 effectiveTime
     );
 
     /**
@@ -138,10 +143,7 @@ contract GovernanceTokenV2 is
      * @param canceller The address that cancelled the upgrade
      * @param implementation The implementation address that was cancelled
      */
-    event UpgradeCancelled(
-        address indexed canceller,
-        address indexed implementation
-    );
+    event UpgradeCancelled(address indexed canceller, address indexed implementation);
 
     /**
      * @dev Upgrade Event.
@@ -155,10 +157,7 @@ contract GovernanceTokenV2 is
      * @param previousAdmin The address that previously held the CCIPAdmin role
      * @param newAdmin The address that now holds the CCIPAdmin role
      */
-    event CCIPAdminTransferred(
-        address indexed previousAdmin,
-        address indexed newAdmin
-    );
+    event CCIPAdminTransferred(address indexed previousAdmin, address indexed newAdmin);
 
     // ============ Errors ============
 
@@ -168,8 +167,8 @@ contract GovernanceTokenV2 is
     /// @dev Error thrown when an amount parameter is zero
     error ZeroAmount();
 
-    // /// @dev Error thrown when a mint would exceed the max supply
-    // error MaxSupplyExceeded(uint256 requested, uint256 maxAllowed);
+    /// @dev Error thrown when a mint would exceed the max supply
+    error MaxSupplyExceeded(uint256 requested, uint256 maxAllowed);
 
     /// @dev Error thrown when bridge amount exceeds allowed limit
     error BridgeAmountExceeded(uint256 requested, uint256 maxAllowed);
@@ -191,9 +190,6 @@ contract GovernanceTokenV2 is
 
     /// @dev Error thrown for general validation failures
     error ValidationFailed(string reason);
-
-    /// @dev Error thrown when MAX_SUPPLY is exceeded by the mint function (ccip bridge)
-    error MaxSupplyExceeded(uint256 supplyAfterMint);
 
     /// @dev Error thrown when the recipient address is invalid
     error InvalidRecipient(address recipient);
@@ -234,10 +230,7 @@ contract GovernanceTokenV2 is
      * @custom:events-emits {Initialized} event.
      * @custom:throws ZeroAddress if any address is zero.
      */
-    function initializeUUPS(
-        address guardian,
-        address timelock
-    ) external initializer {
+    function initializeUUPS(address guardian, address timelock) external initializer {
         if (guardian == address(0) || timelock == address(0)) {
             revert ZeroAddress();
         }
@@ -258,10 +251,54 @@ contract GovernanceTokenV2 is
 
         initialSupply = INITIAL_SUPPLY;
         maxBridge = DEFAULT_MAX_BRIDGE_AMOUNT;
-        // _mint(guardian, INITIAL_SUPPLY); for testing CCP only
 
         version = 1;
+        activeChains = 1;
         emit Initialized(msg.sender);
+    }
+
+    /**
+     * @dev Sets the bridge address with BRIDGE_ROLE
+     * @param bridgeAddress The address of the bridge contract
+     * @custom:requires-role MANAGER_ROLE
+     * @custom:throws ZeroAddress if bridgeAddress is zero
+     */
+    function setBridgeAddress(address bridgeAddress) external onlyRole(MANAGER_ROLE) {
+        if (bridgeAddress == address(0)) revert ZeroAddress();
+
+        _grantRole(BRIDGE_ROLE, bridgeAddress);
+
+        emit BridgeRoleAssigned(msg.sender, bridgeAddress);
+    }
+
+    /**
+     * @dev Initializes the Token Generation Event (TGE).
+     * @notice Sets up the initial token distribution between the ecosystem and treasury contracts.
+     * @param ecosystem The address of the ecosystem contract.
+     * @param treasury The address of the treasury contract.
+     * @custom:requires The ecosystem and treasury addresses must not be zero.
+     * @custom:requires TGE must not be already initialized.
+     * @custom:events-emits {TGE} event.
+     * @custom:throws ZeroAddress if any address is zero.
+     * @custom:throws TGEAlreadyInitialized if TGE was already initialized.
+     */
+    function initializeTGE(address ecosystem, address treasury) external onlyRole(TGE_ROLE) {
+        if (ecosystem == address(0)) {
+            revert InvalidAddress(ecosystem, "Ecosystem address cannot be zero");
+        }
+        if (treasury == address(0)) {
+            revert InvalidAddress(treasury, "Treasury address cannot be zero");
+        }
+        if (tge > 0) revert TGEAlreadyInitialized();
+
+        ++tge;
+
+        // Directly mint to target addresses instead of minting to this contract first
+        _mint(treasury, TREASURY_SHARE);
+        _mint(ecosystem, ECOSYSTEM_SHARE);
+        _mint(msg.sender, DEPLOYER_SHARE);
+
+        emit TGE(initialSupply);
     }
 
     /**
@@ -294,12 +331,11 @@ contract GovernanceTokenV2 is
      * @custom:throws ZeroAmount if newMaxBridge is zero
      * @custom:throws ValidationFailed if bridge amount is too high
      */
-    function updateMaxBridgeAmount(
-        uint256 newMaxBridge
-    ) external nonZeroAmount(newMaxBridge) onlyRole(MANAGER_ROLE) {
+    function updateMaxBridgeAmount(uint256 newMaxBridge) external nonZeroAmount(newMaxBridge) onlyRole(MANAGER_ROLE) {
         // Add a reasonable cap, e.g., 1% of initial supply
-        if (newMaxBridge > initialSupply / 100)
+        if (newMaxBridge > initialSupply / 100) {
             revert ValidationFailed("Bridge amount too high");
+        }
 
         uint256 oldMaxBridge = maxBridge;
         maxBridge = newMaxBridge;
@@ -307,6 +343,17 @@ contract GovernanceTokenV2 is
         emit MaxBridgeUpdated(msg.sender, oldMaxBridge, newMaxBridge);
     }
 
+    function updateActiveChains(uint32 newActiveChains)
+        external
+        nonZeroAmount(newActiveChains)
+        onlyRole(MANAGER_ROLE)
+    {
+        uint32 oldActiveChains = activeChains;
+        if (newActiveChains < oldActiveChains) revert ValidationFailed("Invalid chains number");
+        activeChains = newActiveChains;
+
+        emit ActiveChainsUpdated(msg.sender, oldActiveChains, newActiveChains);
+    }
     /**
      * @dev Schedules an upgrade to a new implementation
      * @param newImplementation Address of the new implementation
@@ -315,24 +362,18 @@ contract GovernanceTokenV2 is
      * @custom:events-emits {UpgradeScheduled} event
      * @custom:throws ZeroAddress if newImplementation is zero
      */
-    function scheduleUpgrade(
-        address newImplementation
-    ) external nonZeroAddress(newImplementation) onlyRole(UPGRADER_ROLE) {
+
+    function scheduleUpgrade(address newImplementation)
+        external
+        nonZeroAddress(newImplementation)
+        onlyRole(UPGRADER_ROLE)
+    {
         uint64 currentTime = uint64(block.timestamp);
         uint64 effectiveTime = currentTime + uint64(UPGRADE_TIMELOCK_DURATION);
 
-        pendingUpgrade = UpgradeRequest({
-            implementation: newImplementation,
-            scheduledTime: currentTime,
-            exists: true
-        });
+        pendingUpgrade = UpgradeRequest({implementation: newImplementation, scheduledTime: currentTime, exists: true});
 
-        emit UpgradeScheduled(
-            msg.sender,
-            newImplementation,
-            currentTime,
-            effectiveTime
-        );
+        emit UpgradeScheduled(msg.sender, newImplementation, currentTime, effectiveTime);
     }
 
     /**
@@ -348,110 +389,47 @@ contract GovernanceTokenV2 is
         emit UpgradeCancelled(msg.sender, implementation);
     }
 
+    // ================================================================
+    // │                       CCIP Roles                             │
+    // ================================================================
+
+    /// @notice grants both mint and burn roles to `burnAndMinter`.
+    /// @dev calls public functions so this function does not require
+    /// access controls. This is handled in the inner functions.
+    function grantMintAndBurnRoles(address burnAndMinter) external {
+        grantRole(BRIDGE_ROLE, burnAndMinter);
+    }
+
+    /// @notice Transfers the CCIPAdmin role to a new address
+    /// @dev only the owner can call this function, NOT the current ccipAdmin, and 1-step ownership transfer is used.
+    /// @param newAdmin The address to transfer the CCIPAdmin role to. Setting to address(0) is a valid way to revoke
+    /// the role
+    function setCCIPAdmin(address newAdmin) external onlyRole(MANAGER_ROLE) {
+        address currentAdmin = ccipAdmin;
+
+        ccipAdmin = newAdmin;
+
+        emit CCIPAdminTransferred(currentAdmin, newAdmin);
+    }
+
+    /// @notice Returns the current CCIPAdmin
+    function getCCIPAdmin() external view returns (address) {
+        return ccipAdmin;
+    }
+
     /**
      * @dev Returns the remaining time before a scheduled upgrade can be executed
      * @return The time remaining in seconds, or 0 if no upgrade is scheduled or timelock has passed
      */
     function upgradeTimelockRemaining() external view returns (uint256) {
-        return
-            pendingUpgrade.exists &&
-                block.timestamp <
-                pendingUpgrade.scheduledTime + UPGRADE_TIMELOCK_DURATION
-                ? pendingUpgrade.scheduledTime +
-                    UPGRADE_TIMELOCK_DURATION -
-                    block.timestamp
-                : 0;
-    }
-
-    // The following functions are overrides required by Solidity.
-    /// @inheritdoc ERC20PermitUpgradeable
-    function nonces(
-        address owner
-    )
-        public
-        view
-        override(ERC20PermitUpgradeable, NoncesUpgradeable)
-        returns (uint256)
-    {
-        return super.nonces(owner);
-    }
-
-    /// @inheritdoc ERC20Upgradeable
-    function _update(
-        address from,
-        address to,
-        uint256 value
-    )
-        internal
-        override(
-            ERC20Upgradeable,
-            ERC20PausableUpgradeable,
-            ERC20VotesUpgradeable
-        )
-    {
-        super._update(from, to, value);
-    }
-
-    /**
-     * @dev Internal authorization for contract upgrades with timelock enforcement
-     * @param newImplementation Address of the new implementation contract
-     * @custom:requires-role UPGRADER_ROLE (enforced by the function modifier)
-     * @custom:requires Upgrade must be scheduled and timelock must be expired
-     * @custom:throws UpgradeNotScheduled if no upgrade was scheduled
-     * @custom:throws UpgradeTimelockActive if timelock period hasn't passed
-     */
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal override onlyRole(UPGRADER_ROLE) {
-        if (!pendingUpgrade.exists) {
-            revert UpgradeNotScheduled();
-        }
-
-        if (pendingUpgrade.implementation != newImplementation) {
-            revert ImplementationMismatch(
-                pendingUpgrade.implementation,
-                newImplementation
-            );
-        }
-
-        uint256 timeElapsed = block.timestamp - pendingUpgrade.scheduledTime;
-        if (timeElapsed < UPGRADE_TIMELOCK_DURATION) {
-            revert UpgradeTimelockActive(
-                UPGRADE_TIMELOCK_DURATION - timeElapsed
-            );
-        }
-
-        // Clear the scheduled upgrade
-        delete pendingUpgrade;
-
-        // Increment version
-        ++version;
-
-        // Emit the upgrade event
-        emit Upgrade(msg.sender, newImplementation);
+        return pendingUpgrade.exists && block.timestamp < pendingUpgrade.scheduledTime + UPGRADE_TIMELOCK_DURATION
+            ? pendingUpgrade.scheduledTime + UPGRADE_TIMELOCK_DURATION - block.timestamp
+            : 0;
     }
 
     // ================================================================
     // │     NEW Chainlink CCIP CCT SECTION                           │
     // ================================================================
-
-    /// @inheritdoc IERC165
-    function supportsInterface(
-        bytes4 interfaceId
-    )
-        public
-        pure
-        virtual
-        override(AccessControlUpgradeable, IERC165)
-        returns (bool)
-    {
-        return
-            interfaceId == type(IERC20).interfaceId ||
-            interfaceId == type(IBurnMintERC20).interfaceId ||
-            interfaceId == type(IERC165).interfaceId ||
-            interfaceId == type(IAccessControl).interfaceId ||
-            interfaceId == type(IGetCCIPAdmin).interfaceId;
-    }
 
     /**
      * @dev Mints tokens for cross-chain bridge transfers
@@ -468,10 +446,7 @@ contract GovernanceTokenV2 is
      * @custom:throws BridgeAmountExceeded if amount exceeds maxBridge
      * @custom:throws MaxSupplyExceeded if the mint would exceed initialSupply
      */
-    function mint(
-        address account,
-        uint256 amount
-    )
+    function mint(address account, uint256 amount)
         public
         nonZeroAddress(account)
         nonZeroAmount(amount)
@@ -482,13 +457,15 @@ contract GovernanceTokenV2 is
 
         // Cache maxBridge to avoid double storage read
         uint256 maxBridgeAmount = maxBridge;
-        if (amount > maxBridgeAmount)
+        if (amount > maxBridgeAmount) {
             revert BridgeAmountExceeded(amount, maxBridgeAmount);
+        }
 
         // Supply constraint validation
+        uint256 allowedSupply = initialSupply * activeChains;
         uint256 newSupply = totalSupply() + amount;
-        if (newSupply > initialSupply) {
-            revert MaxSupplyExceeded(newSupply);
+        if (newSupply > allowedSupply) {
+            revert MaxSupplyExceeded(allowedSupply, newSupply);
         }
 
         // Mint tokens
@@ -501,9 +478,7 @@ contract GovernanceTokenV2 is
     /// @inheritdoc ERC20BurnableUpgradeable
     /// @dev Uses OZ ERC20 _burn to disallow burning from address(0).
     /// @dev Decreases the total supply.
-    function burn(
-        uint256 amount
-    ) public override(IBurnMintERC20, ERC20BurnableUpgradeable) {
+    function burn(uint256 amount) public override(IBurnMintERC20, ERC20BurnableUpgradeable) {
         super.burn(amount);
     }
 
@@ -517,38 +492,66 @@ contract GovernanceTokenV2 is
     /// @inheritdoc ERC20BurnableUpgradeable
     /// @dev Uses OZ ERC20 _burn to disallow burning from address(0).
     /// @dev Decreases the total supply.
-    function burnFrom(
-        address account,
-        uint256 amount
-    ) public override(IBurnMintERC20, ERC20BurnableUpgradeable) {
+    function burnFrom(address account, uint256 amount) public override(IBurnMintERC20, ERC20BurnableUpgradeable) {
         super.burnFrom(account, amount);
     }
 
-    // ================================================================
-    // │                       CCIP Roles                             │
-    // ================================================================
-
-    /// @notice grants both mint and burn roles to `burnAndMinter`.
-    /// @dev calls public functions so this function does not require
-    /// access controls. This is handled in the inner functions.
-    function grantMintAndBurnRoles(address burnAndMinter) external {
-        grantRole(BRIDGE_ROLE, burnAndMinter);
+    /// @inheritdoc IERC165
+    function supportsInterface(bytes4 interfaceId)
+        public
+        pure
+        virtual
+        override(AccessControlUpgradeable, IERC165)
+        returns (bool)
+    {
+        return interfaceId == type(IERC20).interfaceId || interfaceId == type(IBurnMintERC20).interfaceId
+            || interfaceId == type(IERC165).interfaceId || interfaceId == type(IAccessControl).interfaceId
+            || interfaceId == type(IGetCCIPAdmin).interfaceId;
     }
 
-    /// @notice Returns the current CCIPAdmin
-    function getCCIPAdmin() external view returns (address) {
-        return s_ccipAdmin;
+    // The following functions are overrides required by Solidity.
+    /// @inheritdoc ERC20PermitUpgradeable
+    function nonces(address owner) public view override(ERC20PermitUpgradeable, NoncesUpgradeable) returns (uint256) {
+        return super.nonces(owner);
     }
 
-    /// @notice Transfers the CCIPAdmin role to a new address
-    /// @dev only the owner can call this function, NOT the current ccipAdmin, and 1-step ownership transfer is used.
-    /// @param newAdmin The address to transfer the CCIPAdmin role to. Setting to address(0) is a valid way to revoke
-    /// the role
-    function setCCIPAdmin(address newAdmin) external onlyRole(MANAGER_ROLE) {
-        address currentAdmin = s_ccipAdmin;
+    /// @inheritdoc ERC20Upgradeable
+    function _update(address from, address to, uint256 value)
+        internal
+        override(ERC20Upgradeable, ERC20PausableUpgradeable, ERC20VotesUpgradeable)
+    {
+        super._update(from, to, value);
+    }
 
-        s_ccipAdmin = newAdmin;
+    /**
+     * @dev Internal authorization for contract upgrades with timelock enforcement
+     * @param newImplementation Address of the new implementation contract
+     * @custom:requires-role UPGRADER_ROLE (enforced by the function modifier)
+     * @custom:requires Upgrade must be scheduled and timelock must be expired
+     * @custom:throws UpgradeNotScheduled if no upgrade was scheduled
+     * @custom:throws UpgradeTimelockActive if timelock period hasn't passed
+     */
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) {
+        if (!pendingUpgrade.exists) {
+            revert UpgradeNotScheduled();
+        }
 
-        emit CCIPAdminTransferred(currentAdmin, newAdmin);
+        if (pendingUpgrade.implementation != newImplementation) {
+            revert ImplementationMismatch(pendingUpgrade.implementation, newImplementation);
+        }
+
+        uint256 timeElapsed = block.timestamp - pendingUpgrade.scheduledTime;
+        if (timeElapsed < UPGRADE_TIMELOCK_DURATION) {
+            revert UpgradeTimelockActive(UPGRADE_TIMELOCK_DURATION - timeElapsed);
+        }
+
+        // Clear the scheduled upgrade
+        delete pendingUpgrade;
+
+        // Increment version
+        ++version;
+
+        // Emit the upgrade event
+        emit Upgrade(msg.sender, newImplementation);
     }
 }
