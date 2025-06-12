@@ -10,13 +10,26 @@ pragma solidity 0.8.23;
 import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import {ERC20BurnableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
-import {ERC20PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
-import {ERC20VotesUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
-import {ERC20PermitUpgradeable, NoncesUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
+import {ERC20BurnableUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
+import {ERC20PausableUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
+import {ERC20VotesUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20VotesUpgradeable.sol";
+import {ERC20PermitUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
+import {NoncesUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/NoncesUpgradeable.sol";
+import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import {IGetCCIPAdmin} from "../interfaces/IGetCCIPAdmin.sol";
+import {IBurnMintERC20} from "../interfaces/IBurnMintERC20.sol";
 
 /// @custom:oz-upgrades
 contract GovernanceToken is
+    IERC165,
+    IGetCCIPAdmin,
+    IBurnMintERC20,
     ERC20Upgradeable,
     ERC20BurnableUpgradeable,
     ERC20PausableUpgradeable,
@@ -60,11 +73,16 @@ contract GovernanceToken is
     uint32 public version;
     /// @dev tge initialized variable
     uint32 public tge;
+    /// @dev number of active chains in the ecosystem
+    uint32 public activeChains;
     /// @dev Upgrade request structure
     UpgradeRequest public pendingUpgrade;
+    /// @dev the CCIPAdmin can be used to register with the CCIP token admin registry, but has no other special powers,
+    /// and can only be transferred by the owner.
+    address internal ccipAdmin;
 
     /// @dev Storage gap for future upgrades
-    uint256[48] private __gap;
+    uint256[47] private __gap;
 
     // ============ Events ============
 
@@ -92,21 +110,22 @@ contract GovernanceToken is
      * @param oldMaxBridge Previous maximum bridge amount
      * @param newMaxBridge New maximum bridge amount
      */
-    event MaxBridgeUpdated(
-        address indexed admin,
-        uint256 oldMaxBridge,
-        uint256 newMaxBridge
-    );
+    event MaxBridgeUpdated(address indexed admin, uint256 oldMaxBridge, uint256 newMaxBridge);
+
+    /**
+     * @dev Emitted when the maximum bridge amount is updated
+     * @param admin The address that updated the value
+     * @param oldActiveChains Previous maximum bridge amount
+     * @param newActiveChains New maximum bridge amount
+     */
+    event ActiveChainsUpdated(address indexed admin, uint32 oldActiveChains, uint32 newActiveChains);
 
     /**
      * @dev Emitted when a bridge role is assigned
      * @param admin The admin who set the role
      * @param bridgeAddress The bridge address receiving the role
      */
-    event BridgeRoleAssigned(
-        address indexed admin,
-        address indexed bridgeAddress
-    );
+    event BridgeRoleAssigned(address indexed admin, address indexed bridgeAddress);
 
     /**
      * @dev Emitted when an upgrade is scheduled
@@ -116,10 +135,7 @@ contract GovernanceToken is
      * @param effectiveTime The time when the upgrade can be executed
      */
     event UpgradeScheduled(
-        address indexed sender,
-        address indexed implementation,
-        uint64 scheduledTime,
-        uint64 effectiveTime
+        address indexed sender, address indexed implementation, uint64 scheduledTime, uint64 effectiveTime
     );
 
     /**
@@ -127,10 +143,7 @@ contract GovernanceToken is
      * @param canceller The address that cancelled the upgrade
      * @param implementation The implementation address that was cancelled
      */
-    event UpgradeCancelled(
-        address indexed canceller,
-        address indexed implementation
-    );
+    event UpgradeCancelled(address indexed canceller, address indexed implementation);
 
     /**
      * @dev Upgrade Event.
@@ -138,6 +151,13 @@ contract GovernanceToken is
      * @param implementation address
      */
     event Upgrade(address indexed src, address indexed implementation);
+
+    /**
+     * @dev Emitted when the CCIPAdmin role is transferred
+     * @param previousAdmin The address that previously held the CCIPAdmin role
+     * @param newAdmin The address that now holds the CCIPAdmin role
+     */
+    event CCIPAdminTransferred(address indexed previousAdmin, address indexed newAdmin);
 
     // ============ Errors ============
 
@@ -170,6 +190,9 @@ contract GovernanceToken is
 
     /// @dev Error thrown for general validation failures
     error ValidationFailed(string reason);
+
+    /// @dev Error thrown when the recipient address is invalid
+    error InvalidRecipient(address recipient);
 
     /**
      * @dev Modifier to check for non-zero amounts
@@ -207,12 +230,10 @@ contract GovernanceToken is
      * @custom:events-emits {Initialized} event.
      * @custom:throws ZeroAddress if any address is zero.
      */
-    function initializeUUPS(
-        address guardian,
-        address timelock
-    ) external initializer {
-        if (guardian == address(0) || timelock == address(0))
+    function initializeUUPS(address guardian, address timelock) external initializer {
+        if (guardian == address(0) || timelock == address(0)) {
             revert ZeroAddress();
+        }
 
         __ERC20_init("Lendefi DAO", "LEND");
         __ERC20Burnable_init();
@@ -232,6 +253,7 @@ contract GovernanceToken is
         maxBridge = DEFAULT_MAX_BRIDGE_AMOUNT;
 
         version = 1;
+        activeChains = 1;
         emit Initialized(msg.sender);
     }
 
@@ -241,9 +263,7 @@ contract GovernanceToken is
      * @custom:requires-role MANAGER_ROLE
      * @custom:throws ZeroAddress if bridgeAddress is zero
      */
-    function setBridgeAddress(
-        address bridgeAddress
-    ) external onlyRole(MANAGER_ROLE) {
+    function setBridgeAddress(address bridgeAddress) external onlyRole(MANAGER_ROLE) {
         if (bridgeAddress == address(0)) revert ZeroAddress();
 
         _grantRole(BRIDGE_ROLE, bridgeAddress);
@@ -262,17 +282,13 @@ contract GovernanceToken is
      * @custom:throws ZeroAddress if any address is zero.
      * @custom:throws TGEAlreadyInitialized if TGE was already initialized.
      */
-    function initializeTGE(
-        address ecosystem,
-        address treasury
-    ) external onlyRole(TGE_ROLE) {
-        if (ecosystem == address(0))
-            revert InvalidAddress(
-                ecosystem,
-                "Ecosystem address cannot be zero"
-            );
-        if (treasury == address(0))
+    function initializeTGE(address ecosystem, address treasury) external onlyRole(TGE_ROLE) {
+        if (ecosystem == address(0)) {
+            revert InvalidAddress(ecosystem, "Ecosystem address cannot be zero");
+        }
+        if (treasury == address(0)) {
             revert InvalidAddress(treasury, "Treasury address cannot be zero");
+        }
         if (tge > 0) revert TGEAlreadyInitialized();
 
         ++tge;
@@ -306,46 +322,6 @@ contract GovernanceToken is
     }
 
     /**
-     * @dev Mints tokens for cross-chain bridge transfers
-     * @param to Address receiving the tokens
-     * @param amount Amount to mint
-     * @notice Can only be called by the official Bridge contract
-     * @custom:requires-role BRIDGE_ROLE
-     * @custom:requires Total supply must not exceed initialSupply
-     * @custom:requires to address must not be zero
-     * @custom:requires amount must not be zero or exceed maxBridge limit
-     * @custom:events-emits {BridgeMint} event
-     * @custom:throws ZeroAddress if recipient address is zero
-     * @custom:throws ZeroAmount if amount is zero
-     * @custom:throws BridgeAmountExceeded if amount exceeds maxBridge
-     * @custom:throws MaxSupplyExceeded if the mint would exceed initialSupply
-     */
-    function bridgeMint(
-        address to,
-        uint256 amount
-    )
-        external
-        nonZeroAddress(to)
-        nonZeroAmount(amount)
-        whenNotPaused
-        onlyRole(BRIDGE_ROLE)
-    {
-        if (amount > maxBridge) revert BridgeAmountExceeded(amount, maxBridge);
-
-        // Supply constraint validation
-        uint256 newSupply = totalSupply() + amount;
-        if (newSupply > initialSupply) {
-            revert MaxSupplyExceeded(newSupply, initialSupply);
-        }
-
-        // Mint tokens
-        _mint(to, amount);
-
-        // Emit event
-        emit BridgeMint(msg.sender, to, amount);
-    }
-
-    /**
      * @dev Updates the maximum allowed bridge amount per transaction
      * @param newMaxBridge New maximum bridge amount
      * @notice Only callable by manager role
@@ -355,12 +331,11 @@ contract GovernanceToken is
      * @custom:throws ZeroAmount if newMaxBridge is zero
      * @custom:throws ValidationFailed if bridge amount is too high
      */
-    function updateMaxBridgeAmount(
-        uint256 newMaxBridge
-    ) external nonZeroAmount(newMaxBridge) onlyRole(MANAGER_ROLE) {
+    function updateMaxBridgeAmount(uint256 newMaxBridge) external nonZeroAmount(newMaxBridge) onlyRole(MANAGER_ROLE) {
         // Add a reasonable cap, e.g., 1% of initial supply
-        if (newMaxBridge > initialSupply / 100)
+        if (newMaxBridge > initialSupply / 100) {
             revert ValidationFailed("Bridge amount too high");
+        }
 
         uint256 oldMaxBridge = maxBridge;
         maxBridge = newMaxBridge;
@@ -368,6 +343,17 @@ contract GovernanceToken is
         emit MaxBridgeUpdated(msg.sender, oldMaxBridge, newMaxBridge);
     }
 
+    function updateActiveChains(uint32 newActiveChains)
+        external
+        nonZeroAmount(newActiveChains)
+        onlyRole(MANAGER_ROLE)
+    {
+        uint32 oldActiveChains = activeChains;
+        if (newActiveChains < oldActiveChains) revert ValidationFailed("Invalid chains number");
+        activeChains = newActiveChains;
+
+        emit ActiveChainsUpdated(msg.sender, oldActiveChains, newActiveChains);
+    }
     /**
      * @dev Schedules an upgrade to a new implementation
      * @param newImplementation Address of the new implementation
@@ -376,24 +362,18 @@ contract GovernanceToken is
      * @custom:events-emits {UpgradeScheduled} event
      * @custom:throws ZeroAddress if newImplementation is zero
      */
-    function scheduleUpgrade(
-        address newImplementation
-    ) external nonZeroAddress(newImplementation) onlyRole(UPGRADER_ROLE) {
+
+    function scheduleUpgrade(address newImplementation)
+        external
+        nonZeroAddress(newImplementation)
+        onlyRole(UPGRADER_ROLE)
+    {
         uint64 currentTime = uint64(block.timestamp);
         uint64 effectiveTime = currentTime + uint64(UPGRADE_TIMELOCK_DURATION);
 
-        pendingUpgrade = UpgradeRequest({
-            implementation: newImplementation,
-            scheduledTime: currentTime,
-            exists: true
-        });
+        pendingUpgrade = UpgradeRequest({implementation: newImplementation, scheduledTime: currentTime, exists: true});
 
-        emit UpgradeScheduled(
-            msg.sender,
-            newImplementation,
-            currentTime,
-            effectiveTime
-        );
+        emit UpgradeScheduled(msg.sender, newImplementation, currentTime, effectiveTime);
     }
 
     /**
@@ -409,46 +389,136 @@ contract GovernanceToken is
         emit UpgradeCancelled(msg.sender, implementation);
     }
 
+    // ================================================================
+    // │                       CCIP Roles                             │
+    // ================================================================
+
+    /// @notice grants both mint and burn roles to `burnAndMinter`.
+    /// @dev calls public functions so this function does not require
+    /// access controls. This is handled in the inner functions.
+    function grantMintAndBurnRoles(address burnAndMinter) external {
+        grantRole(BRIDGE_ROLE, burnAndMinter);
+    }
+
+    /// @notice Transfers the CCIPAdmin role to a new address
+    /// @dev only the owner can call this function, NOT the current ccipAdmin, and 1-step ownership transfer is used.
+    /// @param newAdmin The address to transfer the CCIPAdmin role to. Setting to address(0) is a valid way to revoke
+    /// the role
+    function setCCIPAdmin(address newAdmin) external onlyRole(MANAGER_ROLE) {
+        address currentAdmin = ccipAdmin;
+
+        ccipAdmin = newAdmin;
+
+        emit CCIPAdminTransferred(currentAdmin, newAdmin);
+    }
+
+    /// @notice Returns the current CCIPAdmin
+    function getCCIPAdmin() external view returns (address) {
+        return ccipAdmin;
+    }
+
     /**
      * @dev Returns the remaining time before a scheduled upgrade can be executed
      * @return The time remaining in seconds, or 0 if no upgrade is scheduled or timelock has passed
      */
     function upgradeTimelockRemaining() external view returns (uint256) {
-        return
-            pendingUpgrade.exists &&
-                block.timestamp <
-                pendingUpgrade.scheduledTime + UPGRADE_TIMELOCK_DURATION
-                ? pendingUpgrade.scheduledTime +
-                    UPGRADE_TIMELOCK_DURATION -
-                    block.timestamp
-                : 0;
+        return pendingUpgrade.exists && block.timestamp < pendingUpgrade.scheduledTime + UPGRADE_TIMELOCK_DURATION
+            ? pendingUpgrade.scheduledTime + UPGRADE_TIMELOCK_DURATION - block.timestamp
+            : 0;
+    }
+
+    // ================================================================
+    // │     NEW Chainlink CCIP CCT SECTION                           │
+    // ================================================================
+
+    /**
+     * @dev Mints tokens for cross-chain bridge transfers
+     * @param account Address receiving the tokens
+     * @param amount Amount to mint
+     * @notice Can only be called by the official Bridge contract
+     * @custom:requires-role BRIDGE_ROLE
+     * @custom:requires Total supply must not exceed initialSupply
+     * @custom:requires to address must not be zero
+     * @custom:requires amount must not be zero or exceed maxBridge limit
+     * @custom:events-emits {BridgeMint} event
+     * @custom:throws ZeroAddress if recipient address is zero
+     * @custom:throws ZeroAmount if amount is zero
+     * @custom:throws BridgeAmountExceeded if amount exceeds maxBridge
+     * @custom:throws MaxSupplyExceeded if the mint would exceed initialSupply
+     */
+    function mint(address account, uint256 amount)
+        public
+        nonZeroAddress(account)
+        nonZeroAmount(amount)
+        whenNotPaused
+        onlyRole(BRIDGE_ROLE)
+    {
+        if (account == address(this)) revert InvalidRecipient(account);
+
+        // Cache maxBridge to avoid double storage read
+        uint256 maxBridgeAmount = maxBridge;
+        if (amount > maxBridgeAmount) {
+            revert BridgeAmountExceeded(amount, maxBridgeAmount);
+        }
+
+        // Supply constraint validation
+        uint256 allowedSupply = initialSupply * activeChains;
+        uint256 newSupply = totalSupply() + amount;
+        if (newSupply > allowedSupply) {
+            revert MaxSupplyExceeded(allowedSupply, newSupply);
+        }
+
+        // Mint tokens
+        _mint(account, amount);
+
+        // Emit event
+        emit BridgeMint(msg.sender, account, amount);
+    }
+
+    /// @inheritdoc ERC20BurnableUpgradeable
+    /// @dev Uses OZ ERC20 _burn to disallow burning from address(0).
+    /// @dev Decreases the total supply.
+    function burn(uint256 amount) public override(IBurnMintERC20, ERC20BurnableUpgradeable) {
+        super.burn(amount);
+    }
+
+    /// @inheritdoc IBurnMintERC20
+    /// @dev Alias for BurnFrom for compatibility with the older naming convention.
+    /// @dev Uses burnFrom for all validation & logic.
+    function burn(address account, uint256 amount) public virtual override {
+        burnFrom(account, amount);
+    }
+
+    /// @inheritdoc ERC20BurnableUpgradeable
+    /// @dev Uses OZ ERC20 _burn to disallow burning from address(0).
+    /// @dev Decreases the total supply.
+    function burnFrom(address account, uint256 amount) public override(IBurnMintERC20, ERC20BurnableUpgradeable) {
+        super.burnFrom(account, amount);
+    }
+
+    /// @inheritdoc IERC165
+    function supportsInterface(bytes4 interfaceId)
+        public
+        pure
+        virtual
+        override(AccessControlUpgradeable, IERC165)
+        returns (bool)
+    {
+        return interfaceId == type(IERC20).interfaceId || interfaceId == type(IBurnMintERC20).interfaceId
+            || interfaceId == type(IERC165).interfaceId || interfaceId == type(IAccessControl).interfaceId
+            || interfaceId == type(IGetCCIPAdmin).interfaceId;
     }
 
     // The following functions are overrides required by Solidity.
     /// @inheritdoc ERC20PermitUpgradeable
-    function nonces(
-        address owner
-    )
-        public
-        view
-        override(ERC20PermitUpgradeable, NoncesUpgradeable)
-        returns (uint256)
-    {
+    function nonces(address owner) public view override(ERC20PermitUpgradeable, NoncesUpgradeable) returns (uint256) {
         return super.nonces(owner);
     }
 
     /// @inheritdoc ERC20Upgradeable
-    function _update(
-        address from,
-        address to,
-        uint256 value
-    )
+    function _update(address from, address to, uint256 value)
         internal
-        override(
-            ERC20Upgradeable,
-            ERC20PausableUpgradeable,
-            ERC20VotesUpgradeable
-        )
+        override(ERC20Upgradeable, ERC20PausableUpgradeable, ERC20VotesUpgradeable)
     {
         super._update(from, to, value);
     }
@@ -461,25 +531,18 @@ contract GovernanceToken is
      * @custom:throws UpgradeNotScheduled if no upgrade was scheduled
      * @custom:throws UpgradeTimelockActive if timelock period hasn't passed
      */
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal override onlyRole(UPGRADER_ROLE) {
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) {
         if (!pendingUpgrade.exists) {
             revert UpgradeNotScheduled();
         }
 
         if (pendingUpgrade.implementation != newImplementation) {
-            revert ImplementationMismatch(
-                pendingUpgrade.implementation,
-                newImplementation
-            );
+            revert ImplementationMismatch(pendingUpgrade.implementation, newImplementation);
         }
 
         uint256 timeElapsed = block.timestamp - pendingUpgrade.scheduledTime;
         if (timeElapsed < UPGRADE_TIMELOCK_DURATION) {
-            revert UpgradeTimelockActive(
-                UPGRADE_TIMELOCK_DURATION - timeElapsed
-            );
+            revert UpgradeTimelockActive(UPGRADE_TIMELOCK_DURATION - timeElapsed);
         }
 
         // Clear the scheduled upgrade
