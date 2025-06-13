@@ -8,12 +8,13 @@ import {ILendefiMarketVault} from "../../contracts/interfaces/ILendefiMarketVaul
 import {LendefiMarketFactory} from "../../contracts/markets/LendefiMarketFactory.sol";
 import {TokenMock} from "../../contracts/mock/TokenMock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {WBNB} from "../../contracts/mock/WBNB.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract LendefiMarketOwnerDashboardTest is BasicDeploy {
     LendefiMarketOwnerDashboard public ownerDashboard;
     TokenMock public daiToken;
-    TokenMock public wethToken;
+    WBNB public wbnbToken;
 
     function setUp() public {
         // Deploy basic infrastructure with USDC market
@@ -24,18 +25,18 @@ contract LendefiMarketOwnerDashboardTest is BasicDeploy {
 
         // Create additional test tokens
         daiToken = new TokenMock("DAI Stablecoin", "DAI");
-        wethToken = new TokenMock("Wrapped Ether", "WETH");
+        wbnbToken = new WBNB();
 
         // Add tokens to allowlist
         vm.startPrank(gnosisSafe);
         marketFactoryInstance.addAllowedBaseAsset(address(daiToken));
-        marketFactoryInstance.addAllowedBaseAsset(address(wethToken));
+        marketFactoryInstance.addAllowedBaseAsset(address(wbnbToken));
         vm.stopPrank();
 
         // Create additional markets for charlie
         vm.startPrank(charlie);
         marketFactoryInstance.createMarket(address(daiToken), "Lendefi DAI Market", "lfDAI");
-        marketFactoryInstance.createMarket(address(wethToken), "Lendefi WETH Market", "lfWETH");
+        marketFactoryInstance.createMarket(address(wbnbToken), "Lendefi WBNB Market", "lfWBNB");
         vm.stopPrank();
 
         // Setup TGE
@@ -43,10 +44,10 @@ contract LendefiMarketOwnerDashboardTest is BasicDeploy {
         tokenInstance.initializeTGE(address(ecoInstance), address(treasuryInstance));
 
         // Fund users for testing
-        deal(address(usdcInstance), alice, 10000e6);
+        deal(address(usdcInstance), alice, 10000e18);
         deal(address(daiToken), alice, 10000e18);
-        deal(address(wethToken), alice, 10e18);
-        deal(address(usdcInstance), bob, 5000e6);
+        deal(address(wbnbToken), alice, 10e18);
+        deal(address(usdcInstance), bob, 5000e18);
         deal(address(daiToken), bob, 5000e18);
     }
 
@@ -73,7 +74,7 @@ contract LendefiMarketOwnerDashboardTest is BasicDeploy {
         ILendefiMarketOwnerDashboard.OwnerMarketOverview[] memory overviews =
             ownerDashboard.getOwnerMarketOverviews(charlie);
 
-        // Charlie should have 3 markets (USDC, DAI, WETH)
+        // Charlie should have 3 markets (USDC, DAI, WBNB)
         assertEq(overviews.length, 3);
 
         // Check USDC market
@@ -82,7 +83,7 @@ contract LendefiMarketOwnerDashboardTest is BasicDeploy {
             if (overviews[i].baseAsset == address(usdcInstance)) {
                 foundUSDC = true;
                 assertEq(overviews[i].baseAssetSymbol, "USDC");
-                assertEq(overviews[i].baseAssetDecimals, 6);
+                assertEq(overviews[i].baseAssetDecimals, 18);
                 assertEq(overviews[i].marketName, "Lendefi Yield Token");
                 assertEq(overviews[i].marketSymbol, "LYTUSDC");
                 assertTrue(overviews[i].active);
@@ -124,7 +125,7 @@ contract LendefiMarketOwnerDashboardTest is BasicDeploy {
         ILendefiMarketOwnerDashboard.OwnerPortfolioStats memory stats = ownerDashboard.getOwnerPortfolioStats(charlie);
 
         // Check basic stats
-        assertEq(stats.totalMarkets, 3); // USDC, DAI, WETH
+        assertEq(stats.totalMarkets, 3); // USDC, DAI, WBNB
         assertEq(stats.managedBaseAssets.length, 3);
         assertGt(stats.portfolioCreationDate, 0);
         assertEq(stats.portfolioHealthScore, 1000); // Perfect health initially (no debt)
@@ -134,15 +135,15 @@ contract LendefiMarketOwnerDashboardTest is BasicDeploy {
         // Check that managed assets include our tokens
         bool foundUSDC = false;
         bool foundDAI = false;
-        bool foundWETH = false;
+        bool foundWBNB = false;
 
         for (uint256 i = 0; i < stats.managedBaseAssets.length; i++) {
             if (stats.managedBaseAssets[i] == address(usdcInstance)) foundUSDC = true;
             if (stats.managedBaseAssets[i] == address(daiToken)) foundDAI = true;
-            if (stats.managedBaseAssets[i] == address(wethToken)) foundWETH = true;
+            if (stats.managedBaseAssets[i] == address(wbnbToken)) foundWBNB = true;
         }
 
-        assertTrue(foundUSDC && foundDAI && foundWETH, "Not all assets found in managed assets");
+        assertTrue(foundUSDC && foundDAI && foundWBNB, "Not all assets found in managed assets");
     }
 
     function test_GetOwnerPortfolioStats_WithLiquidity() public {
@@ -150,8 +151,8 @@ contract LendefiMarketOwnerDashboardTest is BasicDeploy {
         IPROTOCOL.Market memory usdcMarket = marketFactoryInstance.getMarketInfo(charlie, address(usdcInstance));
 
         vm.startPrank(alice);
-        usdcInstance.approve(usdcMarket.baseVault, 1000e6);
-        ILendefiMarketVault(usdcMarket.baseVault).deposit(1000e6, alice);
+        usdcInstance.approve(usdcMarket.baseVault, 1000e18);
+        ILendefiMarketVault(usdcMarket.baseVault).deposit(1000e18, alice);
         vm.stopPrank();
 
         ILendefiMarketOwnerDashboard.OwnerPortfolioStats memory stats = ownerDashboard.getOwnerPortfolioStats(charlie);
@@ -227,19 +228,19 @@ contract LendefiMarketOwnerDashboardTest is BasicDeploy {
         // Check that all markets are represented
         bool foundUSDC = false;
         bool foundDAI = false;
-        bool foundWETH = false;
+        bool foundWBNB = false;
 
         for (uint256 i = 0; i < analytics.length; i++) {
             if (analytics[i].baseAsset == address(usdcInstance)) foundUSDC = true;
             if (analytics[i].baseAsset == address(daiToken)) foundDAI = true;
-            if (analytics[i].baseAsset == address(wethToken)) foundWETH = true;
+            if (analytics[i].baseAsset == address(wbnbToken)) foundWBNB = true;
 
             // All should have default values
             assertEq(analytics[i].retentionRate, 8000);
             assertEq(analytics[i].riskTrend, 1);
         }
 
-        assertTrue(foundUSDC && foundDAI && foundWETH, "Not all markets found in analytics");
+        assertTrue(foundUSDC && foundDAI && foundWBNB, "Not all markets found in analytics");
     }
 
     // ========== Ranking Tests ==========
@@ -278,8 +279,8 @@ contract LendefiMarketOwnerDashboardTest is BasicDeploy {
 
         vm.startPrank(alice);
         // USDC market
-        usdcInstance.approve(usdcMarket.baseVault, 5000e6);
-        ILendefiMarketVault(usdcMarket.baseVault).deposit(5000e6, alice);
+        usdcInstance.approve(usdcMarket.baseVault, 5000e18);
+        ILendefiMarketVault(usdcMarket.baseVault).deposit(5000e18, alice);
 
         // DAI market
         daiToken.approve(daiMarket.baseVault, 3000e18);
@@ -288,8 +289,8 @@ contract LendefiMarketOwnerDashboardTest is BasicDeploy {
 
         // Bob provides liquidity to USDC market
         vm.startPrank(bob);
-        usdcInstance.approve(usdcMarket.baseVault, 2000e6);
-        ILendefiMarketVault(usdcMarket.baseVault).deposit(2000e6, bob);
+        usdcInstance.approve(usdcMarket.baseVault, 2000e18);
+        ILendefiMarketVault(usdcMarket.baseVault).deposit(2000e18, bob);
         vm.stopPrank();
 
         // Test all owner dashboard functions work together
@@ -306,7 +307,7 @@ contract LendefiMarketOwnerDashboardTest is BasicDeploy {
         assertEq(analytics.length, 3);
 
         // Verify TVL is correctly aggregated across markets
-        assertGt(stats.totalPortfolioTVL, 5000e6); // At least Alice's USDC deposit
+        assertGt(stats.totalPortfolioTVL, 5000e18); // At least Alice's USDC deposit
         assertEq(stats.portfolioHealthScore, 1000); // Still perfect health (no debt)
     }
 
@@ -348,7 +349,7 @@ contract LendefiMarketOwnerDashboardTest is BasicDeploy {
         ILendefiMarketOwnerDashboard.OwnerMarketOverview[] memory davidMarkets =
             ownerDashboard.getOwnerMarketOverviews(david);
 
-        assertEq(charlieMarkets.length, 3); // USDC, DAI, WETH
+        assertEq(charlieMarkets.length, 3); // USDC, DAI, WBNB
         assertEq(davidMarkets.length, 1); // Only USDC
 
         // Check that david's market has different name/symbol
