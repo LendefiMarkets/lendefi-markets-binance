@@ -10,8 +10,8 @@ import {LendefiMarketVault} from "../../contracts/markets/LendefiMarketVault.sol
 import {LendefiMarketFactory} from "../../contracts/markets/LendefiMarketFactory.sol";
 import {ILendefiMarketFactory} from "../../contracts/interfaces/ILendefiMarketFactory.sol";
 import {LendefiPositionVault} from "../../contracts/markets/LendefiPositionVault.sol";
-import {WETH9} from "../../contracts/vendor/canonical-weth/contracts/WETH9.sol";
-import {WETHPriceConsumerV3} from "../../contracts/mock/WETHOracle.sol";
+import {WBNB} from "../../contracts/mock/WBNB.sol";
+import {WBNBPriceConsumerV3} from "../../contracts/mock/WBNBOracle.sol";
 import {LendefiConstants} from "../../contracts/markets/lib/LendefiConstants.sol";
 
 contract LendefiMarketFactoryTest is BasicDeploy {
@@ -41,11 +41,11 @@ contract LendefiMarketFactoryTest is BasicDeploy {
         daiToken = new TokenMock("DAI Stablecoin", "DAI");
         usdtToken = new TokenMock("Tether USD", "USDT");
 
-        // Set decimals for USDT (6 decimals like real USDT)
-        vm.mockCall(address(usdtToken), abi.encodeWithSelector(IERC20Metadata.decimals.selector), abi.encode(6));
+        // Set decimals for USDT (18 decimals like Binance USDT)
+        vm.mockCall(address(usdtToken), abi.encodeWithSelector(IERC20Metadata.decimals.selector), abi.encode(18));
 
-        // Deploy and setup WETH for integration tests
-        wethInstance = new WETH9();
+        // Deploy and setup WBNB for integration tests
+        wbnbInstance = new WBNB();
     }
 
     // ============ Helper Functions ============
@@ -120,7 +120,9 @@ contract LendefiMarketFactoryTest is BasicDeploy {
 
         vm.prank(alice);
         vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, alice, LendefiConstants.MANAGER_ROLE)
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, alice, LendefiConstants.MANAGER_ROLE
+            )
         );
         marketFactoryInstance.setImplementations(
             address(newCoreImpl), address(0), address(posVaultImpl), address(assetsInstance), address(porFeedImpl)
@@ -136,7 +138,7 @@ contract LendefiMarketFactoryTest is BasicDeploy {
         assertEq(market.baseAsset, address(usdcInstance));
         assertEq(market.name, "Lendefi Yield Token"); // This is the name used in deployMarketsWithUSDC
         assertEq(market.symbol, "LYTUSDC"); // This is the symbol used in deployMarketsWithUSDC
-        assertEq(market.decimals, 6);
+        assertEq(market.decimals, 18);
         assertTrue(market.active);
         assertTrue(market.core != address(0));
         assertTrue(market.baseVault != address(0));
@@ -167,7 +169,7 @@ contract LendefiMarketFactoryTest is BasicDeploy {
         assertEq(daiVault.symbol(), "lfDAI");
     }
 
-    function test_CreateMarket_USDT_6Decimals() public {
+    function test_CreateMarket_USDT_18Decimals() public {
         addAssetToAllowlist(address(usdtToken));
 
         vm.prank(charlie);
@@ -176,8 +178,8 @@ contract LendefiMarketFactoryTest is BasicDeploy {
         IPROTOCOL.Market memory createdMarket = marketFactoryInstance.getMarketInfo(charlie, address(usdtToken));
         LendefiCore usdtCore = LendefiCore(createdMarket.core);
 
-        // Verify WAD is correctly set for 6 decimal token
-        assertEq(usdtCore.baseDecimals(), 1e6);
+        // Verify WAD is correctly set for 18 decimal token
+        assertEq(usdtCore.baseDecimals(), 1e18);
     }
 
     function test_Revert_CreateMarket_Duplicate() public {
