@@ -5,22 +5,24 @@ import "../BasicDeploy.sol";
 import {console2} from "forge-std/console2.sol";
 import {IASSETS} from "../../contracts/interfaces/IASSETS.sol";
 import {RWAPriceConsumerV3} from "../../contracts/mock/RWAOracle.sol";
-import {WETHPriceConsumerV3} from "../../contracts/mock/WETHOracle.sol";
+import {WBNBPriceConsumerV3} from "../../contracts/mock/WBNBOracle.sol";
 import {StablePriceConsumerV3} from "../../contracts/mock/StableOracle.sol";
 import {MockRWA} from "../../contracts/mock/MockRWA.sol";
 import {MockPriceOracle} from "../../contracts/mock/MockPriceOracle.sol";
 import {MockUniswapV3Pool} from "../../contracts/mock/MockUniswapV3Pool.sol";
+import {WBNB} from "../../contracts/mock/WBNB.sol";
 
 contract AssetModuleOracleTest is BasicDeploy {
     // Test tokens
     MockRWA internal rwaToken;
     MockRWA internal stableToken;
+    WBNB internal wbnbInstance;
 
     // Mock oracles
     MockPriceOracle internal mockOracle1;
     MockPriceOracle internal mockOracle2;
     MockPriceOracle internal mockOracle3;
-    WETHPriceConsumerV3 internal wethOracleInstance;
+    WBNBPriceConsumerV3 internal wbnbOracleInstance;
     RWAPriceConsumerV3 internal rwaOracleInstance;
     StablePriceConsumerV3 internal stableOracleInstance;
 
@@ -55,12 +57,12 @@ contract AssetModuleOracleTest is BasicDeploy {
         deployMarketsWithUSDC();
 
         // Deploy test tokens
-        wethInstance = new WETH9();
+        wbnbInstance = new WBNB();
         rwaToken = new MockRWA("RWA Token", "RWA");
         stableToken = new MockRWA("USDT", "USDT");
 
         // Deploy price feeds
-        wethOracleInstance = new WETHPriceConsumerV3();
+        wbnbOracleInstance = new WBNBPriceConsumerV3();
         rwaOracleInstance = new RWAPriceConsumerV3();
         stableOracleInstance = new StablePriceConsumerV3();
 
@@ -70,7 +72,7 @@ contract AssetModuleOracleTest is BasicDeploy {
         mockOracle3 = new MockPriceOracle();
 
         // Set initial prices
-        wethOracleInstance.setPrice(2000e8); // $2000 per ETH
+        wbnbOracleInstance.setPrice(2000e8); // $2000 per ETH
         rwaOracleInstance.setPrice(1000e8); // $1000 per RWA token
         stableOracleInstance.setPrice(1e8); // $1 per stable token
 
@@ -100,9 +102,9 @@ contract AssetModuleOracleTest is BasicDeploy {
     function _setupAssets() internal {
         vm.startPrank(address(timelockInstance));
 
-        // Register WETH asset
+        // Register WBNB asset
         assetsInstance.updateAssetConfig(
-            address(wethInstance), // asset
+            address(wbnbInstance), // asset
             IASSETS.Asset({
                 active: 1,
                 decimals: 18,
@@ -316,7 +318,7 @@ contract AssetModuleOracleTest is BasicDeploy {
     function test_GetSingleOraclePrice() public {
         vm.startPrank(address(timelockInstance));
         // Get price
-        uint256 price = assetsInstance.getAssetPrice(address(wethInstance));
+        uint256 price = assetsInstance.getAssetPrice(address(wbnbInstance));
         assertEq(price, 2010e6, "Should return correct price");
 
         vm.stopPrank();
@@ -330,11 +332,11 @@ contract AssetModuleOracleTest is BasicDeploy {
 
         // Try to get price (should revert)
         vm.expectRevert();
-        assetsInstance.getAssetPrice(address(wethInstance));
+        assetsInstance.getAssetPrice(address(wbnbInstance));
 
         mockOracle1.setPrice(-1);
         vm.expectRevert();
-        assetsInstance.getAssetPrice(address(wethInstance));
+        assetsInstance.getAssetPrice(address(wbnbInstance));
 
         vm.stopPrank();
     }
@@ -345,11 +347,11 @@ contract AssetModuleOracleTest is BasicDeploy {
         // Configure oracle with stale round
         mockOracle1.setRoundId(10);
         mockOracle1.setAnsweredInRound(5);
-        //assetsInstance.addOracle(address(wethInstance), address(mockOracle1), 8, IASSETS.OracleType.CHAINLINK);
+        //assetsInstance.addOracle(address(wbnbInstance), address(mockOracle1), 8, IASSETS.OracleType.CHAINLINK);
 
         // Try to get price (should revert)
         vm.expectRevert();
-        assetsInstance.getAssetPrice(address(wethInstance));
+        assetsInstance.getAssetPrice(address(wbnbInstance));
 
         vm.stopPrank();
     }
@@ -359,11 +361,11 @@ contract AssetModuleOracleTest is BasicDeploy {
 
         // Configure oracle with old timestamp
         mockOracle1.setTimestamp(block.timestamp - 9 hours); // Freshness threshold is 8 hours
-        //assetsInstance.addOracle(address(wethInstance), address(mockOracle1), 8, IASSETS.OracleType.CHAINLINK);
+        //assetsInstance.addOracle(address(wbnbInstance), address(mockOracle1), 8, IASSETS.OracleType.CHAINLINK);
 
         // Try to get price (should revert)
         vm.expectRevert();
-        assetsInstance.getAssetPrice(address(wethInstance));
+        assetsInstance.getAssetPrice(address(wbnbInstance));
 
         vm.stopPrank();
     }
@@ -380,17 +382,17 @@ contract AssetModuleOracleTest is BasicDeploy {
         // Set previous round data with large price difference
         mockOracle1.setHistoricalRoundData(1, 2000e6, block.timestamp - 3 hours, 1);
 
-        //assetsInstance.addOracle(address(wethInstance), address(mockOracle1), 8, IASSETS.OracleType.CHAINLINK);
+        //assetsInstance.addOracle(address(wbnbInstance), address(mockOracle1), 8, IASSETS.OracleType.CHAINLINK);
 
         // Try to get price - should revert due to volatility with old timestamp
         vm.expectRevert();
-        assetsInstance.getAssetPrice(address(wethInstance));
+        assetsInstance.getAssetPrice(address(wbnbInstance));
 
         // Now set timestamp to be fresh for volatility check
         mockOracle1.setTimestamp(block.timestamp - 30 minutes); // Within volatility threshold
 
         // This should succeed
-        uint256 price = assetsInstance.getAssetPrice(address(wethInstance));
+        uint256 price = assetsInstance.getAssetPrice(address(wbnbInstance));
         assertEq(price, 2400e6, "Should allow volatile price if timestamp is fresh");
 
         vm.stopPrank();
@@ -400,7 +402,7 @@ contract AssetModuleOracleTest is BasicDeploy {
         vm.startPrank(address(timelockInstance));
 
         // Get median price (with single oracle, should return that oracle's price)
-        uint256 price = assetsInstance.getAssetPrice(address(wethInstance));
+        uint256 price = assetsInstance.getAssetPrice(address(wbnbInstance));
         assertEq(price, 2010e6, "Single oracle should return its price"); //price from setUp()
 
         vm.stopPrank();
@@ -421,18 +423,18 @@ contract AssetModuleOracleTest is BasicDeploy {
 
         // 1. TRIGGER PHASE - Use evaluateCircuitBreaker to detect price anomaly
         vm.expectEmit(true, true, true, false);
-        emit CircuitBreakerTriggered(address(wethInstance), 20, block.timestamp); // 20% deviation
+        emit CircuitBreakerTriggered(address(wbnbInstance), 20, block.timestamp); // 20% deviation
 
-        (bool triggered, uint256 deviation) = assetsInstance.evaluateCircuitBreaker(address(wethInstance));
+        (bool triggered, uint256 deviation) = assetsInstance.evaluateCircuitBreaker(address(wbnbInstance));
 
         // Verify circuit breaker was activated and deviation was detected
         assertTrue(triggered, "Circuit breaker should be triggered");
         assertGt(deviation, 0, "Deviation should be reported");
-        assertTrue(assetsInstance.circuitBroken(address(wethInstance)), "Circuit breaker should be active");
+        assertTrue(assetsInstance.circuitBroken(address(wbnbInstance)), "Circuit breaker should be active");
 
         // Verify price checks now fail
-        vm.expectRevert(abi.encodeWithSelector(CircuitBreakerActive.selector, address(wethInstance)));
-        assetsInstance.getAssetPrice(address(wethInstance));
+        vm.expectRevert(abi.encodeWithSelector(CircuitBreakerActive.selector, address(wbnbInstance)));
+        assetsInstance.getAssetPrice(address(wbnbInstance));
 
         // 2. RESET PHASE - Update price to normal range
         mockOracle1.setPrice(2010e8); // Return to normal price
@@ -440,16 +442,16 @@ contract AssetModuleOracleTest is BasicDeploy {
 
         // Now evaluate again to automatically reset circuit breaker
         vm.expectEmit(true, false, false, false);
-        emit CircuitBreakerReset(address(wethInstance));
+        emit CircuitBreakerReset(address(wbnbInstance));
 
-        (bool resetResult,) = assetsInstance.evaluateCircuitBreaker(address(wethInstance));
+        (bool resetResult,) = assetsInstance.evaluateCircuitBreaker(address(wbnbInstance));
 
         // Verify circuit breaker is no longer active
         assertFalse(resetResult, "Circuit breaker should be inactive after reset");
-        assertFalse(assetsInstance.circuitBroken(address(wethInstance)), "Circuit breaker should be inactive");
+        assertFalse(assetsInstance.circuitBroken(address(wbnbInstance)), "Circuit breaker should be inactive");
 
         // Verify price can be retrieved again
-        uint256 price = assetsInstance.getAssetPrice(address(wethInstance));
+        uint256 price = assetsInstance.getAssetPrice(address(wbnbInstance));
         assertGt(price, 0, "Should retrieve a valid price after reset");
 
         vm.stopPrank();
@@ -459,7 +461,7 @@ contract AssetModuleOracleTest is BasicDeploy {
         vm.startPrank(address(timelockInstance));
 
         // Check each asset price
-        uint256 wethPrice = assetsInstance.getAssetPrice(address(wethInstance));
+        uint256 wethPrice = assetsInstance.getAssetPrice(address(wbnbInstance));
         uint256 rwaPrice = assetsInstance.getAssetPrice(address(rwaToken));
         uint256 stablePrice = assetsInstance.getAssetPrice(address(stableToken));
 
@@ -470,7 +472,7 @@ contract AssetModuleOracleTest is BasicDeploy {
         // Now update one price and verify only that one changes
         mockOracle1.setPrice(2500e8);
 
-        uint256 newWethPrice = assetsInstance.getAssetPrice(address(wethInstance));
+        uint256 newWethPrice = assetsInstance.getAssetPrice(address(wbnbInstance));
         uint256 sameRwaPrice = assetsInstance.getAssetPrice(address(rwaToken));
 
         assertEq(newWethPrice, 2500e6, "WETH price should be updated");
@@ -483,10 +485,10 @@ contract AssetModuleOracleTest is BasicDeploy {
         vm.startPrank(address(timelockInstance));
 
         // Get initial price
-        uint256 initialPrice = assetsInstance.getAssetPrice(address(wethInstance));
+        uint256 initialPrice = assetsInstance.getAssetPrice(address(wbnbInstance));
         assertEq(initialPrice, 2010e6, "Initial price should be correct"); // price from setup
 
-        // Use MockPriceOracle instead of WETHPriceConsumerV3 for testing timestamp behavior
+        // Use MockPriceOracle instead of WBNBPriceConsumerV3 for testing timestamp behavior
         MockPriceOracle testOracle = new MockPriceOracle();
         testOracle.setPrice(2200e8); //new price
         testOracle.setTimestamp(block.timestamp);
@@ -494,10 +496,10 @@ contract AssetModuleOracleTest is BasicDeploy {
         testOracle.setAnsweredInRound(1);
 
         // Use replaceOracle to switch the CHAINLINK oracle
-        assetsInstance.updateChainlinkOracle(address(wethInstance), address(testOracle), 1);
+        assetsInstance.updateChainlinkOracle(address(wbnbInstance), address(testOracle), 1);
 
         // Should now get price from the new oracle
-        uint256 newPrice = assetsInstance.getAssetPrice(address(wethInstance));
+        uint256 newPrice = assetsInstance.getAssetPrice(address(wbnbInstance));
         assertEq(newPrice, 2200e6, "Should get price from the new oracle");
 
         vm.stopPrank();
@@ -582,18 +584,18 @@ contract AssetModuleOracleTest is BasicDeploy {
         // Deploy a mock Uniswap pool
         MockUniswapV3Pool uniswapPool = new MockUniswapV3Pool(address(rwaToken), address(usdcInstance), 3000);
 
-        // IMPORTANT: Set up tick values that will produce a price of 1500e6
+        // IMPORTANT: Set up tick values for 10-minute TWAP (600 seconds) based on real BSC data
         int56[] memory tickCumulatives = new int56[](2);
-        // At index 0: OLDER timestamp (1800 seconds ago)
+        // At index 0: OLDER timestamp (600 seconds ago)
         tickCumulatives[0] = 0;
         // At index 1: NEWER timestamp (now)
-        tickCumulatives[1] = 203200 * 1800; // 7,299,000
-        uniswapPool.setTickCumulatives(tickCumulatives); // $1500
+        tickCumulatives[1] = -64890 * 600; // Real BSC BNB/USDC tick: -38934000
+        uniswapPool.setTickCumulatives(tickCumulatives);
 
         // Set up seconds per liquidity (values don't matter much, just can't be 0)
         uint160[] memory secondsPerLiquidityCumulatives = new uint160[](2);
-        secondsPerLiquidityCumulatives[0] = 1000;
-        secondsPerLiquidityCumulatives[1] = 2000;
+        secondsPerLiquidityCumulatives[0] = 600;
+        secondsPerLiquidityCumulatives[1] = 600;
         uniswapPool.setSecondsPerLiquidity(secondsPerLiquidityCumulatives);
         uniswapPool.setObserveSuccess(true);
 
@@ -602,7 +604,7 @@ contract AssetModuleOracleTest is BasicDeploy {
         assetsInstance.updateUniswapOracle(
             address(rwaToken),
             address(uniswapPool),
-            1800, // 30 minute TWAP
+            600, // 10 minute TWAP for BNB
             1 //active
         );
         vm.stopPrank();
@@ -613,8 +615,8 @@ contract AssetModuleOracleTest is BasicDeploy {
         // Log the result
         console2.log("Uniswap Oracle Price:", price);
 
-        // Make sure we got a non-zero price
-        assertTrue(price > 1480e6 && price < 1520e6, "Uniswap price should be ~$1500");
+        // Make sure we got a non-zero price (based on real BSC BNB price ~$657)
+        assertTrue(price > 600e6 && price < 700e6, "Uniswap price should be ~$657");
     }
 
     function test_CheckPriceDeviation() public {
@@ -628,16 +630,16 @@ contract AssetModuleOracleTest is BasicDeploy {
         // Deploy a mock Uniswap pool (second oracle)
         MockUniswapV3Pool uniswapPool = new MockUniswapV3Pool(address(rwaToken), address(usdcInstance), 3000);
 
-        // Set tick values to produce a valid price close to $1500
+        // Set tick values based on real BSC data (using 600 seconds)
         int56[] memory tickCumulatives = new int56[](2);
         tickCumulatives[0] = 0;
-        tickCumulatives[1] = 203200 * 1800; // Adjusted tick value for ~$1500 price
+        tickCumulatives[1] = -64890 * 600; // Real BSC BNB/USDC tick: -38934000
         uniswapPool.setTickCumulatives(tickCumulatives);
 
         // Setup liquidity data
         uint160[] memory secondsPerLiquidityCumulatives = new uint160[](2);
-        secondsPerLiquidityCumulatives[0] = 1000;
-        secondsPerLiquidityCumulatives[1] = 2000;
+        secondsPerLiquidityCumulatives[0] = 600;
+        secondsPerLiquidityCumulatives[1] = 600;
         uniswapPool.setSecondsPerLiquidity(secondsPerLiquidityCumulatives);
         uniswapPool.setObserveSuccess(true);
 
@@ -667,7 +669,7 @@ contract AssetModuleOracleTest is BasicDeploy {
                 primaryOracleType: IASSETS.OracleType.CHAINLINK,
                 tier: IASSETS.CollateralTier.CROSS_B,
                 chainlinkConfig: IASSETS.ChainlinkOracleConfig({oracleUSD: address(testOracle), active: 1}),
-                poolConfig: IASSETS.UniswapPoolConfig({pool: address(uniswapPool), twapPeriod: 1800, active: 1})
+                poolConfig: IASSETS.UniswapPoolConfig({pool: address(uniswapPool), twapPeriod: 600, active: 1})
             })
         );
 
@@ -686,10 +688,10 @@ contract AssetModuleOracleTest is BasicDeploy {
         console2.log("Has Deviation:", hasDeviation);
         console2.log("Deviation Amount:", deviationAmount);
 
-        // Assertions
+        // Assertions (Chainlink $1000 vs Uniswap ~$657 = ~52% deviation)
         assertTrue(hasDeviation, "Should detect price deviation");
-        assertGt(deviationAmount, 40, "Deviation should be at least 40%");
-        assertLt(deviationAmount, 60, "Deviation should be at most 60%");
+        assertGt(deviationAmount, 45, "Deviation should be at least 45%");
+        assertLt(deviationAmount, 55, "Deviation should be at most 55%");
     }
 
     function test_UniswapZeroDelta() public {
