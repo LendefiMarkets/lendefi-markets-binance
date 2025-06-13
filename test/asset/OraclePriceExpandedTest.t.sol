@@ -22,7 +22,7 @@ contract OraclePriceExpandedTest is BasicDeploy {
 
     // Test tokens
     MockRWA internal testAsset;
-    WBNB internal wbnbInstance;
+    // WBNB instance is already declared in BasicDeploy
 
     // Uniswap mock
     MockUniswapV3Pool internal mockUniswapPool;
