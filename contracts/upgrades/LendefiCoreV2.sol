@@ -902,7 +902,8 @@ contract LendefiCoreV2 is
             LendefiRates.calculateDebtWithInterest(
                 position.debtAmount,
                 borrowRate,
-                timeElapsed
+                timeElapsed,
+                baseDecimals
             );
     }
 
