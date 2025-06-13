@@ -42,6 +42,8 @@
     "@openzeppelin/contracts-upgradeable": "5.3.0",
     "@openzeppelin/defender-deploy-client-cli": "0.0.1-alpha.10",
     "@openzeppelin/upgrades-core": "1.32.3",
+    "@pancakeswap/v3-core": "1.0.2",
+    "@pancakeswap/v3-periphery": "1.0.2",
     "@uniswap/v4-core": "1.0.1",
     "ds-test": "github:dapphub/ds-test#e282159",
     "forge-std": "github:foundry-rs/forge-std#4513bc2",
