@@ -17,7 +17,7 @@ contract LendefiAssetsBranchTest is BasicDeploy {
     MockUniswapV3Pool invalidPool;
     MockPriceOracle mockChainlinkOracle;
     MockWBTC mockWBTC;
-    WBNB wbnbInstance;
+    // WBNB instance is already declared in BasicDeploy
 
     // Test users
     address unauthorizedUser = address(0xBEEF);
