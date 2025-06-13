@@ -19,7 +19,6 @@ pragma solidity 0.8.23;
  * @custom:copyright Copyright (c) 2025 Nebula Holding Inc. All rights reserved.
  */
 
-import "forge-std/console2.sol";
 import {IASSETS} from "../interfaces/IASSETS.sol";
 import {IPROTOCOL} from "../interfaces/IProtocol.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -1021,14 +1020,12 @@ contract LendefiAssets is
         // Get the price in USD based on token position and WBNB presence
 
         if (hasWBNB && !isDirectUSDPool) {
-            console2.log("WBNB detected, converting price through WBNB/USDT pool");
             // WBNB pool: Convert through WBNB/USDT
             uint256 tokenPriceInWBNB = UniswapTickMath.getRawPrice(pool, isToken0, 1e18, twapPeriod);
             uint256 wbnbPriceInUSDT =
                 UniswapTickMath.getRawPrice(IUniswapV3Pool(LendefiConstants.USDT_WBNB_POOL), false, 1e6, twapPeriod);
             tokenPriceInUSD = FullMath.mulDiv(tokenPriceInWBNB, wbnbPriceInUSDT, 1e18);
         } else {
-            console2.log("No WBNB detected, using direct price calculation");
             // Direct USD pool: Get price directly
             tokenPriceInUSD = UniswapTickMath.getRawPrice(pool, isToken0, 1e6, twapPeriod);
         }
