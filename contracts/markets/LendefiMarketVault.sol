@@ -1020,22 +1020,28 @@ contract LendefiMarketVault is
 
         // Calculate the current value of 1 share unit (using baseDecimals precision)
         uint256 shareValue = previewRedeem(baseDecimals);
-        return shareValue <= baseDecimals ? 0 : shareValue - baseDecimals;
+        uint256 rateInBaseDecimals = shareValue <= baseDecimals ? 0 : shareValue - baseDecimals;
+        
+        // Convert to 1e6 format for consistent rate display across all chains
+        return Math.mulDiv(rateInBaseDecimals, 1e6, baseDecimals, Math.Rounding.Floor);
     }
 
     /**
      * @notice Calculates the current borrow interest rate for a specific collateral tier
      * @dev Based on utilization, base rate, supply rate, and tier-specific jump rate
      * @param tier The collateral tier to calculate the borrow rate for
-     * @return The current annual borrow interest rate in baseDecimals format
+     * @return The current annual borrow interest rate in 1e6 format
      */
     function getBorrowRate(IASSETS.CollateralTier tier) public view returns (uint256) {
+        // Normalize utilization to 1e6 format for consistent rate calculations
+        uint256 utilizationIn1e6 = Math.mulDiv(utilization(), 1e6, baseDecimals, Math.Rounding.Floor);
+        
         return LendefiRates.getBorrowRate(
-            utilization(),
-            protocolConfig.borrowRate,
-            protocolConfig.profitTargetRate,
-            getSupplyRate(),
-            IASSETS(assetsModule).getTierJumpRate(tier)
+            utilizationIn1e6,
+            protocolConfig.borrowRate,        // already in 1e6
+            protocolConfig.profitTargetRate,  // already in 1e6
+            getSupplyRate(),                  // now returns 1e6
+            IASSETS(assetsModule).getTierJumpRate(tier)  // assume 1e6
         );
     }
 
