@@ -6,12 +6,14 @@ import {USDC} from "../contracts/mock/USDC.sol";
 import {IASSETS} from "../contracts/interfaces/IASSETS.sol";
 import {IPROTOCOL} from "../contracts/interfaces/IProtocol.sol";
 import {WETH9} from "../contracts/vendor/canonical-weth/contracts/WETH9.sol";
+import {WBNB} from "../contracts/mock/WBNB.sol";
 import {ITREASURY} from "../contracts/interfaces/ITreasury.sol";
 import {IECOSYSTEM} from "../contracts/interfaces/IEcosystem.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IGovernor} from "@openzeppelin/contracts/governance/IGovernor.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {WETHPriceConsumerV3} from "../contracts/mock/WETHOracle.sol";
+import {WBNBPriceConsumerV3} from "../contracts/mock/WBNBOracle.sol";
 import {Treasury} from "../contracts/ecosystem/Treasury.sol";
 import {TreasuryV2} from "../contracts/upgrades/TreasuryV2.sol";
 import {Ecosystem} from "../contracts/ecosystem/Ecosystem.sol";
@@ -64,7 +66,7 @@ contract BasicDeploy is Test {
     bytes32 internal constant CORE_ROLE = keccak256("CORE_ROLE");
     bytes32 internal constant DAO_ROLE = keccak256("DAO_ROLE");
 
-    uint256 constant INIT_BALANCE_USDC = 100_000_000e6;
+    uint256 constant INIT_BALANCE_USDC = 100_000_000e18;
     uint256 constant INITIAL_SUPPLY = 50_000_000 ether;
     address constant ethereum = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     address constant usdcWhale = 0x0A59649758aa4d66E25f08Dd01271e891fe52199;
@@ -98,6 +100,7 @@ contract BasicDeploy is Test {
     LendefiMarketVault internal marketVaultInstance;
     LendefiPoRFeed internal porFeedImplementation;
     WETH9 internal wethInstance;
+    WBNB internal wbnbInstance;
     USDC internal usdcInstance;
     // IERC20 usdcInstance = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48); //real usdc ethereum for fork testing
 
@@ -562,8 +565,7 @@ contract BasicDeploy is Test {
         porFeedImplementation = new LendefiPoRFeed();
         // Protocol Oracle deploy (combined Oracle + Assets)
         bytes memory data = abi.encodeCall(
-            LendefiAssets.initialize,
-            (address(timelockInstance), charlie, address(porFeedImplementation))
+            LendefiAssets.initialize, (address(timelockInstance), charlie, address(porFeedImplementation))
         );
 
         address payable proxy = payable(Upgrades.deployUUPSProxy("LendefiAssets.sol", data));
@@ -633,14 +635,20 @@ contract BasicDeploy is Test {
         // Assert that upgrade was successful
         assertEq(assetsInstanceV2.version(), 2, "Version not incremented to 2");
         assertFalse(implAddressV2 == implAddressV1, "Implementation address didn't change");
-        assertTrue(assetsInstanceV2.hasRole(UPGRADER_ROLE, address(timelockInstance)), "Timelock should retain UPGRADER_ROLE");
+        assertTrue(
+            assetsInstanceV2.hasRole(UPGRADER_ROLE, address(timelockInstance)), "Timelock should retain UPGRADER_ROLE"
+        );
 
         // Test role management still works
         vm.startPrank(address(timelockInstance));
         assetsInstanceV2.revokeRole(UPGRADER_ROLE, address(timelockInstance));
-        assertFalse(assetsInstanceV2.hasRole(UPGRADER_ROLE, address(timelockInstance)), "Role should be revoked successfully");
+        assertFalse(
+            assetsInstanceV2.hasRole(UPGRADER_ROLE, address(timelockInstance)), "Role should be revoked successfully"
+        );
         assetsInstance.grantRole(UPGRADER_ROLE, address(timelockInstance));
-        assertTrue(assetsInstanceV2.hasRole(UPGRADER_ROLE, address(timelockInstance)), "Timelock should have UPGRADER_ROLE");
+        assertTrue(
+            assetsInstanceV2.hasRole(UPGRADER_ROLE, address(timelockInstance)), "Timelock should have UPGRADER_ROLE"
+        );
         vm.stopPrank();
     }
 
