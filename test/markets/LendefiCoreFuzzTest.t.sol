@@ -3,16 +3,17 @@ pragma solidity 0.8.23;
 
 import "../BasicDeploy.sol";
 import {ILendefiMarketVault} from "../../contracts/interfaces/ILendefiMarketVault.sol";
-import {WETHPriceConsumerV3} from "../../contracts/mock/WETHOracle.sol";
+import {WBNBPriceConsumerV3} from "../../contracts/mock/WBNBOracle.sol";
+import {WBNB} from "../../contracts/mock/WBNB.sol";
 import {MockPriceOracle} from "../../contracts/mock/MockPriceOracle.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract LendefiCoreFuzzTest is BasicDeploy {
     // Test tokens and oracles
-    WETHPriceConsumerV3 public wethOracle;
+    WBNBPriceConsumerV3 public wbnbOracle;
 
     // Constants
-    uint256 constant ETH_PRICE = 2500e8; // $2500 per ETH
+    uint256 constant BNB_PRICE = 2500e8; // $2500 per BNB
 
     function setUp() public {
         // Deploy base contracts and market
@@ -23,13 +24,13 @@ contract LendefiCoreFuzzTest is BasicDeploy {
         tokenInstance.initializeTGE(address(ecoInstance), address(treasuryInstance));
 
         // Deploy test tokens
-        wethInstance = new WETH9();
+        wbnbInstance = new WBNB();
 
         // Deploy oracles
-        wethOracle = new WETHPriceConsumerV3();
+        wbnbOracle = new WBNBPriceConsumerV3();
 
         // Set initial prices
-        wethOracle.setPrice(int256(ETH_PRICE));
+        wbnbOracle.setPrice(int256(BNB_PRICE));
 
         // Setup assets in the assets module
         vm.startPrank(address(timelockInstance));
@@ -42,10 +43,10 @@ contract LendefiCoreFuzzTest is BasicDeploy {
             address(usdcInstance),
             IASSETS.Asset({
                 active: 1,
-                decimals: 6,
+                decimals: 18,
                 borrowThreshold: 950, // 95% LTV for stablecoin
                 liquidationThreshold: 980, // 98% liquidation for stablecoin
-                maxSupplyThreshold: 100_000_000e6, // 100M USDC
+                maxSupplyThreshold: 100_000_000e18, // 100M USDC
                 isolationDebtCap: 0,
                 assetMinimumOracles: 1,
                 porFeed: address(0),
@@ -56,9 +57,9 @@ contract LendefiCoreFuzzTest is BasicDeploy {
             })
         );
 
-        // Configure WETH (CROSS_A tier)
+        // Configure WBNB (CROSS_A tier)
         assetsInstance.updateAssetConfig(
-            address(wethInstance),
+            address(wbnbInstance),
             IASSETS.Asset({
                 active: 1,
                 decimals: 18,
@@ -70,7 +71,7 @@ contract LendefiCoreFuzzTest is BasicDeploy {
                 porFeed: address(0),
                 primaryOracleType: IASSETS.OracleType.CHAINLINK,
                 tier: IASSETS.CollateralTier.CROSS_A,
-                chainlinkConfig: IASSETS.ChainlinkOracleConfig({oracleUSD: address(wethOracle), active: 1}),
+                chainlinkConfig: IASSETS.ChainlinkOracleConfig({oracleUSD: address(wbnbOracle), active: 1}),
                 poolConfig: IASSETS.UniswapPoolConfig({pool: address(0), twapPeriod: 0, active: 0})
             })
         );
@@ -78,10 +79,10 @@ contract LendefiCoreFuzzTest is BasicDeploy {
         vm.stopPrank();
 
         // Setup initial liquidity
-        deal(address(usdcInstance), alice, 10_000_000e6); // 10M USDC
+        deal(address(usdcInstance), alice, 10_000_000e18); // 10M USDC
         vm.startPrank(alice);
-        usdcInstance.approve(address(marketCoreInstance), 10_000_000e6);
-        marketCoreInstance.depositLiquidity(10_000_000e6, marketVaultInstance.previewDeposit(10_000_000e6), 100);
+        usdcInstance.approve(address(marketCoreInstance), 10_000_000e18);
+        marketCoreInstance.depositLiquidity(10_000_000e18, marketVaultInstance.previewDeposit(10_000_000e18), 100);
         vm.stopPrank();
 
         // Give liquidator governance tokens
@@ -92,7 +93,7 @@ contract LendefiCoreFuzzTest is BasicDeploy {
 
     function testFuzz_SupplyAndWithdrawLiquidity(uint256 amount, uint256 withdrawRatio) public {
         // Bound inputs
-        amount = bound(amount, 1e6, 100_000_000e6); // 1 to 100M USDC
+        amount = bound(amount, 1e18, 100_000_000e18); // 1 to 100M USDC
         withdrawRatio = bound(withdrawRatio, 1, 100); // 1-100% withdrawal
 
         // Setup
@@ -134,18 +135,18 @@ contract LendefiCoreFuzzTest is BasicDeploy {
         withdrawAmount = bound(withdrawAmount, 0, collateralAmount);
 
         // Create position
-        uint256 positionId = _createPosition(bob, address(wethInstance), false);
+        uint256 positionId = _createPosition(bob, address(wbnbInstance), false);
 
         // Supply collateral
-        deal(address(wethInstance), bob, collateralAmount);
-        _supplyCollateral(bob, positionId, address(wethInstance), collateralAmount);
+        deal(address(wbnbInstance), bob, collateralAmount);
+        _supplyCollateral(bob, positionId, address(wbnbInstance), collateralAmount);
         vm.warp(block.timestamp + 1);
         vm.roll(block.number + 1);
 
         // Verify supply
         address[] memory assets = marketCoreInstance.getPositionCollateralAssets(bob, positionId);
         assertEq(assets.length, 1);
-        assertEq(assets[0], address(wethInstance));
+        assertEq(assets[0], address(wbnbInstance));
 
         // Withdraw if amount > 0
         if (withdrawAmount > 0) {
@@ -153,7 +154,7 @@ contract LendefiCoreFuzzTest is BasicDeploy {
 
             vm.startPrank(bob);
             marketCoreInstance.withdrawCollateral(
-                address(wethInstance),
+                address(wbnbInstance),
                 withdrawAmount,
                 positionId,
                 expectedCreditLimit,
@@ -161,7 +162,7 @@ contract LendefiCoreFuzzTest is BasicDeploy {
             );
             vm.stopPrank();
 
-            assertEq(wethInstance.balanceOf(bob), withdrawAmount);
+            assertEq(wbnbInstance.balanceOf(bob), withdrawAmount);
         }
     }
 
@@ -174,16 +175,16 @@ contract LendefiCoreFuzzTest is BasicDeploy {
         repayRatio = bound(repayRatio, 1, 100);
 
         // Create position and supply collateral
-        uint256 positionId = _createPosition(bob, address(wethInstance), false);
-        deal(address(wethInstance), bob, collateralAmount);
-        _supplyCollateral(bob, positionId, address(wethInstance), collateralAmount);
+        uint256 positionId = _createPosition(bob, address(wbnbInstance), false);
+        deal(address(wbnbInstance), bob, collateralAmount);
+        _supplyCollateral(bob, positionId, address(wbnbInstance), collateralAmount);
 
         // Calculate and execute borrow
         uint256 creditLimit = marketCoreInstance.calculateCreditLimit(bob, positionId);
         uint256 borrowAmount = (creditLimit * borrowRatio) / 100;
 
         // Handle edge case: very small credit limits
-        if (creditLimit < 1e6) return; // Skip if credit limit < 1 USDC
+        if (creditLimit < 1e18) return; // Skip if credit limit < 1 USDC
 
         uint256 availableLiquidity = marketVaultInstance.totalAssets() - marketVaultInstance.totalBorrow();
 
@@ -220,13 +221,13 @@ contract LendefiCoreFuzzTest is BasicDeploy {
 
     function testFuzz_InterestAccrual(uint256 borrowAmount, uint256 timeElapsed) public {
         // Aggressive bounds to test edge cases and potential overflows
-        borrowAmount = bound(borrowAmount, 1e6, 1_000_000e6); // 1 USDC to 1M USDC
+        borrowAmount = bound(borrowAmount, 1e18, 1_000_000e18); // 1 USDC to 1M USDC
         timeElapsed = bound(timeElapsed, 1 seconds, 10 * 365 days); // 1 second to 10 years
 
         // Setup position and borrow
-        uint256 positionId = _createPosition(bob, address(wethInstance), false);
-        deal(address(wethInstance), bob, 10 ether);
-        _supplyCollateral(bob, positionId, address(wethInstance), 10 ether);
+        uint256 positionId = _createPosition(bob, address(wbnbInstance), false);
+        deal(address(wbnbInstance), bob, 10 ether);
+        _supplyCollateral(bob, positionId, address(wbnbInstance), 10 ether);
 
         // Only proceed if we can borrow
         uint256 availableLiquidity = marketVaultInstance.totalAssets() - marketVaultInstance.totalBorrow();
@@ -262,19 +263,19 @@ contract LendefiCoreFuzzTest is BasicDeploy {
 
     function testFuzz_HealthFactor(uint256 collateralValue, uint256 debtRatio) public {
         // Aggressive bounds to test edge cases
-        collateralValue = bound(collateralValue, 1e6, 10_000_000e6); // $1 to $10M
+        collateralValue = bound(collateralValue, 1e18, 10_000_000e18); // $1 to $10M
         debtRatio = bound(debtRatio, 0, 150); // 0-150% (test over-liquidation)
 
-        // Calculate WETH amount for target collateral value
-        uint256 wethAmount = (collateralValue * 1e18) / ETH_PRICE * 1e8 / 1e6;
+        // Calculate WBNB amount for target collateral value
+        uint256 wbnbAmount = (collateralValue * 1e18) / BNB_PRICE * 1e8 / 1e18;
 
         // Create position
-        uint256 positionId = _createPosition(bob, address(wethInstance), false);
-        deal(address(wethInstance), bob, wethAmount);
-        _supplyCollateral(bob, positionId, address(wethInstance), wethAmount);
+        uint256 positionId = _createPosition(bob, address(wbnbInstance), false);
+        deal(address(wbnbInstance), bob, wbnbAmount);
+        _supplyCollateral(bob, positionId, address(wbnbInstance), wbnbAmount);
 
         if (debtRatio > 0) {
-            // Calculate max borrowable at liquidation threshold (85% for WETH)
+            // Calculate max borrowable at liquidation threshold (85% for WBNB)
             uint256 maxBorrowAtLiquidation = (collateralValue * 850) / 1000;
             uint256 borrowAmount = (maxBorrowAtLiquidation * debtRatio) / 100;
 
@@ -313,17 +314,17 @@ contract LendefiCoreFuzzTest is BasicDeploy {
 
     // ============ Multi-Asset Position Fuzz Tests ============
 
-    function testFuzz_MultiAssetPosition(uint256 wethAmount, uint256 usdcAmount) public {
+    function testFuzz_MultiAssetPosition(uint256 wbnbAmount, uint256 usdcAmount) public {
         // Aggressive bounds to test precision and edge cases
-        wethAmount = bound(wethAmount, 1 wei, 1000 ether); // Test from minimum to very large
-        usdcAmount = bound(usdcAmount, 1, 1_000_000e6); // Test from 1 wei to 1M USDC
+        wbnbAmount = bound(wbnbAmount, 1 wei, 1000 ether); // Test from minimum to very large
+        usdcAmount = bound(usdcAmount, 1, 1_000_000e18); // Test from 1 wei to 1M USDC
 
         // Create cross-collateral position
-        uint256 positionId = _createPosition(bob, address(wethInstance), false);
+        uint256 positionId = _createPosition(bob, address(wbnbInstance), false);
 
-        // Supply WETH
-        deal(address(wethInstance), bob, wethAmount);
-        _supplyCollateral(bob, positionId, address(wethInstance), wethAmount);
+        // Supply WBNB
+        deal(address(wbnbInstance), bob, wbnbAmount);
+        _supplyCollateral(bob, positionId, address(wbnbInstance), wbnbAmount);
 
         // Supply USDC as collateral
         deal(address(usdcInstance), bob, usdcAmount);
@@ -336,18 +337,18 @@ contract LendefiCoreFuzzTest is BasicDeploy {
         // Calculate total value - handle potential precision issues
         try marketCoreInstance.calculateCollateralValue(bob, positionId) returns (uint256 totalValue) {
             // Expected values with proper precision handling
-            uint256 expectedWethValue = (wethAmount * ETH_PRICE) / 1e18 * 1e6 / 1e8;
-            uint256 expectedTotalValue = expectedWethValue + usdcAmount;
+            uint256 expectedWBNBValue = (wbnbAmount * BNB_PRICE) / 1e18 * 1e18 / 1e8;
+            uint256 expectedTotalValue = expectedWBNBValue + usdcAmount;
 
             // For very small amounts, we might have precision issues
-            if (expectedTotalValue < 1e6) {
+            if (expectedTotalValue < 1e18) {
                 // For amounts less than $1, precision is expected to be limited
                 assertGe(totalValue, 0, "Value should be non-negative");
             } else {
                 // For larger amounts, allow reasonable precision tolerance
                 // Use absolute difference for very small values, relative for larger ones
-                if (expectedTotalValue < 1000e6) {
-                    assertApproxEqAbs(totalValue, expectedTotalValue, 1e6, "Small value precision issue");
+                if (expectedTotalValue < 1000e18) {
+                    assertApproxEqAbs(totalValue, expectedTotalValue, 1e18, "Small value precision issue");
                 } else {
                     assertApproxEqRel(totalValue, expectedTotalValue, 0.01e18, "Large value precision issue");
                 }
@@ -366,9 +367,9 @@ contract LendefiCoreFuzzTest is BasicDeploy {
         priceDropPercent = bound(priceDropPercent, 20, 50); // 20-50% price drop
 
         // Setup position at max borrow
-        uint256 positionId = _createPosition(bob, address(wethInstance), false);
-        deal(address(wethInstance), bob, initialCollateral);
-        _supplyCollateral(bob, positionId, address(wethInstance), initialCollateral);
+        uint256 positionId = _createPosition(bob, address(wbnbInstance), false);
+        deal(address(wbnbInstance), bob, initialCollateral);
+        _supplyCollateral(bob, positionId, address(wbnbInstance), initialCollateral);
 
         // Borrow 80% of credit limit
         uint256 creditLimit = marketCoreInstance.calculateCreditLimit(bob, positionId);
@@ -378,8 +379,8 @@ contract LendefiCoreFuzzTest is BasicDeploy {
             _borrow(bob, positionId, borrowAmount);
 
             // Drop price
-            uint256 newPrice = (ETH_PRICE * (100 - priceDropPercent)) / 100;
-            wethOracle.setPrice(int256(newPrice));
+            uint256 newPrice = (BNB_PRICE * (100 - priceDropPercent)) / 100;
+            wbnbOracle.setPrice(int256(newPrice));
 
             // Check if liquidatable
             if (marketCoreInstance.isLiquidatable(bob, positionId)) {
@@ -398,7 +399,7 @@ contract LendefiCoreFuzzTest is BasicDeploy {
                 // Verify liquidation
                 IPROTOCOL.UserPosition memory position = marketCoreInstance.getUserPositions(bob)[0];
                 assertEq(uint8(position.status), uint8(IPROTOCOL.PositionStatus.LIQUIDATED));
-                assertEq(wethInstance.balanceOf(liquidator), initialCollateral);
+                assertEq(wbnbInstance.balanceOf(liquidator), initialCollateral);
             }
         }
     }
@@ -416,7 +417,7 @@ contract LendefiCoreFuzzTest is BasicDeploy {
             borrowRate: borrowRate,
             rewardAmount: 1_000 ether,
             rewardInterval: 180 days,
-            rewardableSupply: 100_000e6,
+            rewardableSupply: 100_000e18,
             flashLoanFee: uint32(flashFee)
         });
 
@@ -428,7 +429,8 @@ contract LendefiCoreFuzzTest is BasicDeploy {
         vm.prank(address(timelockInstance));
         marketCoreInstance.setLiquidatorThreshold(20_000 ether);
 
-        ILendefiMarketVault.ProtocolConfig memory loadedConfig = ILendefiMarketVault(address(marketVaultInstance)).protocolConfig();
+        ILendefiMarketVault.ProtocolConfig memory loadedConfig =
+            ILendefiMarketVault(address(marketVaultInstance)).protocolConfig();
         assertEq(loadedConfig.profitTargetRate, profitTarget);
         assertEq(loadedConfig.borrowRate, borrowRate);
     }
@@ -437,7 +439,7 @@ contract LendefiCoreFuzzTest is BasicDeploy {
 
     function testFuzz_SlippageProtection(uint256 amount, uint256 slippageBps) public {
         // Aggressive bounds to test edge cases
-        amount = bound(amount, 1e6, 1_000_000e6); // 1 USDC to 1M USDC
+        amount = bound(amount, 1e18, 1_000_000e18); // 1 USDC to 1M USDC
         slippageBps = bound(slippageBps, 1, 10000); // 0.01% to 100% slippage
 
         deal(address(usdcInstance), charlie, amount * 2); // Get enough for both operations
