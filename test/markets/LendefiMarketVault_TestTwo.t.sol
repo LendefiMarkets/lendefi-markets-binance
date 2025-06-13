@@ -7,8 +7,8 @@ import {ILendefiMarketVault} from "../../contracts/interfaces/ILendefiMarketVaul
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {LendefiMarketVault} from "../../contracts/markets/LendefiMarketVault.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {WETH9} from "../../contracts/vendor/canonical-weth/contracts/WETH9.sol";
-import {WETHPriceConsumerV3} from "../../contracts/mock/WETHOracle.sol";
+import {WBNB} from "../../contracts/mock/WBNB.sol";
+import {WBNBPriceConsumerV3} from "../../contracts/mock/WBNBOracle.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {IPROTOCOL} from "../../contracts/interfaces/IProtocol.sol";
 
@@ -16,7 +16,7 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
     MockFlashLoanReceiver flashReceiver;
 
     // Constants
-    uint256 constant INITIAL_LIQUIDITY = 1_000_000e6;
+    uint256 constant INITIAL_LIQUIDITY = 1_000_000e18;
 
     // Events
     event FlashLoan(address indexed user, address indexed receiver, address indexed asset, uint256 amount, uint256 fee);
@@ -32,20 +32,20 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
         flashReceiver = new MockFlashLoanReceiver();
 
         // Give flash receiver some USDC for fees
-        deal(address(usdcInstance), address(flashReceiver), 1_000_000e6);
+        deal(address(usdcInstance), address(flashReceiver), 1_000_000e18);
 
         // Setup initial liquidity for vault tests
-        deal(address(usdcInstance), alice, 1_000_000e6);
+        deal(address(usdcInstance), alice, 1_000_000e18);
         vm.startPrank(alice);
-        usdcInstance.approve(address(marketCoreInstance), 1_000_000e6);
-        marketCoreInstance.depositLiquidity(1_000_000e6, marketVaultInstance.previewDeposit(1_000_000e6), 100);
+        usdcInstance.approve(address(marketCoreInstance), 1_000_000e18);
+        marketCoreInstance.depositLiquidity(1_000_000e18, marketVaultInstance.previewDeposit(1_000_000e18), 100);
         vm.stopPrank();
 
-        // Deploy and setup WETH for integration tests
-        wethInstance = new WETH9();
-        WETHPriceConsumerV3 wethOracle = new WETHPriceConsumerV3();
-        WETHPriceConsumerV3 usdcOracle = new WETHPriceConsumerV3();
-        wethOracle.setPrice(int256(2500e8)); // $2500 per ETH
+        // Deploy and setup WBNB for integration tests
+        wbnbInstance = new WBNB();
+        WBNBPriceConsumerV3 wbnbOracle = new WBNBPriceConsumerV3();
+        WBNBPriceConsumerV3 usdcOracle = new WBNBPriceConsumerV3();
+        wbnbOracle.setPrice(int256(2500e8)); // $2500 per BNB
         usdcOracle.setPrice(int256(1e8)); // $1 per USDC
 
         // Configure USDC in assets module (needed for credit limit calculations)
@@ -54,10 +54,10 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
             address(usdcInstance),
             IASSETS.Asset({
                 active: 1,
-                decimals: 6,
+                decimals: 18,
                 borrowThreshold: 950, // 95% LTV for stablecoin
                 liquidationThreshold: 980, // 98% liquidation for stablecoin
-                maxSupplyThreshold: 100_000_000e6, // 100M USDC
+                maxSupplyThreshold: 100_000_000e18, // 100M USDC
                 isolationDebtCap: 0,
                 assetMinimumOracles: 1,
                 porFeed: address(0),
@@ -68,10 +68,10 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
             })
         );
 
-        // Configure WETH in assets module
+        // Configure WBNB in assets module
         vm.prank(address(timelockInstance));
         assetsInstance.updateAssetConfig(
-            address(wethInstance),
+            address(wbnbInstance),
             IASSETS.Asset({
                 active: 1,
                 decimals: 18,
@@ -83,13 +83,13 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
                 porFeed: address(0),
                 primaryOracleType: IASSETS.OracleType.CHAINLINK,
                 tier: IASSETS.CollateralTier.CROSS_A,
-                chainlinkConfig: IASSETS.ChainlinkOracleConfig({oracleUSD: address(wethOracle), active: 1}),
+                chainlinkConfig: IASSETS.ChainlinkOracleConfig({oracleUSD: address(wbnbOracle), active: 1}),
                 poolConfig: IASSETS.UniswapPoolConfig({pool: address(0), twapPeriod: 0, active: 0})
             })
         );
 
-        // Give bob some WETH
-        deal(address(wethInstance), bob, 10 ether);
+        // Give bob some WBNB
+        deal(address(wbnbInstance), bob, 10 ether);
     }
 
     // ============ Initialization Tests ============
@@ -98,8 +98,8 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
         assertEq(marketVaultInstance.asset(), address(usdcInstance));
         assertEq(marketVaultInstance.name(), "Lendefi Yield Token");
         assertEq(marketVaultInstance.symbol(), "LYTUSDC");
-        assertEq(marketVaultInstance.decimals(), 6);
-        assertEq(marketVaultInstance.baseDecimals(), 1e6);
+        assertEq(marketVaultInstance.decimals(), 18);
+        assertEq(marketVaultInstance.baseDecimals(), 1e18);
         assertEq(marketVaultInstance.version(), 1);
         assertTrue(marketVaultInstance.hasRole(keccak256("PROTOCOL_ROLE"), address(marketCoreInstance)));
     }
@@ -120,7 +120,7 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
     // ============ ERC4626 Functionality Tests ============
 
     function test_Deposit() public {
-        uint256 amount = 10_000e6;
+        uint256 amount = 10_000e18;
         deal(address(usdcInstance), charlie, amount);
 
         uint256 sharesBefore = marketVaultInstance.balanceOf(charlie);
@@ -140,7 +140,7 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
     }
 
     function test_Mint() public {
-        uint256 shares = 10_000e6; // Mint shares equal to assets initially
+        uint256 shares = 10_000e18; // Mint shares equal to assets initially
         uint256 assets = marketVaultInstance.previewMint(shares);
         deal(address(usdcInstance), charlie, assets);
 
@@ -156,7 +156,7 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
 
     function test_Withdraw() public {
         // First deposit
-        uint256 depositAmount = 10_000e6;
+        uint256 depositAmount = 10_000e18;
         deal(address(usdcInstance), charlie, depositAmount);
 
         vm.startPrank(charlie);
@@ -180,7 +180,7 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
 
     function test_Redeem() public {
         // First deposit
-        uint256 depositAmount = 10_000e6;
+        uint256 depositAmount = 10_000e18;
         deal(address(usdcInstance), charlie, depositAmount);
 
         vm.startPrank(charlie);
@@ -217,7 +217,7 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
     // ============ Protocol Integration Tests ============
 
     function test_Borrow() public {
-        uint256 borrowAmount = 5_000e6;
+        uint256 borrowAmount = 5_000e18;
         uint256 vaultBalanceBefore = usdcInstance.balanceOf(address(marketVaultInstance));
 
         vm.prank(address(marketCoreInstance));
@@ -235,7 +235,7 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
                 IAccessControl.AccessControlUnauthorizedAccount.selector, alice, keccak256("PROTOCOL_ROLE")
             )
         );
-        marketVaultInstance.borrow(1000e6, alice);
+        marketVaultInstance.borrow(1000e18, alice);
     }
 
     function test_Revert_Borrow_LowLiquidity() public {
@@ -249,7 +249,7 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
 
     function test_Repay() public {
         // First borrow
-        uint256 borrowAmount = 5_000e6;
+        uint256 borrowAmount = 5_000e18;
         vm.prank(address(marketCoreInstance));
         marketVaultInstance.borrow(borrowAmount, bob);
 
@@ -266,7 +266,7 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
     }
 
     function test_BoostYield() public {
-        uint256 boostAmount = 1_000e6;
+        uint256 boostAmount = 1_000e18;
         deal(address(usdcInstance), address(timelockInstance), boostAmount);
 
         uint256 totalBaseBefore = marketVaultInstance.totalBase();
@@ -288,7 +288,7 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
     // ============ Flash Loan Tests ============
 
     function test_FlashLoan() public {
-        uint256 loanAmount = 50_000e6;
+        uint256 loanAmount = 50_000e18;
         bytes memory params = "";
 
         // Get expected fee from protocol config
@@ -314,13 +314,14 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
         flashReceiver.setShouldFail(true);
 
         vm.expectRevert(LendefiMarketVault.FlashLoanFailed.selector);
-        marketVaultInstance.flashLoan(address(flashReceiver), 1000e6, "");
+        marketVaultInstance.flashLoan(address(flashReceiver), 1000e18, "");
     }
 
     function test_Revert_FlashLoan_InsufficientRepayment() public {
         // Since protocolConfig might not be properly initialized during factory deployment,
         // we need to set it manually
-        ILendefiMarketVault.ProtocolConfig memory config = ILendefiMarketVault(address(marketVaultInstance)).protocolConfig();
+        ILendefiMarketVault.ProtocolConfig memory config =
+            ILendefiMarketVault(address(marketVaultInstance)).protocolConfig();
 
         vm.prank(address(timelockInstance));
         marketVaultInstance.loadProtocolConfig(config);
@@ -328,7 +329,7 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
         flashReceiver.setShouldReturnLessFunds(true);
 
         vm.expectRevert(LendefiMarketVault.RepaymentFailed.selector);
-        marketVaultInstance.flashLoan(address(flashReceiver), 1000e6, "");
+        marketVaultInstance.flashLoan(address(flashReceiver), 1000e18, "");
     }
 
     function test_Revert_FlashLoan_LowLiquidity() public {
@@ -345,7 +346,7 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
 
     function test_Revert_FlashLoan_ZeroAddress() public {
         vm.expectRevert(LendefiMarketVault.ZeroAddress.selector);
-        marketVaultInstance.flashLoan(address(0), 1000e6, "");
+        marketVaultInstance.flashLoan(address(0), 1000e18, "");
     }
 
     // ============ Pause Tests ============
@@ -357,12 +358,12 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
         assertTrue(marketVaultInstance.paused());
 
         // Try to deposit while paused
-        deal(address(usdcInstance), charlie, 1000e6);
+        deal(address(usdcInstance), charlie, 1000e18);
         vm.startPrank(charlie);
-        usdcInstance.approve(address(marketVaultInstance), 1000e6);
+        usdcInstance.approve(address(marketVaultInstance), 1000e18);
 
         vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
-        marketVaultInstance.deposit(1000e6, charlie);
+        marketVaultInstance.deposit(1000e18, charlie);
         vm.stopPrank();
     }
 
@@ -376,10 +377,10 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
         vm.stopPrank();
 
         // Should be able to deposit again
-        deal(address(usdcInstance), charlie, 1000e6);
+        deal(address(usdcInstance), charlie, 1000e18);
         vm.startPrank(charlie);
-        usdcInstance.approve(address(marketVaultInstance), 1000e6);
-        marketVaultInstance.deposit(1000e6, charlie);
+        usdcInstance.approve(address(marketVaultInstance), 1000e18);
+        marketVaultInstance.deposit(1000e18, charlie);
         vm.stopPrank();
     }
 
@@ -403,13 +404,13 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
         vm.prank(address(marketCoreInstance));
         marketVaultInstance.borrow(borrowAmount, bob);
 
-        assertEq(marketVaultInstance.utilization(), 0.5e6); // 50%
+        assertEq(marketVaultInstance.utilization(), 0.5e18); // 50%
 
         // Borrow more
         vm.prank(address(marketCoreInstance));
         marketVaultInstance.borrow(borrowAmount / 2, bob);
 
-        assertEq(marketVaultInstance.utilization(), 0.75e6); // 75%
+        assertEq(marketVaultInstance.utilization(), 0.75e18); // 75%
     }
 
     function test_TotalAssets() public {
@@ -417,7 +418,7 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
         assertEq(initialAssets, INITIAL_LIQUIDITY);
 
         // Deposit more
-        uint256 depositAmount = 10_000e6;
+        uint256 depositAmount = 10_000e18;
         deal(address(usdcInstance), charlie, depositAmount);
         vm.startPrank(charlie);
         usdcInstance.approve(address(marketVaultInstance), depositAmount);
@@ -427,7 +428,7 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
         assertEq(marketVaultInstance.totalAssets(), initialAssets + depositAmount);
 
         // Boost yield
-        uint256 boostAmount = 1_000e6;
+        uint256 boostAmount = 1_000e18;
         deal(address(usdcInstance), address(timelockInstance), boostAmount);
         vm.startPrank(address(timelockInstance));
         usdcInstance.approve(address(marketVaultInstance), boostAmount);
@@ -441,7 +442,7 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
 
     function test_Integration_DepositBorrowRepayWithdraw() public {
         // 1. Charlie supplies liquidity through core
-        uint256 supplyAmount = 50_000e6;
+        uint256 supplyAmount = 50_000e18;
         deal(address(usdcInstance), charlie, supplyAmount);
 
         vm.startPrank(charlie);
@@ -454,10 +455,10 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
         assertEq(charlieShares, expectedShares);
 
         // 2. Bob creates position and borrows
-        uint256 positionId = _createPosition(bob, address(wethInstance), false);
-        _supplyCollateral(bob, positionId, address(wethInstance), 2 ether);
+        uint256 positionId = _createPosition(bob, address(wbnbInstance), false);
+        _supplyCollateral(bob, positionId, address(wbnbInstance), 2 ether);
 
-        uint256 borrowAmount = 3_000e6;
+        uint256 borrowAmount = 3_000e18;
         _borrow(bob, positionId, borrowAmount);
 
         assertEq(marketVaultInstance.totalBorrow(), borrowAmount);
