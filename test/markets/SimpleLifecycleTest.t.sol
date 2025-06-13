@@ -10,8 +10,8 @@ import "../BasicDeploy.sol";
  * @notice Simple lifecycle test to verify setup and basic functionality
  */
 contract SimpleLifecycleTest is Test, BasicDeploy {
-    uint256 constant INITIAL_DEPOSIT = 100_000e6; // 100k USDC
-    uint256 constant YIELD_BOOST = 10_000e6; // 10k USDC yield
+    uint256 constant INITIAL_DEPOSIT = 100_000e18; // 100k USDC
+    uint256 constant YIELD_BOOST = 10_000e18; // 10k USDC yield
 
     address testAlice = address(0xA11CE); // Liquidity provider
 
