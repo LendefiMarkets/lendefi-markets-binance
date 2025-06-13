@@ -4,23 +4,25 @@ pragma solidity ^0.8.23;
 import "../BasicDeploy.sol";
 import {console2} from "forge-std/console2.sol";
 import {RWAPriceConsumerV3} from "../../contracts/mock/RWAOracle.sol";
-import {WETHPriceConsumerV3} from "../../contracts/mock/WETHOracle.sol";
+import {WBNBPriceConsumerV3} from "../../contracts/mock/WBNBOracle.sol";
 import {StablePriceConsumerV3} from "../../contracts/mock/StableOracle.sol";
 import {MockRWA} from "../../contracts/mock/MockRWA.sol";
 import {MockPriceOracle} from "../../contracts/mock/MockPriceOracle.sol";
 import {IASSETS} from "../../contracts/interfaces/IASSETS.sol";
 import {MockUniswapV3Pool} from "../../contracts/mock/MockUniswapV3Pool.sol";
+import {WBNB} from "../../contracts/mock/WBNB.sol";
 
 contract OraclePriceExpandedTest is BasicDeploy {
     // Oracle instances
     RWAPriceConsumerV3 internal rwaOracleInstance;
-    WETHPriceConsumerV3 internal wethOracleInstance;
+    WBNBPriceConsumerV3 internal wbnbOracleInstance;
     StablePriceConsumerV3 internal stableOracleInstance;
     MockPriceOracle internal mockOracle;
     MockPriceOracle internal mockOracle2;
 
     // Test tokens
     MockRWA internal testAsset;
+    WBNB internal wbnbInstance;
 
     // Uniswap mock
     MockUniswapV3Pool internal mockUniswapPool;
@@ -36,18 +38,18 @@ contract OraclePriceExpandedTest is BasicDeploy {
         tokenInstance.initializeTGE(address(ecoInstance), address(treasuryInstance));
 
         // Deploy mock tokens
-        wethInstance = new WETH9();
+        wbnbInstance = new WBNB();
         testAsset = new MockRWA("Test Asset", "TST");
 
         // Deploy oracles
-        wethOracleInstance = new WETHPriceConsumerV3();
+        wbnbOracleInstance = new WBNBPriceConsumerV3();
         rwaOracleInstance = new RWAPriceConsumerV3();
         stableOracleInstance = new StablePriceConsumerV3();
         mockOracle = new MockPriceOracle();
         mockOracle2 = new MockPriceOracle();
 
         // Configure oracle price data
-        wethOracleInstance.setPrice(2500e8); // $2500 per ETH
+        wbnbOracleInstance.setPrice(2500e8); // $2500 per ETH
         mockOracle.setPrice(1000e8); // $1000 for test asset
         mockOracle.setTimestamp(block.timestamp);
         mockOracle.setRoundId(1);
@@ -76,7 +78,7 @@ contract OraclePriceExpandedTest is BasicDeploy {
 
         // Configure WETH with Chainlink oracle using the new Asset struct format
         assetsInstance.updateAssetConfig(
-            address(wethInstance),
+            address(wbnbInstance),
             IASSETS.Asset({
                 active: 1,
                 decimals: 18,
@@ -88,7 +90,7 @@ contract OraclePriceExpandedTest is BasicDeploy {
                 porFeed: address(0),
                 primaryOracleType: IASSETS.OracleType.CHAINLINK,
                 tier: IASSETS.CollateralTier.CROSS_A,
-                chainlinkConfig: IASSETS.ChainlinkOracleConfig({oracleUSD: address(wethOracleInstance), active: 1}),
+                chainlinkConfig: IASSETS.ChainlinkOracleConfig({oracleUSD: address(wbnbOracleInstance), active: 1}),
                 poolConfig: IASSETS.UniswapPoolConfig({pool: address(0), twapPeriod: 0, active: 0})
             })
         );
@@ -108,7 +110,7 @@ contract OraclePriceExpandedTest is BasicDeploy {
                 primaryOracleType: IASSETS.OracleType.CHAINLINK,
                 tier: IASSETS.CollateralTier.CROSS_A,
                 chainlinkConfig: IASSETS.ChainlinkOracleConfig({oracleUSD: address(mockOracle), active: 1}),
-                poolConfig: IASSETS.UniswapPoolConfig({pool: address(mockUniswapPool), twapPeriod: 1800, active: 1})
+                poolConfig: IASSETS.UniswapPoolConfig({pool: address(mockUniswapPool), twapPeriod: 600, active: 1})
             })
         );
 
@@ -117,7 +119,7 @@ contract OraclePriceExpandedTest is BasicDeploy {
 
     // Test 1: Get price from a single oracle
     function test_GetPrice() public {
-        uint256 price = assetsInstance.getAssetPrice(address(wethInstance));
+        uint256 price = assetsInstance.getAssetPrice(address(wbnbInstance));
         assertEq(price, 2500e6, "WETH price should be 2500 USD");
     }
 
@@ -247,7 +249,7 @@ contract OraclePriceExpandedTest is BasicDeploy {
         assetsInstance.updateUniswapOracle(
             address(testAsset),
             address(newPool),
-            1800, // 30 minute TWAP
+            600, // 10 minute TWAP
             1 // Set as active
         );
 
@@ -260,7 +262,7 @@ contract OraclePriceExpandedTest is BasicDeploy {
         IASSETS.Asset memory assetAfter = assetsInstance.getAssetInfo(address(testAsset));
         assertEq(assetAfter.poolConfig.pool, address(newPool), "Pool address should be updated");
 
-        assertEq(assetAfter.poolConfig.twapPeriod, 1800, "TWAP period should be updated");
+        assertEq(assetAfter.poolConfig.twapPeriod, 600, "TWAP period should be updated");
 
         assertEq(assetAfter.poolConfig.active, 1, "Oracle should be active");
 
@@ -401,15 +403,15 @@ contract OraclePriceExpandedTest is BasicDeploy {
         // Set up Uniswap oracle with a mock pool
         MockUniswapV3Pool newPool = new MockUniswapV3Pool(address(usdcInstance), address(testAsset), 3000);
 
-        // Configure tick cumulatives for a predictable price
+        // Configure tick cumulatives based on real BSC WBNB/USDC pool data
         int56[] memory tickCumulatives = new int56[](2);
         tickCumulatives[0] = 0;
-        tickCumulatives[1] = 203200 * 1800; // Simulate a higher tick value ~$1500
+        tickCumulatives[1] = -64890 * 600; // Real average tick from BSC: -38934000
         newPool.setTickCumulatives(tickCumulatives);
 
         uint160[] memory secondsPerLiquidityCumulatives = new uint160[](2);
-        secondsPerLiquidityCumulatives[0] = 1000;
-        secondsPerLiquidityCumulatives[1] = 2000;
+        secondsPerLiquidityCumulatives[0] = 600;
+        secondsPerLiquidityCumulatives[1] = 600;
         newPool.setSecondsPerLiquidity(secondsPerLiquidityCumulatives);
         newPool.setObserveSuccess(true);
 
@@ -418,7 +420,7 @@ contract OraclePriceExpandedTest is BasicDeploy {
         assetsInstance.updateUniswapOracle(
             address(testAsset),
             address(newPool),
-            1800, // 30-minute TWAP
+            600, // 10-minute TWAP
             1 // Active
         );
         vm.stopPrank();
@@ -436,8 +438,8 @@ contract OraclePriceExpandedTest is BasicDeploy {
         uint256 medianPrice = assetsInstance.getAssetPrice(address(testAsset));
         // console2.log("Median price:", medianPrice);
 
-        // Assert the median price is within the expected range
-        assertTrue(medianPrice >= 1200e6 && medianPrice <= 1300e6, "Median price should be in a reasonable range");
+        // Assert the median price is within the expected range (median of ~$1000 Chainlink and ~$657 Uniswap)
+        assertTrue(medianPrice >= 800e6 && medianPrice <= 900e6, "Median price should be in a reasonable range");
     }
 
     // Test 16: Test circuit breaker with price deviation
