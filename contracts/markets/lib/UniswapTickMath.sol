@@ -36,14 +36,17 @@ library UniswapTickMath {
         pure
         returns (uint256 price)
     {
+        // Calculate price0 = (sqrtPrice / 2^96)^2
+        // This gives us token0/token1 ratio
+        uint256 numerator = uint256(sqrtPriceX96) * uint256(sqrtPriceX96);
+        uint256 denominator = 1 << 192; // 2^192
+        
         if (isToken0) {
-            // token0/token1 price = sqrtPrice^2 / 2^192 * precision
-            uint256 ratioX192 = uint256(sqrtPriceX96) * uint256(sqrtPriceX96);
-            return FullMath.mulDiv(ratioX192, precision, 1 << 192);
+            // Return token0/token1 price
+            price = FullMath.mulDiv(numerator, precision, denominator);
         } else {
-            // token1/token0 price = 2^192 / sqrtPrice^2 * precision
-            uint256 ratioX192 = uint256(sqrtPriceX96) * uint256(sqrtPriceX96);
-            return FullMath.mulDiv(1 << 192, precision, ratioX192);
+            // Return token1/token0 price (inverted)
+            price = FullMath.mulDiv(denominator, precision, numerator);
         }
     }
 
