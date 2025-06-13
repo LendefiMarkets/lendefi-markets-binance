@@ -9,6 +9,7 @@ import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol"
 import {MockUniswapV3Pool} from "../../contracts/mock/MockUniswapV3Pool.sol";
 import {MockPriceOracle} from "../../contracts/mock/MockPriceOracle.sol";
 import {MockWBTC} from "../../contracts/mock/MockWBTC.sol";
+import {WBNB} from "../../contracts/mock/WBNB.sol";
 
 contract LendefiAssetsBranchTest is BasicDeploy {
     // Mock contracts
@@ -16,6 +17,7 @@ contract LendefiAssetsBranchTest is BasicDeploy {
     MockUniswapV3Pool invalidPool;
     MockPriceOracle mockChainlinkOracle;
     MockWBTC mockWBTC;
+    WBNB wbnbInstance;
 
     // Test users
     address unauthorizedUser = address(0xBEEF);
@@ -26,21 +28,19 @@ contract LendefiAssetsBranchTest is BasicDeploy {
     function setUp() public {
         // Deploy base contracts
         usdcInstance = new USDC();
-        wethInstance = new WETH9();
+        wbnbInstance = new WBNB();
         deployMarketsWithUSDC();
 
         // Deploy a separate assets proxy for upgrade testing
         // The market-based deployment gives us cloned assets modules, but upgrade tests need UUPS proxies
         LendefiPoRFeed porFeedImpl = new LendefiPoRFeed();
-        bytes memory initData = abi.encodeCall(
-            LendefiAssets.initialize,
-            (address(timelockInstance), charlie, address(porFeedImpl))
-        );
+        bytes memory initData =
+            abi.encodeCall(LendefiAssets.initialize, (address(timelockInstance), charlie, address(porFeedImpl)));
         address payable assetsProxy = payable(Upgrades.deployUUPSProxy("LendefiAssets.sol", initData));
         assetsProxyForUpgrades = LendefiAssets(assetsProxy);
 
         // Deploy mock contracts
-        mockUniswapPool = new MockUniswapV3Pool(address(wethInstance), address(usdcInstance), 3000);
+        mockUniswapPool = new MockUniswapV3Pool(address(wbnbInstance), address(usdcInstance), 3000);
         invalidPool = new MockUniswapV3Pool(address(0xBBB), address(0xCCC), 3000);
         mockChainlinkOracle = new MockPriceOracle();
         mockWBTC = new MockWBTC();
@@ -48,7 +48,7 @@ contract LendefiAssetsBranchTest is BasicDeploy {
         // Set up initial asset
         vm.startPrank(address(timelockInstance));
         assetsInstance.updateAssetConfig(
-            address(wethInstance),
+            address(wbnbInstance),
             IASSETS.Asset({
                 active: 1,
                 decimals: 18,
@@ -242,12 +242,12 @@ contract LendefiAssetsBranchTest is BasicDeploy {
     }
 
     function test_3_3_UpdateAssetConfigInvalidThresholds() public {
-        IASSETS.Asset memory asset = assetsInstance.getAssetInfo(address(wethInstance));
+        IASSETS.Asset memory asset = assetsInstance.getAssetInfo(address(wbnbInstance));
         vm.startPrank(address(timelockInstance));
 
         vm.expectRevert(abi.encodeWithSelector(IASSETS.InvalidLiquidationThreshold.selector, 995));
         assetsInstance.updateAssetConfig(
-            address(wethInstance),
+            address(wbnbInstance),
             IASSETS.Asset({
                 active: 1,
                 decimals: 6,
@@ -270,8 +270,8 @@ contract LendefiAssetsBranchTest is BasicDeploy {
     // ======== 4. Oracle Price Tests ========
 
     function test_4_1_GetAssetPriceByTypeNotFound() public {
-        vm.expectRevert(abi.encodeWithSelector(IASSETS.InvalidUniswapConfig.selector, address(wethInstance)));
-        assetsInstance.getAssetPriceByType(address(wethInstance), IASSETS.OracleType.UNISWAP_V3_TWAP);
+        vm.expectRevert(abi.encodeWithSelector(IASSETS.InvalidUniswapConfig.selector, address(wbnbInstance)));
+        assetsInstance.getAssetPriceByType(address(wbnbInstance), IASSETS.OracleType.UNISWAP_V3_TWAP);
     }
 
     function test_4_2_ChainlinkOracleInvalidPrice() public {
@@ -279,7 +279,7 @@ contract LendefiAssetsBranchTest is BasicDeploy {
         mockChainlinkOracle.setPrice(0); // Zero price (invalid)
 
         vm.expectRevert(abi.encodeWithSelector(IASSETS.OracleInvalidPrice.selector, address(mockChainlinkOracle), 0));
-        assetsInstance.getAssetPriceByType(address(wethInstance), IASSETS.OracleType.CHAINLINK);
+        assetsInstance.getAssetPriceByType(address(wbnbInstance), IASSETS.OracleType.CHAINLINK);
     }
 
     function test_4_3_ChainlinkOracleStalePrice() public {
@@ -288,7 +288,7 @@ contract LendefiAssetsBranchTest is BasicDeploy {
         mockChainlinkOracle.setAnsweredInRound(5); // Answered in stale round
 
         vm.expectRevert(abi.encodeWithSelector(IASSETS.OracleStalePrice.selector, address(mockChainlinkOracle), 10, 5));
-        assetsInstance.getAssetPriceByType(address(wethInstance), IASSETS.OracleType.CHAINLINK);
+        assetsInstance.getAssetPriceByType(address(wbnbInstance), IASSETS.OracleType.CHAINLINK);
     }
 
     function test_4_4_ChainlinkOracleTimeout() public {
@@ -305,7 +305,7 @@ contract LendefiAssetsBranchTest is BasicDeploy {
                 28800 // 8 hours default freshness
             )
         );
-        assetsInstance.getAssetPriceByType(address(wethInstance), IASSETS.OracleType.CHAINLINK);
+        assetsInstance.getAssetPriceByType(address(wbnbInstance), IASSETS.OracleType.CHAINLINK);
     }
 
     function test_4_5_OracleInvalidPriceVolatility() public {
@@ -338,16 +338,16 @@ contract LendefiAssetsBranchTest is BasicDeploy {
                 100 // Percentage (100% change from 500 to 1000)
             )
         );
-        assetsInstance.getAssetPrice(address(wethInstance));
+        assetsInstance.getAssetPrice(address(wbnbInstance));
     }
 
     function test_4_6_InvalidUniswapConfig() public {
-        IASSETS.Asset memory asset = assetsInstance.getAssetInfo(address(wethInstance));
+        IASSETS.Asset memory asset = assetsInstance.getAssetInfo(address(wbnbInstance));
         vm.startPrank(address(timelockInstance));
 
         // First update with inactive Uniswap configuration
         assetsInstance.updateAssetConfig(
-            address(wethInstance),
+            address(wbnbInstance),
             IASSETS.Asset({
                 active: 1,
                 decimals: 18,
@@ -371,8 +371,8 @@ contract LendefiAssetsBranchTest is BasicDeploy {
         vm.stopPrank();
 
         // Now when we try to use the Uniswap oracle specifically, it should get InvalidUniswapConfig
-        vm.expectRevert(abi.encodeWithSelector(IASSETS.InvalidUniswapConfig.selector, address(wethInstance)));
-        assetsInstance.getAssetPriceByType(address(wethInstance), IASSETS.OracleType.UNISWAP_V3_TWAP);
+        vm.expectRevert(abi.encodeWithSelector(IASSETS.InvalidUniswapConfig.selector, address(wbnbInstance)));
+        assetsInstance.getAssetPriceByType(address(wbnbInstance), IASSETS.OracleType.UNISWAP_V3_TWAP);
     }
 
     // ======== 5. Asset Management Tests ========
@@ -384,27 +384,27 @@ contract LendefiAssetsBranchTest is BasicDeploy {
         // Mock marketCoreInstance.getAssetTVL call
         vm.mockCall(
             address(marketCoreInstance),
-            abi.encodeWithSelector(marketCoreInstance.getAssetTVL.selector, address(wethInstance)),
+            abi.encodeWithSelector(marketCoreInstance.getAssetTVL.selector, address(wbnbInstance)),
             abi.encode(500_000e18, 1_250_000e8, block.timestamp) // TVL, TVL USD, lastUpdate
         );
         vm.stopPrank();
 
         // Test not at capacity
-        bool atCapacity1 = assetsInstance.isAssetAtCapacity(address(wethInstance), 400_000e18, 500_000e18);
+        bool atCapacity1 = assetsInstance.isAssetAtCapacity(address(wbnbInstance), 400_000e18, 500_000e18);
         assertFalse(atCapacity1, "Should not be at capacity with 900,000e18 total");
 
         // Test at capacity
-        bool atCapacity2 = assetsInstance.isAssetAtCapacity(address(wethInstance), 600_000e18, 500_000e18);
+        bool atCapacity2 = assetsInstance.isAssetAtCapacity(address(wbnbInstance), 600_000e18, 500_000e18);
         assertTrue(atCapacity2, "Should be at capacity with 1,100,000e18 total");
     }
 
     function test_5_2_AssetActivationDeactivation() public {
-        IASSETS.Asset memory asset = assetsInstance.getAssetInfo(address(wethInstance));
+        IASSETS.Asset memory asset = assetsInstance.getAssetInfo(address(wbnbInstance));
         vm.startPrank(address(timelockInstance));
 
         // First activate an asset (active = 1)
         assetsInstance.updateAssetConfig(
-            address(wethInstance),
+            address(wbnbInstance),
             IASSETS.Asset({
                 active: 1, // Active
                 decimals: 18,
@@ -422,11 +422,11 @@ contract LendefiAssetsBranchTest is BasicDeploy {
         );
 
         // Verify asset is active
-        assertTrue(assetsInstance.isAssetValid(address(wethInstance)), "Asset should be active");
+        assertTrue(assetsInstance.isAssetValid(address(wbnbInstance)), "Asset should be active");
 
         // Now deactivate the asset (active = 0)
         assetsInstance.updateAssetConfig(
-            address(wethInstance),
+            address(wbnbInstance),
             IASSETS.Asset({
                 active: 0, // Inactive
                 decimals: 18,
@@ -444,7 +444,7 @@ contract LendefiAssetsBranchTest is BasicDeploy {
         );
 
         // Verify asset is inactive
-        assertFalse(assetsInstance.isAssetValid(address(wethInstance)), "Asset should be inactive");
+        assertFalse(assetsInstance.isAssetValid(address(wbnbInstance)), "Asset should be inactive");
 
         vm.stopPrank();
     }
@@ -461,10 +461,10 @@ contract LendefiAssetsBranchTest is BasicDeploy {
             20, // volatilityPercentage (20%)
             50 // circuitBreakerThreshold (50%)
         );
-        IASSETS.Asset memory asset = assetsInstance.getAssetInfo(address(wethInstance));
-        // Configure wethInstance with both oracles active
+        IASSETS.Asset memory asset = assetsInstance.getAssetInfo(address(wbnbInstance));
+        // Configure wbnbInstance with both oracles active
         assetsInstance.updateAssetConfig(
-            address(wethInstance),
+            address(wbnbInstance),
             IASSETS.Asset({
                 active: 1,
                 decimals: 18,
@@ -479,7 +479,7 @@ contract LendefiAssetsBranchTest is BasicDeploy {
                 chainlinkConfig: IASSETS.ChainlinkOracleConfig({oracleUSD: address(mockChainlinkOracle), active: 1}),
                 poolConfig: IASSETS.UniswapPoolConfig({
                     pool: address(mockUniswapPool),
-                    twapPeriod: 900,
+                    twapPeriod: 600,
                     active: 1 // Both oracles active
                 })
             })
@@ -494,30 +494,30 @@ contract LendefiAssetsBranchTest is BasicDeploy {
         int56[] memory tickCumulatives = new int56[](2);
         tickCumulatives[0] = 0;
         // -203200 * 900 for half the price of the example
-        tickCumulatives[1] = -182880000; // -203200 * 900
+        tickCumulatives[1] = 203200 * 600;
         mockUniswapPool.setTickCumulatives(tickCumulatives);
 
         uint160[] memory secondsPerLiquidityCumulatives = new uint160[](2);
-        secondsPerLiquidityCumulatives[0] = 1000;
-        secondsPerLiquidityCumulatives[1] = 2000;
+        secondsPerLiquidityCumulatives[0] = 600;
+        secondsPerLiquidityCumulatives[1] = 600;
         mockUniswapPool.setSecondsPerLiquidity(secondsPerLiquidityCumulatives);
         mockUniswapPool.setObserveSuccess(true);
 
         // Call evaluateCircuitBreaker and verify it triggers due to deviation
-        (bool triggered, uint256 deviation) = assetsInstance.evaluateCircuitBreaker(address(wethInstance));
+        (bool triggered, uint256 deviation) = assetsInstance.evaluateCircuitBreaker(address(wbnbInstance));
 
         assertTrue(triggered, "Circuit breaker should be triggered");
         assertGe(deviation, 50, "Deviation should be at least 50%");
 
         // Verify circuit breaker is now active
-        assertTrue(assetsInstance.circuitBroken(address(wethInstance)), "Circuit breaker should be active");
+        assertTrue(assetsInstance.circuitBroken(address(wbnbInstance)), "Circuit breaker should be active");
     }
 
     function test_6_2_CircuitBreakerUnchangedStatus() public {
-        IASSETS.Asset memory asset = assetsInstance.getAssetInfo(address(wethInstance));
+        IASSETS.Asset memory asset = assetsInstance.getAssetInfo(address(wbnbInstance));
         vm.startPrank(address(timelockInstance));
         assetsInstance.updateAssetConfig(
-            address(wethInstance),
+            address(wbnbInstance),
             IASSETS.Asset({
                 active: 1,
                 decimals: 18,
@@ -536,19 +536,19 @@ contract LendefiAssetsBranchTest is BasicDeploy {
         vm.stopPrank();
 
         // First call, circuit breaker should remain inactive
-        (bool triggered1, uint256 deviation1) = assetsInstance.evaluateCircuitBreaker(address(wethInstance));
+        (bool triggered1, uint256 deviation1) = assetsInstance.evaluateCircuitBreaker(address(wbnbInstance));
 
         assertFalse(triggered1, "Circuit breaker should not be triggered");
         assertEq(deviation1, 2, "Deviation should be 2% with single oracle"); // Updated to expect 2%
-        assertFalse(assetsInstance.circuitBroken(address(wethInstance)), "Circuit breaker should remain inactive");
+        assertFalse(assetsInstance.circuitBroken(address(wbnbInstance)), "Circuit breaker should remain inactive");
 
         // Second call without changing conditions
         // This should hit the return (circuitBroken[asset], deviationPct) line
-        (bool triggered2, uint256 deviation2) = assetsInstance.evaluateCircuitBreaker(address(wethInstance));
+        (bool triggered2, uint256 deviation2) = assetsInstance.evaluateCircuitBreaker(address(wbnbInstance));
 
         assertFalse(triggered2, "Circuit breaker should still not be triggered");
         assertEq(deviation2, 2, "Deviation should still be 2%"); // Updated to expect 2%
-        assertFalse(assetsInstance.circuitBroken(address(wethInstance)), "Circuit breaker should still be inactive");
+        assertFalse(assetsInstance.circuitBroken(address(wbnbInstance)), "Circuit breaker should still be inactive");
     }
 
     // ======== 7. Additional Coverage Tests ========
@@ -556,14 +556,14 @@ contract LendefiAssetsBranchTest is BasicDeploy {
     // Test 7.1: Fix poolLiquidityLimit test
     function test_7_1_PoolLiquidityLimit() public {
         vm.deal(address(this), 100 ether);
-        wethInstance.deposit{value: 100 ether}();
-        wethInstance.transfer(address(mockUniswapPool), 100 ether);
-        IASSETS.Asset memory asset = assetsInstance.getAssetInfo(address(wethInstance));
+        wbnbInstance.deposit{value: 100 ether}();
+        wbnbInstance.transfer(address(mockUniswapPool), 100 ether);
+        IASSETS.Asset memory asset = assetsInstance.getAssetInfo(address(wbnbInstance));
 
         vm.startPrank(address(timelockInstance));
         // Configure test token with active Uniswap oracle
         assetsInstance.updateAssetConfig(
-            address(wethInstance),
+            address(wbnbInstance),
             IASSETS.Asset({
                 active: 1,
                 decimals: 8,
@@ -590,23 +590,23 @@ contract LendefiAssetsBranchTest is BasicDeploy {
 
         // Case 1: Amount is below 3% of pool liquidity
         uint256 smallAmount = 2.99e18; // 2.999% of pool balance
-        bool limitReached1 = assetsInstance.poolLiquidityLimit(address(wethInstance), smallAmount);
+        bool limitReached1 = assetsInstance.poolLiquidityLimit(address(wbnbInstance), smallAmount);
         assertFalse(limitReached1, "Should not reach limit with amount < 3% of pool liquidity");
 
         // Case 2: Amount exceeds 3% of pool liquidity
         uint256 largeAmount = 3.01e18; // 3.001% of pool balance
-        bool limitReached2 = assetsInstance.poolLiquidityLimit(address(wethInstance), largeAmount);
+        bool limitReached2 = assetsInstance.poolLiquidityLimit(address(wbnbInstance), largeAmount);
         assertTrue(limitReached2, "Should reach limit with amount > 3% of pool liquidity");
     }
 
     // ======== 8. Coverage Gap Tests ========
 
     function test_8_1_CheckPriceDeviationWithInsufficientOracles() public {
-        IASSETS.Asset memory asset = assetsInstance.getAssetInfo(address(wethInstance));
-        // Configure wethInstance with only one active oracle
+        IASSETS.Asset memory asset = assetsInstance.getAssetInfo(address(wbnbInstance));
+        // Configure wbnbInstance with only one active oracle
         vm.startPrank(address(timelockInstance));
         assetsInstance.updateAssetConfig(
-            address(wethInstance),
+            address(wbnbInstance),
             IASSETS.Asset({
                 active: 1,
                 decimals: 18,
@@ -629,8 +629,8 @@ contract LendefiAssetsBranchTest is BasicDeploy {
         vm.stopPrank();
 
         // Try to check price deviation - should revert because we don't have 2 active oracles
-        vm.expectRevert(abi.encodeWithSelector(IASSETS.NotEnoughValidOracles.selector, address(wethInstance), 2, 1));
-        assetsInstance.checkPriceDeviation(address(wethInstance));
+        vm.expectRevert(abi.encodeWithSelector(IASSETS.NotEnoughValidOracles.selector, address(wbnbInstance), 2, 1));
+        assetsInstance.checkPriceDeviation(address(wbnbInstance));
     }
 
     function test_8_2_OracleValidationNonActiveUniswaap() public {
@@ -641,7 +641,7 @@ contract LendefiAssetsBranchTest is BasicDeploy {
 
         // Configure Uniswap pool for test token
         MockUniswapV3Pool tokenPool = new MockUniswapV3Pool(address(testToken), address(usdcInstance), 3000);
-        IASSETS.Asset memory asset = assetsInstance.getAssetInfo(address(wethInstance));
+        IASSETS.Asset memory asset = assetsInstance.getAssetInfo(address(wbnbInstance));
 
         // Try to set a token with primary oracle as Uniswap but with inactive Uniswap
         vm.expectRevert(
@@ -677,7 +677,7 @@ contract LendefiAssetsBranchTest is BasicDeploy {
     }
 
     function testRevert_GetAssetPriceByTypeCircuitBreakerActive() public {
-        IASSETS.Asset memory asset = assetsInstance.getAssetInfo(address(wethInstance));
+        IASSETS.Asset memory asset = assetsInstance.getAssetInfo(address(wbnbInstance));
         vm.startPrank(address(timelockInstance));
 
         // First set up the oracle configuration
@@ -688,9 +688,9 @@ contract LendefiAssetsBranchTest is BasicDeploy {
             50 // circuitBreakerThreshold (50%)
         );
 
-        // Configure wethInstance with both oracles active
+        // Configure wbnbInstance with both oracles active
         assetsInstance.updateAssetConfig(
-            address(wethInstance),
+            address(wbnbInstance),
             IASSETS.Asset({
                 active: 1,
                 decimals: 18,
@@ -705,7 +705,7 @@ contract LendefiAssetsBranchTest is BasicDeploy {
                 chainlinkConfig: IASSETS.ChainlinkOracleConfig({oracleUSD: address(mockChainlinkOracle), active: 1}),
                 poolConfig: IASSETS.UniswapPoolConfig({
                     pool: address(mockUniswapPool),
-                    twapPeriod: 900,
+                    twapPeriod: 600,
                     active: 1 // Both oracles active
                 })
             })
@@ -721,27 +721,30 @@ contract LendefiAssetsBranchTest is BasicDeploy {
         // Configure tick cumulatives to simulate $1250 price (50% difference)
         int56[] memory tickCumulatives = new int56[](2);
         tickCumulatives[0] = 0;
-        tickCumulatives[1] = -182880000; // -203200 * 900
+        tickCumulatives[1] = 203200 * 600;
         mockUniswapPool.setTickCumulatives(tickCumulatives);
 
         uint160[] memory secondsPerLiquidityCumulatives = new uint160[](2);
-        secondsPerLiquidityCumulatives[0] = 1000;
-        secondsPerLiquidityCumulatives[1] = 2000;
+        secondsPerLiquidityCumulatives[0] = 600;
+        secondsPerLiquidityCumulatives[1] = 600;
         mockUniswapPool.setSecondsPerLiquidity(secondsPerLiquidityCumulatives);
         mockUniswapPool.setObserveSuccess(true);
 
+        uint256 priceUni = assetsInstance.getAssetPriceByType(address(wbnbInstance), IASSETS.OracleType.UNISWAP_V3_TWAP);
+        console2.log("Price before circuit breaker:", priceUni);
+
         // First trigger the circuit breaker
-        (bool triggered, uint256 deviation) = assetsInstance.evaluateCircuitBreaker(address(wethInstance));
+        (bool triggered, uint256 deviation) = assetsInstance.evaluateCircuitBreaker(address(wbnbInstance));
         assertTrue(triggered, "Circuit breaker should be triggered");
         assertGe(deviation, 50, "Deviation should be at least 50%");
-        assertTrue(assetsInstance.circuitBroken(address(wethInstance)), "Circuit breaker should be active");
+        assertTrue(assetsInstance.circuitBroken(address(wbnbInstance)), "Circuit breaker should be active");
 
         // Now try to get price by type when circuit breaker is active
-        vm.expectRevert(abi.encodeWithSelector(IASSETS.CircuitBreakerActive.selector, address(wethInstance)));
-        assetsInstance.getAssetPriceByType(address(wethInstance), IASSETS.OracleType.CHAINLINK);
+        vm.expectRevert(abi.encodeWithSelector(IASSETS.CircuitBreakerActive.selector, address(wbnbInstance)));
+        assetsInstance.getAssetPriceByType(address(wbnbInstance), IASSETS.OracleType.CHAINLINK);
 
         // Also verify it fails for the other oracle type
-        vm.expectRevert(abi.encodeWithSelector(IASSETS.CircuitBreakerActive.selector, address(wethInstance)));
-        assetsInstance.getAssetPriceByType(address(wethInstance), IASSETS.OracleType.UNISWAP_V3_TWAP);
+        vm.expectRevert(abi.encodeWithSelector(IASSETS.CircuitBreakerActive.selector, address(wbnbInstance)));
+        assetsInstance.getAssetPriceByType(address(wbnbInstance), IASSETS.OracleType.UNISWAP_V3_TWAP);
     }
 }
