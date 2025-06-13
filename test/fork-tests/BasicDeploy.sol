@@ -31,7 +31,8 @@ import {TeamManagerV2} from "../../contracts/upgrades/TeamManagerV2.sol";
 import {LendefiAssets} from "../../contracts/markets/LendefiAssets.sol";
 import {LendefiAssetsV2} from "../../contracts/upgrades/LendefiAssetsV2.sol";
 import {LendefiPoRFeed} from "../../contracts/markets/LendefiPoRFeed.sol";
-import {TimelockControllerUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
+import {TimelockControllerUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/governance/TimelockControllerUpgradeable.sol";
 import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 // Markets Layer imports
 import {LendefiMarketFactory} from "../../contracts/markets/LendefiMarketFactory.sol";
@@ -48,8 +49,7 @@ contract BasicDeploy is Test {
     event Upgrade(address indexed src, address indexed implementation);
 
     bytes32 internal constant DEFAULT_ADMIN_ROLE = 0x00;
-    bytes32 internal constant CIRCUIT_BREAKER_ROLE =
-        keccak256("CIRCUIT_BREAKER_ROLE");
+    bytes32 internal constant CIRCUIT_BREAKER_ROLE = keccak256("CIRCUIT_BREAKER_ROLE");
     bytes32 internal constant ALLOCATOR_ROLE = keccak256("ALLOCATOR_ROLE");
     bytes32 internal constant PROPOSER_ROLE = keccak256("PROPOSER_ROLE");
     bytes32 internal constant EXECUTOR_ROLE = keccak256("EXECUTOR_ROLE");
@@ -97,7 +97,7 @@ contract BasicDeploy is Test {
     LendefiCore internal marketCoreInstance;
     LendefiMarketVault internal marketVaultInstance;
     LendefiPoRFeed internal porFeedImplementation;
-    WETH9 internal wethInstance;
+    // WETH9 internal wethInstance;
     // USDC internal usdcInstance;
     IERC20 usdcInstance = IERC20(0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d); //real usdc BSC for fork testing
     IERC20 usdtInstance = IERC20(0x55d398326f99059fF775485246999027B3197955); //real usdt BSC for fork testing
@@ -109,20 +109,12 @@ contract BasicDeploy is Test {
         }
 
         // token deploy
-        bytes memory data = abi.encodeCall(
-            GovernanceToken.initializeUUPS,
-            (guardian, address(timelockInstance))
-        );
-        address payable proxy = payable(
-            Upgrades.deployUUPSProxy("GovernanceToken.sol", data)
-        );
+        bytes memory data = abi.encodeCall(GovernanceToken.initializeUUPS, (guardian, address(timelockInstance)));
+        address payable proxy = payable(Upgrades.deployUUPSProxy("GovernanceToken.sol", data));
         tokenInstance = GovernanceToken(proxy);
         address tokenImplementation = Upgrades.getImplementationAddress(proxy);
         assertFalse(address(tokenInstance) == tokenImplementation);
-        assertTrue(
-            tokenInstance.hasRole(UPGRADER_ROLE, address(timelockInstance)) ==
-                true
-        );
+        assertTrue(tokenInstance.hasRole(UPGRADER_ROLE, address(timelockInstance)) == true);
 
         // Create options struct for the implementation
         Options memory opts = Options({
@@ -142,10 +134,7 @@ contract BasicDeploy is Test {
         });
 
         // Deploy the implementation without upgrading
-        address newImpl = Upgrades.prepareUpgrade(
-            "GovernanceTokenV2.sol",
-            opts
-        );
+        address newImpl = Upgrades.prepareUpgrade("GovernanceTokenV2.sol", opts);
 
         // Schedule the upgrade with that exact address
         vm.startPrank(address(timelockInstance));
@@ -161,15 +150,8 @@ contract BasicDeploy is Test {
         address implAddressV2 = Upgrades.getImplementationAddress(proxy);
         GovernanceTokenV2 instanceV2 = GovernanceTokenV2(proxy);
         assertEq(instanceV2.version(), 2, "Version not incremented to 2");
-        assertFalse(
-            implAddressV2 == tokenImplementation,
-            "Implementation address didn't change"
-        );
-        assertTrue(
-            instanceV2.hasRole(UPGRADER_ROLE, address(timelockInstance)) ==
-                true,
-            "Lost UPGRADER_ROLE"
-        );
+        assertFalse(implAddressV2 == tokenImplementation, "Implementation address didn't change");
+        assertTrue(instanceV2.hasRole(UPGRADER_ROLE, address(timelockInstance)) == true, "Lost UPGRADER_ROLE");
     }
 
     function deployEcosystemUpgrade() internal {
@@ -178,22 +160,15 @@ contract BasicDeploy is Test {
         _deployTimelock();
 
         // ecosystem deploy
-        bytes memory data = abi.encodeCall(
-            Ecosystem.initialize,
-            (address(tokenInstance), address(timelockInstance), gnosisSafe)
-        );
-        address payable proxy = payable(
-            Upgrades.deployUUPSProxy("Ecosystem.sol", data)
-        );
+        bytes memory data =
+            abi.encodeCall(Ecosystem.initialize, (address(tokenInstance), address(timelockInstance), gnosisSafe));
+        address payable proxy = payable(Upgrades.deployUUPSProxy("Ecosystem.sol", data));
         ecoInstance = Ecosystem(proxy);
         address implAddressV1 = Upgrades.getImplementationAddress(proxy);
         assertFalse(address(ecoInstance) == implAddressV1);
 
         // Verify gnosis multisig has the required role
-        assertTrue(
-            ecoInstance.hasRole(UPGRADER_ROLE, gnosisSafe),
-            "Multisig should have UPGRADER_ROLE"
-        );
+        assertTrue(ecoInstance.hasRole(UPGRADER_ROLE, gnosisSafe), "Multisig should have UPGRADER_ROLE");
 
         // Create options struct for the implementation
         Options memory opts = Options({
@@ -229,14 +204,8 @@ contract BasicDeploy is Test {
         address implAddressV2 = Upgrades.getImplementationAddress(proxy);
         EcosystemV2 ecoInstanceV2 = EcosystemV2(proxy);
         assertEq(ecoInstanceV2.version(), 2, "Version not incremented to 2");
-        assertFalse(
-            implAddressV2 == implAddressV1,
-            "Implementation address didn't change"
-        );
-        assertTrue(
-            ecoInstanceV2.hasRole(UPGRADER_ROLE, gnosisSafe),
-            "Lost UPGRADER_ROLE"
-        );
+        assertFalse(implAddressV2 == implAddressV1, "Implementation address didn't change");
+        assertTrue(ecoInstanceV2.hasRole(UPGRADER_ROLE, gnosisSafe), "Lost UPGRADER_ROLE");
     }
 
     function deployTreasuryUpgrade() internal {
@@ -248,29 +217,15 @@ contract BasicDeploy is Test {
         uint256 startOffset = 180 days;
         uint256 vestingDuration = 3 * 365 days;
 
-        bytes memory data = abi.encodeCall(
-            Treasury.initialize,
-            (
-                address(timelockInstance),
-                gnosisSafe,
-                startOffset,
-                vestingDuration
-            )
-        );
-        address payable proxy = payable(
-            Upgrades.deployUUPSProxy("Treasury.sol", data)
-        );
+        bytes memory data =
+            abi.encodeCall(Treasury.initialize, (address(timelockInstance), gnosisSafe, startOffset, vestingDuration));
+        address payable proxy = payable(Upgrades.deployUUPSProxy("Treasury.sol", data));
         treasuryInstance = Treasury(proxy);
         address implAddressV1 = Upgrades.getImplementationAddress(proxy);
         assertFalse(address(treasuryInstance) == implAddressV1);
 
         // Verify gnosis multisig has the required role
-        assertTrue(
-            treasuryInstance.hasRole(
-                treasuryInstance.UPGRADER_ROLE(),
-                gnosisSafe
-            )
-        );
+        assertTrue(treasuryInstance.hasRole(treasuryInstance.UPGRADER_ROLE(), gnosisSafe));
 
         // Create options struct for the implementation
         Options memory opts = Options({
@@ -305,22 +260,9 @@ contract BasicDeploy is Test {
         // Verification
         address implAddressV2 = Upgrades.getImplementationAddress(proxy);
         TreasuryV2 treasuryInstanceV2 = TreasuryV2(proxy);
-        assertEq(
-            treasuryInstanceV2.version(),
-            2,
-            "Version not incremented to 2"
-        );
-        assertFalse(
-            implAddressV2 == implAddressV1,
-            "Implementation address didn't change"
-        );
-        assertTrue(
-            treasuryInstanceV2.hasRole(
-                treasuryInstanceV2.UPGRADER_ROLE(),
-                gnosisSafe
-            ),
-            "Lost UPGRADER_ROLE"
-        );
+        assertEq(treasuryInstanceV2.version(), 2, "Version not incremented to 2");
+        assertFalse(implAddressV2 == implAddressV1, "Implementation address didn't change");
+        assertTrue(treasuryInstanceV2.hasRole(treasuryInstanceV2.UPGRADER_ROLE(), gnosisSafe), "Lost UPGRADER_ROLE");
     }
 
     function deployTimelockUpgrade() internal {
@@ -331,37 +273,19 @@ contract BasicDeploy is Test {
 
         TimelockControllerUpgradeable implementation = new TimelockControllerUpgradeable();
         bytes memory initData = abi.encodeWithSelector(
-            TimelockControllerUpgradeable.initialize.selector,
-            timelockDelay,
-            temp,
-            temp,
-            guardian
+            TimelockControllerUpgradeable.initialize.selector, timelockDelay, temp, temp, guardian
         );
-        ERC1967Proxy proxy1 = new ERC1967Proxy(
-            address(implementation),
-            initData
-        );
+        ERC1967Proxy proxy1 = new ERC1967Proxy(address(implementation), initData);
 
-        timelockInstance = TimelockControllerUpgradeable(
-            payable(address(proxy1))
-        );
+        timelockInstance = TimelockControllerUpgradeable(payable(address(proxy1)));
 
         // deploy Timelock Upgrade, ERC1967Proxy
         TimelockV2 newImplementation = new TimelockV2();
         bytes memory initData2 = abi.encodeWithSelector(
-            TimelockControllerUpgradeable.initialize.selector,
-            timelockDelay,
-            temp,
-            temp,
-            guardian
+            TimelockControllerUpgradeable.initialize.selector, timelockDelay, temp, temp, guardian
         );
-        ERC1967Proxy proxy2 = new ERC1967Proxy(
-            address(newImplementation),
-            initData2
-        );
-        timelockInstance = TimelockControllerUpgradeable(
-            payable(address(proxy2))
-        );
+        ERC1967Proxy proxy2 = new ERC1967Proxy(address(newImplementation), initData2);
+        timelockInstance = TimelockControllerUpgradeable(payable(address(proxy2)));
     }
 
     function deployGovernorUpgrade() internal {
@@ -370,13 +294,8 @@ contract BasicDeploy is Test {
         _deployToken();
 
         // deploy Governor
-        bytes memory data = abi.encodeCall(
-            LendefiGovernor.initialize,
-            (tokenInstance, timelockInstance, gnosisSafe)
-        );
-        address payable proxy = payable(
-            Upgrades.deployUUPSProxy("LendefiGovernor.sol", data)
-        );
+        bytes memory data = abi.encodeCall(LendefiGovernor.initialize, (tokenInstance, timelockInstance, gnosisSafe));
+        address payable proxy = payable(Upgrades.deployUUPSProxy("LendefiGovernor.sol", data));
         govInstance = LendefiGovernor(proxy);
         address govImplAddressV1 = Upgrades.getImplementationAddress(proxy);
         assertFalse(address(govInstance) == govImplAddressV1);
@@ -400,10 +319,7 @@ contract BasicDeploy is Test {
         });
 
         // Deploy the implementation without upgrading
-        address newImpl = Upgrades.prepareUpgrade(
-            "LendefiGovernorV2.sol",
-            opts
-        );
+        address newImpl = Upgrades.prepareUpgrade("LendefiGovernorV2.sol", opts);
 
         // Schedule the upgrade with that exact address
         vm.startPrank(gnosisSafe);
@@ -418,15 +334,8 @@ contract BasicDeploy is Test {
         // Verification
         address govImplAddressV2 = Upgrades.getImplementationAddress(proxy);
         LendefiGovernorV2 govInstanceV2 = LendefiGovernorV2(proxy);
-        assertEq(
-            govInstanceV2.uupsVersion(),
-            2,
-            "Version not incremented to 2"
-        );
-        assertFalse(
-            govImplAddressV2 == govImplAddressV1,
-            "Implementation address didn't change"
-        );
+        assertEq(govInstanceV2.uupsVersion(), 2, "Version not incremented to 2");
+        assertFalse(govImplAddressV2 == govImplAddressV1, "Implementation address didn't change");
     }
 
     function deployIMUpgrade() internal {
@@ -437,24 +346,16 @@ contract BasicDeploy is Test {
 
         // deploy Investment Manager
         bytes memory data = abi.encodeCall(
-            InvestmentManager.initialize,
-            (
-                address(tokenInstance),
-                address(timelockInstance),
-                address(treasuryInstance)
-            )
+            InvestmentManager.initialize, (address(tokenInstance), address(timelockInstance), address(treasuryInstance))
         );
-        address payable proxy = payable(
-            Upgrades.deployUUPSProxy("InvestmentManager.sol", data)
-        );
+        address payable proxy = payable(Upgrades.deployUUPSProxy("InvestmentManager.sol", data));
         managerInstance = InvestmentManager(proxy);
         address implAddressV1 = Upgrades.getImplementationAddress(proxy);
         assertFalse(address(managerInstance) == implAddressV1);
 
         // Verify gnosis multisig has the required role
         assertTrue(
-            managerInstance.hasRole(UPGRADER_ROLE, address(timelockInstance)),
-            "Timelock should have UPGRADER_ROLE"
+            managerInstance.hasRole(UPGRADER_ROLE, address(timelockInstance)), "Timelock should have UPGRADER_ROLE"
         );
 
         // Create options struct for the implementation
@@ -475,10 +376,7 @@ contract BasicDeploy is Test {
         });
 
         // Deploy the implementation without upgrading
-        address newImpl = Upgrades.prepareUpgrade(
-            "InvestmentManagerV2.sol",
-            opts
-        );
+        address newImpl = Upgrades.prepareUpgrade("InvestmentManagerV2.sol", opts);
 
         // Schedule the upgrade with that exact address
         vm.startPrank(address(timelockInstance));
@@ -494,14 +392,8 @@ contract BasicDeploy is Test {
         address implAddressV2 = Upgrades.getImplementationAddress(proxy);
         InvestmentManagerV2 imInstanceV2 = InvestmentManagerV2(proxy);
         assertEq(imInstanceV2.version(), 2, "Version not incremented to 2");
-        assertFalse(
-            implAddressV2 == implAddressV1,
-            "Implementation address didn't change"
-        );
-        assertTrue(
-            imInstanceV2.hasRole(UPGRADER_ROLE, address(timelockInstance)),
-            "Lost UPGRADER_ROLE"
-        );
+        assertFalse(implAddressV2 == implAddressV1, "Implementation address didn't change");
+        assertTrue(imInstanceV2.hasRole(UPGRADER_ROLE, address(timelockInstance)), "Lost UPGRADER_ROLE");
     }
 
     function deployTeamManagerUpgrade() internal {
@@ -510,13 +402,9 @@ contract BasicDeploy is Test {
         _deployToken();
 
         // deploy Team Manager with gnosisSafe as the upgrader role
-        bytes memory data = abi.encodeCall(
-            TeamManager.initialize,
-            (address(tokenInstance), address(timelockInstance), gnosisSafe)
-        );
-        address payable proxy = payable(
-            Upgrades.deployUUPSProxy("TeamManager.sol", data)
-        );
+        bytes memory data =
+            abi.encodeCall(TeamManager.initialize, (address(tokenInstance), address(timelockInstance), gnosisSafe));
+        address payable proxy = payable(Upgrades.deployUUPSProxy("TeamManager.sol", data));
         tmInstance = TeamManager(proxy);
         address implAddressV1 = Upgrades.getImplementationAddress(proxy);
         assertFalse(address(tmInstance) == implAddressV1);
@@ -556,14 +444,8 @@ contract BasicDeploy is Test {
         address implAddressV2 = Upgrades.getImplementationAddress(proxy);
         TeamManagerV2 tmInstanceV2 = TeamManagerV2(proxy);
         assertEq(tmInstanceV2.version(), 2, "Version not incremented to 2");
-        assertFalse(
-            implAddressV2 == implAddressV1,
-            "Implementation address didn't change"
-        );
-        assertTrue(
-            tmInstanceV2.hasRole(UPGRADER_ROLE, gnosisSafe) == true,
-            "Lost UPGRADER_ROLE"
-        );
+        assertFalse(implAddressV2 == implAddressV1, "Implementation address didn't change");
+        assertTrue(tmInstanceV2.hasRole(UPGRADER_ROLE, gnosisSafe) == true, "Lost UPGRADER_ROLE");
     }
 
     function deployComplete() internal {
@@ -592,13 +474,8 @@ contract BasicDeploy is Test {
             _deployTimelock();
         }
         // token deploy
-        bytes memory data = abi.encodeCall(
-            GovernanceToken.initializeUUPS,
-            (guardian, address(timelockInstance))
-        );
-        address payable proxy = payable(
-            Upgrades.deployUUPSProxy("GovernanceToken.sol", data)
-        );
+        bytes memory data = abi.encodeCall(GovernanceToken.initializeUUPS, (guardian, address(timelockInstance)));
+        address payable proxy = payable(Upgrades.deployUUPSProxy("GovernanceToken.sol", data));
         tokenInstance = GovernanceToken(proxy);
         address tokenImplementation = Upgrades.getImplementationAddress(proxy);
         assertFalse(address(tokenInstance) == tokenImplementation);
@@ -606,13 +483,9 @@ contract BasicDeploy is Test {
 
     function _deployEcosystem() internal {
         // ecosystem deploy
-        bytes memory data = abi.encodeCall(
-            Ecosystem.initialize,
-            (address(tokenInstance), address(timelockInstance), gnosisSafe)
-        );
-        address payable proxy = payable(
-            Upgrades.deployUUPSProxy("Ecosystem.sol", data)
-        );
+        bytes memory data =
+            abi.encodeCall(Ecosystem.initialize, (address(tokenInstance), address(timelockInstance), gnosisSafe));
+        address payable proxy = payable(Upgrades.deployUUPSProxy("Ecosystem.sol", data));
         ecoInstance = Ecosystem(proxy);
         address ecoImplementation = Upgrades.getImplementationAddress(proxy);
         assertFalse(address(ecoInstance) == ecoImplementation);
@@ -626,28 +499,17 @@ contract BasicDeploy is Test {
         TimelockControllerUpgradeable timelock = new TimelockControllerUpgradeable();
 
         bytes memory initData = abi.encodeWithSelector(
-            TimelockControllerUpgradeable.initialize.selector,
-            timelockDelay,
-            temp,
-            temp,
-            guardian
+            TimelockControllerUpgradeable.initialize.selector, timelockDelay, temp, temp, guardian
         );
 
         ERC1967Proxy proxy = new ERC1967Proxy(address(timelock), initData);
-        timelockInstance = TimelockControllerUpgradeable(
-            payable(address(proxy))
-        );
+        timelockInstance = TimelockControllerUpgradeable(payable(address(proxy)));
     }
 
     function _deployGovernor() internal {
         // deploy Governor
-        bytes memory data = abi.encodeCall(
-            LendefiGovernor.initialize,
-            (tokenInstance, timelockInstance, gnosisSafe)
-        );
-        address payable proxy = payable(
-            Upgrades.deployUUPSProxy("LendefiGovernor.sol", data)
-        );
+        bytes memory data = abi.encodeCall(LendefiGovernor.initialize, (tokenInstance, timelockInstance, gnosisSafe));
+        address payable proxy = payable(Upgrades.deployUUPSProxy("LendefiGovernor.sol", data));
         govInstance = LendefiGovernor(proxy);
         address govImplementation = Upgrades.getImplementationAddress(proxy);
         assertFalse(address(govInstance) == govImplementation);
@@ -658,18 +520,9 @@ contract BasicDeploy is Test {
         // deploy Treasury
         uint256 startOffset = 180 days;
         uint256 vestingDuration = 3 * 365 days;
-        bytes memory data = abi.encodeCall(
-            Treasury.initialize,
-            (
-                address(timelockInstance),
-                gnosisSafe,
-                startOffset,
-                vestingDuration
-            )
-        );
-        address payable proxy = payable(
-            Upgrades.deployUUPSProxy("Treasury.sol", data)
-        );
+        bytes memory data =
+            abi.encodeCall(Treasury.initialize, (address(timelockInstance), gnosisSafe, startOffset, vestingDuration));
+        address payable proxy = payable(Upgrades.deployUUPSProxy("Treasury.sol", data));
         treasuryInstance = Treasury(proxy);
         address implAddress = Upgrades.getImplementationAddress(proxy);
         assertFalse(address(treasuryInstance) == implAddress);
@@ -678,16 +531,9 @@ contract BasicDeploy is Test {
     function _deployInvestmentManager() internal {
         // deploy Investment Manager
         bytes memory data = abi.encodeCall(
-            InvestmentManager.initialize,
-            (
-                address(tokenInstance),
-                address(timelockInstance),
-                address(treasuryInstance)
-            )
+            InvestmentManager.initialize, (address(tokenInstance), address(timelockInstance), address(treasuryInstance))
         );
-        address payable proxy = payable(
-            Upgrades.deployUUPSProxy("InvestmentManager.sol", data)
-        );
+        address payable proxy = payable(Upgrades.deployUUPSProxy("InvestmentManager.sol", data));
         managerInstance = InvestmentManager(proxy);
         address implementation = Upgrades.getImplementationAddress(proxy);
         assertFalse(address(managerInstance) == implementation);
@@ -695,13 +541,9 @@ contract BasicDeploy is Test {
 
     function _deployTeamManager() internal {
         // deploy Team Manager
-        bytes memory data = abi.encodeCall(
-            TeamManager.initialize,
-            (address(tokenInstance), address(timelockInstance), gnosisSafe)
-        );
-        address payable proxy = payable(
-            Upgrades.deployUUPSProxy("TeamManager.sol", data)
-        );
+        bytes memory data =
+            abi.encodeCall(TeamManager.initialize, (address(tokenInstance), address(timelockInstance), gnosisSafe));
+        address payable proxy = payable(Upgrades.deployUUPSProxy("TeamManager.sol", data));
         tmInstance = TeamManager(proxy);
         address implementation = Upgrades.getImplementationAddress(proxy);
         assertFalse(address(tmInstance) == implementation);
@@ -722,17 +564,10 @@ contract BasicDeploy is Test {
         porFeedImplementation = new LendefiPoRFeed();
         // Protocol Oracle deploy (combined Oracle + Assets)
         bytes memory data = abi.encodeCall(
-            LendefiAssets.initialize,
-            (
-                address(timelockInstance),
-                charlie,
-                address(porFeedImplementation)
-            )
+            LendefiAssets.initialize, (address(timelockInstance), charlie, address(porFeedImplementation))
         );
 
-        address payable proxy = payable(
-            Upgrades.deployUUPSProxy("LendefiAssets.sol", data)
-        );
+        address payable proxy = payable(Upgrades.deployUUPSProxy("LendefiAssets.sol", data));
 
         // Store the instance in both variables to maintain compatibility with existing tests
         assetsInstance = LendefiAssets(proxy);
@@ -799,27 +634,15 @@ contract BasicDeploy is Test {
 
         // Assert that upgrade was successful
         assertEq(assetsInstanceV2.version(), 2, "Version not incremented to 2");
-        assertFalse(
-            implAddressV2 == implAddressV1,
-            "Implementation address didn't change"
-        );
-        assertTrue(
-            assetsInstanceV2.hasRole(UPGRADER_ROLE, gnosisSafe),
-            "Lost UPGRADER_ROLE"
-        );
+        assertFalse(implAddressV2 == implAddressV1, "Implementation address didn't change");
+        assertTrue(assetsInstanceV2.hasRole(UPGRADER_ROLE, gnosisSafe), "Lost UPGRADER_ROLE");
 
         // Test role management still works
         vm.startPrank(address(timelockInstance));
         assetsInstanceV2.revokeRole(UPGRADER_ROLE, gnosisSafe);
-        assertFalse(
-            assetsInstanceV2.hasRole(UPGRADER_ROLE, gnosisSafe),
-            "Role should be revoked successfully"
-        );
+        assertFalse(assetsInstanceV2.hasRole(UPGRADER_ROLE, gnosisSafe), "Role should be revoked successfully");
         assetsInstance.grantRole(UPGRADER_ROLE, gnosisSafe);
-        assertTrue(
-            assetsInstanceV2.hasRole(UPGRADER_ROLE, gnosisSafe),
-            "Lost UPGRADER_ROLE"
-        );
+        assertTrue(assetsInstanceV2.hasRole(UPGRADER_ROLE, gnosisSafe), "Lost UPGRADER_ROLE");
         vm.stopPrank();
     }
 
@@ -857,10 +680,7 @@ contract BasicDeploy is Test {
         });
 
         // Deploy the implementation without upgrading
-        address newImpl = Upgrades.prepareUpgrade(
-            "LendefiMarketFactoryV2.sol",
-            opts
-        );
+        address newImpl = Upgrades.prepareUpgrade("LendefiMarketFactoryV2.sol", opts);
 
         // Schedule the upgrade with that exact address
         vm.startPrank(address(timelockInstance));
@@ -875,40 +695,21 @@ contract BasicDeploy is Test {
 
         // Verification
         address implAddressV2 = Upgrades.getImplementationAddress(proxy);
-        LendefiMarketFactoryV2 marketFactoryInstanceV2 = LendefiMarketFactoryV2(
-            proxy
-        );
+        LendefiMarketFactoryV2 marketFactoryInstanceV2 = LendefiMarketFactoryV2(proxy);
 
         // Assert that upgrade was successful
-        assertEq(
-            marketFactoryInstanceV2.version(),
-            2,
-            "Version not incremented to 2"
-        );
-        assertFalse(
-            implAddressV2 == implAddressV1,
-            "Implementation address didn't change"
-        );
+        assertEq(marketFactoryInstanceV2.version(), 2, "Version not incremented to 2");
+        assertFalse(implAddressV2 == implAddressV1, "Implementation address didn't change");
         assertTrue(
-            marketFactoryInstanceV2.hasRole(
-                DEFAULT_ADMIN_ROLE,
-                address(timelockInstance)
-            ),
-            "Lost DEFAULT_ADMIN_ROLE"
+            marketFactoryInstanceV2.hasRole(DEFAULT_ADMIN_ROLE, address(timelockInstance)), "Lost DEFAULT_ADMIN_ROLE"
         );
 
         // Test role management still works - timelock should have admin control
         vm.startPrank(address(timelockInstance));
         marketFactoryInstanceV2.grantRole(UPGRADER_ROLE, gnosisSafe);
-        assertTrue(
-            marketFactoryInstanceV2.hasRole(UPGRADER_ROLE, gnosisSafe),
-            "Should grant UPGRADER_ROLE"
-        );
+        assertTrue(marketFactoryInstanceV2.hasRole(UPGRADER_ROLE, gnosisSafe), "Should grant UPGRADER_ROLE");
         marketFactoryInstanceV2.revokeRole(UPGRADER_ROLE, gnosisSafe);
-        assertFalse(
-            marketFactoryInstanceV2.hasRole(UPGRADER_ROLE, gnosisSafe),
-            "Should revoke UPGRADER_ROLE"
-        );
+        assertFalse(marketFactoryInstanceV2.hasRole(UPGRADER_ROLE, gnosisSafe), "Should revoke UPGRADER_ROLE");
         vm.stopPrank();
     }
 
@@ -920,20 +721,11 @@ contract BasicDeploy is Test {
      */
     function _deployMarketFactory() internal {
         // Ensure dependencies are deployed
-        require(
-            address(timelockInstance) != address(0),
-            "Timelock not deployed"
-        );
+        require(address(timelockInstance) != address(0), "Timelock not deployed");
         // require(address(vaultFactoryInstance) != address(0), "VaultFactory not deployed");
-        require(
-            address(treasuryInstance) != address(0),
-            "Treasury not deployed"
-        );
+        require(address(treasuryInstance) != address(0), "Treasury not deployed");
         // require(address(assetsInstance) != address(0), "Assets module not deployed");
-        require(
-            address(tokenInstance) != address(0),
-            "Governance token not deployed"
-        );
+        require(address(tokenInstance) != address(0), "Governance token not deployed");
 
         // Deploy implementations
         LendefiCore coreImpl = new LendefiCore();
@@ -945,16 +737,9 @@ contract BasicDeploy is Test {
         // Deploy factory using UUPS pattern with direct proxy deployment
         bytes memory factoryData = abi.encodeCall(
             LendefiMarketFactory.initialize,
-            (
-                address(timelockInstance),
-                address(tokenInstance),
-                gnosisSafe,
-                address(ecoInstance)
-            )
+            (address(timelockInstance), address(tokenInstance), gnosisSafe, address(ecoInstance))
         );
-        address payable factoryProxy = payable(
-            Upgrades.deployUUPSProxy("LendefiMarketFactory.sol", factoryData)
-        );
+        address payable factoryProxy = payable(Upgrades.deployUUPSProxy("LendefiMarketFactory.sol", factoryData));
         marketFactoryInstance = LendefiMarketFactory(factoryProxy);
 
         // Set implementations - pass the implementation address, NOT the proxy
@@ -974,33 +759,17 @@ contract BasicDeploy is Test {
      * @param name The name for the market
      * @param symbol The symbol for the market
      */
-    function _deployMarket(
-        address baseAsset,
-        string memory name,
-        string memory symbol
-    ) internal {
-        require(
-            address(marketFactoryInstance) != address(0),
-            "Market factory not deployed"
-        );
+    function _deployMarket(address baseAsset, string memory name, string memory symbol) internal {
+        require(address(marketFactoryInstance) != address(0), "Market factory not deployed");
         // require(address(assetsInstance) != address(0), "Assets module not deployed");
 
         // Verify implementations are set
-        require(
-            marketFactoryInstance.coreImplementation() != address(0),
-            "Core implementation not set"
-        );
-        require(
-            marketFactoryInstance.vaultImplementation() != address(0),
-            "Vault implementation not set"
-        );
+        require(marketFactoryInstance.coreImplementation() != address(0), "Core implementation not set");
+        require(marketFactoryInstance.vaultImplementation() != address(0), "Vault implementation not set");
 
         // Grant MARKET_OWNER_ROLE to charlie (done by timelock which has DEFAULT_ADMIN_ROLE)
         vm.prank(address(timelockInstance));
-        marketFactoryInstance.grantRole(
-            LendefiConstants.MARKET_OWNER_ROLE,
-            charlie
-        );
+        marketFactoryInstance.grantRole(LendefiConstants.MARKET_OWNER_ROLE, charlie);
 
         // Add base asset to allowlist (done by multisig which has MANAGER_ROLE)
         vm.prank(gnosisSafe);
@@ -1011,8 +780,7 @@ contract BasicDeploy is Test {
         marketFactoryInstance.createMarket(baseAsset, name, symbol);
 
         // Get deployed addresses (using charlie as market owner)
-        IPROTOCOL.Market memory deployedMarket = marketFactoryInstance
-            .getMarketInfo(charlie, baseAsset);
+        IPROTOCOL.Market memory deployedMarket = marketFactoryInstance.getMarketInfo(charlie, baseAsset);
         marketCoreInstance = LendefiCore(deployedMarket.core);
         marketVaultInstance = LendefiMarketVault(deployedMarket.baseVault);
 
@@ -1182,11 +950,7 @@ contract BasicDeploy is Test {
             address(assetsInstance), // assetsModule_
             address(positionVaultImpl) // positionVault
         );
-        address proxy1 = Upgrades.deployTransparentProxy(
-            "LendefiCore.sol",
-            address(timelockInstance),
-            initData
-        );
+        address proxy1 = Upgrades.deployTransparentProxy("LendefiCore.sol", address(timelockInstance), initData);
 
         marketCoreInstance = LendefiCore(payable(address(proxy1)));
         address implAddressV1 = Upgrades.getImplementationAddress(proxy1);
@@ -1201,19 +965,12 @@ contract BasicDeploy is Test {
 
         assertFalse(implAddressV2 == implAddressV1);
 
-        bool isUpgrader = coreInstanceV2.hasRole(
-            UPGRADER_ROLE,
-            address(timelockInstance)
-        );
+        bool isUpgrader = coreInstanceV2.hasRole(UPGRADER_ROLE, address(timelockInstance));
         assertTrue(isUpgrader == true);
 
         // Test that core functions still work
         assertTrue(
-            coreInstanceV2.hasRole(
-                DEFAULT_ADMIN_ROLE,
-                address(timelockInstance)
-            ),
-            "Should have DEFAULT_ADMIN_ROLE"
+            coreInstanceV2.hasRole(DEFAULT_ADMIN_ROLE, address(timelockInstance)), "Should have DEFAULT_ADMIN_ROLE"
         );
     }
 
@@ -1246,9 +1003,7 @@ contract BasicDeploy is Test {
             "TV" // symbol
         );
 
-        address payable proxy = payable(
-            Upgrades.deployUUPSProxy("LendefiMarketVault.sol", initData)
-        );
+        address payable proxy = payable(Upgrades.deployUUPSProxy("LendefiMarketVault.sol", initData));
         LendefiMarketVault vaultInstance = LendefiMarketVault(proxy);
         address vaultImplementation = Upgrades.getImplementationAddress(proxy);
         assertFalse(address(vaultInstance) == vaultImplementation);
@@ -1258,46 +1013,23 @@ contract BasicDeploy is Test {
 
         // Upgrade using Upgrades.upgradeProxy
         vm.startPrank(address(timelockInstance));
-        Upgrades.upgradeProxy(
-            proxy,
-            "LendefiMarketVaultV2.sol",
-            "",
-            address(timelockInstance)
-        );
+        Upgrades.upgradeProxy(proxy, "LendefiMarketVaultV2.sol", "", address(timelockInstance));
         vm.stopPrank();
 
         // Get the new implementation address
         address implAddressV2 = Upgrades.getImplementationAddress(proxy);
-        LendefiMarketVaultV2 marketVaultInstanceV2 = LendefiMarketVaultV2(
-            proxy
-        );
+        LendefiMarketVaultV2 marketVaultInstanceV2 = LendefiMarketVaultV2(proxy);
 
         // Verify the upgrade worked correctly
-        assertFalse(
-            implAddressV2 == implAddressV1,
-            "Implementation address didn't change"
-        );
-        assertEq(
-            marketVaultInstanceV2.version(),
-            2,
-            "Version not incremented to 2"
-        );
+        assertFalse(implAddressV2 == implAddressV1, "Implementation address didn't change");
+        assertEq(marketVaultInstanceV2.version(), 2, "Version not incremented to 2");
 
         // Verify roles are maintained
         assertTrue(
-            marketVaultInstanceV2.hasRole(
-                DEFAULT_ADMIN_ROLE,
-                address(timelockInstance)
-            ),
+            marketVaultInstanceV2.hasRole(DEFAULT_ADMIN_ROLE, address(timelockInstance)),
             "Should have DEFAULT_ADMIN_ROLE"
         );
-        assertTrue(
-            marketVaultInstanceV2.hasRole(
-                UPGRADER_ROLE,
-                address(timelockInstance)
-            ),
-            "Should have UPGRADER_ROLE"
-        );
+        assertTrue(marketVaultInstanceV2.hasRole(UPGRADER_ROLE, address(timelockInstance)), "Should have UPGRADER_ROLE");
 
         // Update the marketVaultInstance reference to the upgraded version
         marketVaultInstance = LendefiMarketVault(proxy);
