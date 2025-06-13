@@ -19,6 +19,7 @@ pragma solidity 0.8.23;
  * @custom:copyright Copyright (c) 2025 Nebula Holding Inc. All rights reserved.
  */
 
+import "forge-std/console2.sol";
 import {IASSETS} from "../interfaces/IASSETS.sol";
 import {IPROTOCOL} from "../interfaces/IProtocol.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -986,7 +987,7 @@ contract LendefiAssets is
         }
 
         tokenPriceInUSD =
-            getAnyPoolTokenPriceInUSD(config.pool, asset, LendefiConstants.USDC_BNB_POOL, config.twapPeriod); // Price on 1e6 scale, USDC
+            getAnyPoolTokenPriceInUSD(config.pool, asset, LendefiConstants.USDT_WBNB_POOL, config.twapPeriod); // Price on 1e6 scale, USDT
 
         if (tokenPriceInUSD <= 0) {
             revert OracleInvalidPrice(config.pool, int256(tokenPriceInUSD));
@@ -995,79 +996,53 @@ contract LendefiAssets is
 
     /**
      * @notice Retrieves the USD price of any token from a Uniswap V3 pool using TWAP
-     * @dev Supports both direct USDC pairs and indirect ETH-denominated pairs
+     * @dev Uses WBNB detection to determine if conversion is needed
      * @param poolAddress Address of the Uniswap V3 pool to query
      * @param token Address of the token to get the price for
-     * @param ethUsdcPool Address of the ETH/USDC pool used for ETH-denominated price conversion
-     * @param twapPeriod Time period in seconds for the TWAP calculation (900-1800)
+     * @param twapPeriod Time period in seconds for the TWAP calculation (600-1800)
      * @return tokenPriceInUSD Price in USD normalized to 1e6 precision
-     * @custom:oracle-path For direct USDC pairs:
-     *   - Fetches token/USDC price directly from pool
-     *   - Normalizes to 1e6 precision based on token decimals
-     * @custom:oracle-path For ETH pairs:
-     *   - Gets token/ETH price from pool
-     *   - Gets ETH/USDC price from reference pool
-     *   - Combines prices with proper decimal handling
-     * @custom:decimals Input token can have any decimal precision (1-18)
-     *   - Output is always normalized to 1e6 (USDC precision)
-     *   - Internal calculations handle decimal conversion
-     * @custom:validation Performs the following checks:
-     *   - Token must be present in the specified pool
-     *   - Resulting price must be greater than zero
-     *   - Pool must be properly configured
-     * @custom:security Features:
-     *   - Uses TWAP for manipulation resistance
-     *   - Handles decimal normalization safely
-     *   - Validates pool configuration
-     * @custom:reverts OracleInvalidPrice - If calculated price is zero or invalid
+     * @custom:validation Token must be present in the specified pool
+     * @custom:security Uses TWAP for manipulation resistance
      * @custom:reverts AssetNotInUniswapPool - If token not found in pool
-     * @custom:example For a token with 18 decimals in a token/USDC pool:
-     *   - Raw pool price: 1200.123456 (token/USDC)
-     *   - Returned price: 1200123456 (1200.123456 * 1e6)
-     * @custom:example For a token with 18 decimals in a token/ETH pool:
-     *   - Raw pool price: 0.5 ETH per token
-     *   - ETH/USDC price: 2000.00 USD per ETH
-     *   - Returned price: 1000000000 (1000.00 * 1e6)
      */
-    function getAnyPoolTokenPriceInUSD(address poolAddress, address token, address ethUsdcPool, uint32 twapPeriod)
+    function getAnyPoolTokenPriceInUSD(address poolAddress, address token, address, uint32 twapPeriod)
         internal
         view
         returns (uint256 tokenPriceInUSD)
     {
-        // Get the pool instance
         IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
+        (address token0, address token1) = (pool.token0(), pool.token1());
 
-        // Phase 1: Get pool configuration
-        (bool isToken0, uint8 assetDecimals, bool isStablePool) = getOptimalUniswapConfig(token, pool);
+        if (token != token0 && token != token1) {
+            revert AssetNotInUniswapPool(token, poolAddress);
+        }
 
-        // Phase 2: Get raw price
-        if (isStablePool) {
-            tokenPriceInUSD = UniswapTickMath.getRawPrice(pool, isToken0, 10 ** assetDecimals, twapPeriod);
+        (bool isToken0, bool hasWBNB, bool isDirectUSDPool) = getOptimalUniswapConfig(token, pool);
+        // Get the price in USD based on token position and WBNB presence
+
+        if (hasWBNB && !isDirectUSDPool) {
+            console2.log("WBNB detected, converting price through WBNB/USDT pool");
+            // WBNB pool: Convert through WBNB/USDT
+            uint256 tokenPriceInWBNB = UniswapTickMath.getRawPrice(pool, isToken0, 1e18, twapPeriod);
+            uint256 wbnbPriceInUSDT =
+                UniswapTickMath.getRawPrice(IUniswapV3Pool(LendefiConstants.USDT_WBNB_POOL), false, 1e6, twapPeriod);
+            tokenPriceInUSD = FullMath.mulDiv(tokenPriceInWBNB, wbnbPriceInUSDT, 1e18);
         } else {
-            // Get raw price in ETH
-            uint256 rawPrice = UniswapTickMath.getRawPrice(pool, isToken0, 10 ** assetDecimals, twapPeriod);
-
-            IUniswapV3Pool ethUSDCPool = IUniswapV3Pool(ethUsdcPool);
-            // ETH is token1 in USDC/ETH pool
-            uint256 ethPriceInUSD = UniswapTickMath.getRawPrice(ethUSDCPool, false, 1e18, twapPeriod);
-
-            // Adjust token/ETH price to account for token decimals
-            uint256 adjustedPrice = rawPrice / (10 ** (18 - assetDecimals)); // Scale to 1e6 precision
-
-            // Dynamically normalize the final price based on token decimals
-            uint256 normalizationFactor = 10 ** assetDecimals;
-            tokenPriceInUSD = FullMath.mulDiv(adjustedPrice, ethPriceInUSD, normalizationFactor);
+            console2.log("No WBNB detected, using direct price calculation");
+            // Direct USD pool: Get price directly
+            tokenPriceInUSD = UniswapTickMath.getRawPrice(pool, isToken0, 1e6, twapPeriod);
         }
     }
 
     /**
      * @notice Determines the optimal configuration for a Uniswap V3 pool
-     * @dev Identifies token positions, decimals, and pool type for accurate price calculations
+     * @dev Simplified for BSC where all major tokens have 18 decimals
      * @param asset The address of the asset to configure
      * @param pool The Uniswap V3 pool instance
      * @return isToken0 True if the asset is token0 in the pool, false if token1
-     * @return assetDecimals The number of decimal places for the asset (e.g., 18 for ETH)
-     * @return isStablePool True if the pool contains a 6-decimal stablecoin, false otherwise
+     * @return hasWBNB True if the pool contains WBNB, false otherwise
+     * @return isDirectUSDPool True if the pool contains USDT, false otherwise
+     * @custom:bsc-note USDT has deeper liquidity than USDC on BSC
      * @custom:validation Ensures the asset is part of the pool, reverts otherwise
      * @custom:pricing-impact Token position affects price calculation direction (token0/token1 vs token1/token0)
      * @custom:reverts AssetNotInUniswapPool if the asset is not present in the pool
@@ -1075,25 +1050,24 @@ contract LendefiAssets is
     function getOptimalUniswapConfig(address asset, IUniswapV3Pool pool)
         internal
         view
-        returns (bool isToken0, uint8 assetDecimals, bool isStablePool)
+        returns (bool isToken0, bool hasWBNB, bool isDirectUSDPool)
     {
-        // Get pool tokens
-        address token0 = pool.token0();
-        address token1 = pool.token1();
+        address poolAddress = address(pool);
+        (address token0, address token1) = (pool.token0(), pool.token1());
 
-        // Verify the asset is in the pool
         if (asset != token0 && asset != token1) {
-            revert AssetNotInUniswapPool(asset, address(pool));
+            revert AssetNotInUniswapPool(asset, poolAddress);
         }
 
-        // Determine if asset is token0
         isToken0 = (asset == token0);
 
-        // Check if either token in the pool is a 6-decimal stablecoin (USD stablecoin)
-        assetDecimals = IERC20Metadata(asset).decimals();
-        uint8 token0Decimals = IERC20Metadata(token0).decimals();
-        uint8 token1Decimals = IERC20Metadata(token1).decimals();
-        isStablePool = (token0Decimals == 6 || token1Decimals == 6);
+        // Check if WBNB is in the pool to determine conversion approach
+        hasWBNB = (token0 == LendefiConstants.WBNB_BSC || token1 == LendefiConstants.WBNB_BSC);
+
+        // Check if this is a direct USD pool (any token in pool has USD in symbol)
+        string memory symbol0 = IERC20Metadata(token0).symbol();
+        string memory symbol1 = IERC20Metadata(token1).symbol();
+        isDirectUSDPool = _containsUSD(symbol0) || _containsUSD(symbol1);
     }
 
     /**
@@ -1124,9 +1098,9 @@ contract LendefiAssets is
             revert AssetNotInUniswapPool(asset, uniswapPool);
         }
 
-        // Validate TWAP period (between 15 minutes and 30 minutes)
-        if (twapPeriod < 900 || twapPeriod > 1800) {
-            revert InvalidThreshold("twapPeriod", twapPeriod, 900, 1800);
+        // Validate TWAP period (between 10 minutes and 30 minutes for PancakeSwap)
+        if (twapPeriod < 600 || twapPeriod > 1800) {
+            revert InvalidThreshold("twapPeriod", twapPeriod, 600, 1800);
         }
 
         // Validate active parameter (must be 0 or 1)
@@ -1239,5 +1213,29 @@ contract LendefiAssets is
         if (config.tier == CollateralTier.ISOLATED && config.isolationDebtCap == 0) {
             revert InvalidParameter("isolationDebtCap", 0);
         }
+    }
+
+    /**
+     * @notice Check if a token symbol contains "USD"
+     * @param symbol The token symbol to check
+     * @return true if symbol contains "USD"
+     */
+    function _containsUSD(string memory symbol) internal pure returns (bool) {
+        bytes memory symbolBytes = bytes(symbol);
+        bytes3 usdPattern = "USD";
+
+        if (symbolBytes.length < 3) return false;
+
+        // Check each position for "USD" pattern
+        for (uint256 i = 0; i <= symbolBytes.length - 3; i++) {
+            if (
+                symbolBytes[i] == usdPattern[0] && symbolBytes[i + 1] == usdPattern[1]
+                    && symbolBytes[i + 2] == usdPattern[2]
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
