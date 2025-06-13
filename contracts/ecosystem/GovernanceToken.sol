@@ -465,7 +465,7 @@ contract GovernanceToken is
         uint256 allowedSupply = initialSupply * activeChains;
         uint256 newSupply = totalSupply() + amount;
         if (newSupply > allowedSupply) {
-            revert MaxSupplyExceeded(allowedSupply, newSupply);
+            revert MaxSupplyExceeded(newSupply, allowedSupply);
         }
 
         // Mint tokens
