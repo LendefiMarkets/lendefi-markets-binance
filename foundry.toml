@@ -15,11 +15,15 @@ runs = 1000
 mainnet = "https://eth-mainnet.alchemyapi.io/v2/${ALCHEMY_API_KEY}"
 sepolia = "${SEPOLIA_RPC_URL}"
 anvil = "http://localhost:8545"
+binance = "https://bnb-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
+bsc-testnet = "https://bnb-testnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
 
 [profile.rpc_storage_caching]
-chains = "all"  # or specific chain IDs
-endpoints = "all"  # or specific URLs
+chains = "all"
+endpoints = "all"
 
 [etherscan]
 mainnet = { key = "${ETHERSCAN_API_KEY}", chain = "mainnet" }
 sepolia = { key = "${ETHERSCAN_API_KEY}", chain = "sepolia" }
+binance = { key = "${BSCSCAN_API_KEY}", chain = 56 }  # BSC Mainnet chain ID
+bsc-testnet = { key = "${BSCSCAN_API_KEY}", chain = 97 }  # BSC Testnet chain ID
