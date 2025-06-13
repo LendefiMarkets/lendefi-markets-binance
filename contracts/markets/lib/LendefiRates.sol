@@ -9,7 +9,7 @@ pragma solidity 0.8.23;
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 library LendefiRates {
-    /// @dev base scale
+    /// @dev base scale for rates (normalized to 1e6 for consistent rate display)
     uint256 internal constant WAD = 1e6;
     /// @dev ray scale
     uint256 internal constant RAY = 1e27;
@@ -69,12 +69,13 @@ library LendefiRates {
 
     /**
      * @dev Converts rate to rateRay
-     * @param rate annual rate in WAD
+     * @param rate annual rate
+     * @param scale the decimal scale of the rate (e.g., 1e6 for rates, baseDecimals for token amounts)
      * @return r rateRay
      */
-    function annualRateToRay(uint256 rate) internal pure returns (uint256 r) {
-        // First convert rate from WAD to RAY, then divide by seconds per year
-        uint256 rateInRay = Math.mulDiv(rate, RAY, WAD, Math.Rounding.Floor);
+    function annualRateToRay(uint256 rate, uint256 scale) internal pure returns (uint256 r) {
+        // First convert rate from specified scale to RAY, then divide by seconds per year
+        uint256 rateInRay = Math.mulDiv(rate, RAY, scale, Math.Rounding.Floor);
         r = RAY + Math.mulDiv(rateInRay, RAY, SECONDS_PER_YEAR_RAY, Math.Rounding.Floor);
     }
 
@@ -112,18 +113,19 @@ library LendefiRates {
 
     /**
      * @notice Calculates debt with accrued interest
-     * @param debtAmount Current debt amount
-     * @param borrowRate Borrow rate for the tier
+     * @param debtAmount Current debt amount in native token decimals
+     * @param borrowRate Borrow rate for the tier (in 1e6 format)
      * @param timeElapsed Time since last accrual
-     * @return Total debt with interest
+     * @param baseDecimals Base asset decimal precision (e.g., 1e18 for 18-decimal tokens)
+     * @return Total debt with interest in native token decimals
      */
-    function calculateDebtWithInterest(uint256 debtAmount, uint256 borrowRate, uint256 timeElapsed)
+    function calculateDebtWithInterest(uint256 debtAmount, uint256 borrowRate, uint256 timeElapsed, uint256 baseDecimals)
         internal
         pure
         returns (uint256)
     {
         if (debtAmount == 0) return 0;
-        return accrueInterest(debtAmount, annualRateToRay(borrowRate), timeElapsed);
+        return accrueInterest(debtAmount, annualRateToRay(borrowRate, baseDecimals), timeElapsed);
     }
 
     /**
@@ -177,8 +179,8 @@ library LendefiRates {
         uint256 defaultSupply = WAD;
         uint256 loan = Math.mulDiv(defaultSupply, utilization, WAD, Math.Rounding.Floor);
 
-        // Calculate base rate from supply rate
-        uint256 supplyRateRay = annualRateToRay(supplyRate);
+        // Calculate base rate from supply rate (supplyRate is in 1e6 format)
+        uint256 supplyRateRay = annualRateToRay(supplyRate, WAD);
         uint256 supplyInterest = getInterest(defaultSupply, supplyRateRay, duration);
         uint256 breakEven = breakEvenRate(loan, supplyInterest);
 
