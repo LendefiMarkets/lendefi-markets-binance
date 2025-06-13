@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.23;
 
-import {ERC20Mock} from "./ERC20Mock.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract USDC is ERC20Mock("USD Coin", "USDC") {
+contract USDC is ERC20 {
+    constructor() ERC20("USD Coin", "USDC") {}
+
     function drip(address to) public {
         _mint(to, 20000e6);
     }
