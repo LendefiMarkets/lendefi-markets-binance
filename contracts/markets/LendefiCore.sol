@@ -841,7 +841,7 @@ contract LendefiCore is
         uint256 borrowRate = getBorrowRate(tier);
         uint256 timeElapsed = block.timestamp - position.lastInterestAccrual;
 
-        return LendefiRates.calculateDebtWithInterest(position.debtAmount, borrowRate, timeElapsed);
+        return LendefiRates.calculateDebtWithInterest(position.debtAmount, borrowRate, timeElapsed, baseDecimals);
     }
 
     /**
