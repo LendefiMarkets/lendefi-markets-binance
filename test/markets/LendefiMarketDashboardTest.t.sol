@@ -8,12 +8,13 @@ import {ILendefiMarketVault} from "../../contracts/interfaces/ILendefiMarketVaul
 import {LendefiMarketFactory} from "../../contracts/markets/LendefiMarketFactory.sol";
 import {TokenMock} from "../../contracts/mock/TokenMock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {WBNB} from "../../contracts/mock/WBNB.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract LendefiMarketDashboardTest is BasicDeploy {
     LendefiMarketDashboard public dashboard;
     TokenMock public daiToken;
-    TokenMock public wethToken;
+    WBNB public wbnbToken;
 
     function setUp() public {
         // Deploy basic infrastructure with USDC market
@@ -24,18 +25,18 @@ contract LendefiMarketDashboardTest is BasicDeploy {
 
         // Create additional test tokens
         daiToken = new TokenMock("DAI Stablecoin", "DAI");
-        wethToken = new TokenMock("Wrapped Ether", "WETH");
+        wbnbToken = new WBNB();
 
         // Add tokens to allowlist
         vm.startPrank(gnosisSafe);
         marketFactoryInstance.addAllowedBaseAsset(address(daiToken));
-        marketFactoryInstance.addAllowedBaseAsset(address(wethToken));
+        marketFactoryInstance.addAllowedBaseAsset(address(wbnbToken));
         vm.stopPrank();
 
         // Create additional markets
         vm.startPrank(charlie);
         marketFactoryInstance.createMarket(address(daiToken), "Lendefi DAI Market", "lfDAI");
-        marketFactoryInstance.createMarket(address(wethToken), "Lendefi WETH Market", "lfWETH");
+        marketFactoryInstance.createMarket(address(wbnbToken), "Lendefi WBNB Market", "lfWBNB");
         vm.stopPrank();
 
         // Setup TGE
@@ -43,9 +44,9 @@ contract LendefiMarketDashboardTest is BasicDeploy {
         tokenInstance.initializeTGE(address(ecoInstance), address(treasuryInstance));
 
         // Fund users for testing
-        deal(address(usdcInstance), alice, 10000e6);
+        deal(address(usdcInstance), alice, 10000e18);
         deal(address(daiToken), alice, 10000e18);
-        deal(address(wethToken), alice, 10e18);
+        deal(address(wbnbToken), alice, 10e18);
     }
 
     // ========== Constructor Tests ==========
@@ -70,7 +71,7 @@ contract LendefiMarketDashboardTest is BasicDeploy {
     function test_GetAllMarketOverviews() public {
         ILendefiMarketDashboard.MarketOverview[] memory overviews = dashboard.getAllMarketOverviews();
 
-        // Should have 3 markets (USDC, DAI, WETH)
+        // Should have 3 markets (USDC, DAI, WBNB)
         assertEq(overviews.length, 3);
 
         // Check USDC market
@@ -80,7 +81,7 @@ contract LendefiMarketDashboardTest is BasicDeploy {
                 foundUSDC = true;
                 assertEq(overviews[i].marketOwner, charlie);
                 assertEq(overviews[i].baseAssetSymbol, "USDC");
-                assertEq(overviews[i].baseAssetDecimals, 6);
+                assertEq(overviews[i].baseAssetDecimals, 18);
                 assertEq(overviews[i].marketName, "Lendefi Yield Token");
                 assertEq(overviews[i].marketSymbol, "LYTUSDC");
                 assertTrue(overviews[i].active);
@@ -119,15 +120,15 @@ contract LendefiMarketDashboardTest is BasicDeploy {
         // Check that supported assets include our tokens
         bool foundUSDC = false;
         bool foundDAI = false;
-        bool foundWETH = false;
+        bool foundWBNB = false;
 
         for (uint256 i = 0; i < stats.supportedBaseAssets.length; i++) {
             if (stats.supportedBaseAssets[i] == address(usdcInstance)) foundUSDC = true;
             if (stats.supportedBaseAssets[i] == address(daiToken)) foundDAI = true;
-            if (stats.supportedBaseAssets[i] == address(wethToken)) foundWETH = true;
+            if (stats.supportedBaseAssets[i] == address(wbnbToken)) foundWBNB = true;
         }
 
-        assertTrue(foundUSDC && foundDAI && foundWETH, "Not all assets found in allowlist");
+        assertTrue(foundUSDC && foundDAI && foundWBNB, "Not all assets found in allowlist");
 
         // Protocol health should be good (1000) initially with no debt
         assertEq(stats.protocolHealthScore, 1000);
@@ -138,8 +139,8 @@ contract LendefiMarketDashboardTest is BasicDeploy {
         IPROTOCOL.Market memory usdcMarket = marketFactoryInstance.getMarketInfo(charlie, address(usdcInstance));
 
         vm.startPrank(alice);
-        usdcInstance.approve(usdcMarket.baseVault, 1000e6);
-        ILendefiMarketVault(usdcMarket.baseVault).deposit(1000e6, alice);
+        usdcInstance.approve(usdcMarket.baseVault, 1000e18);
+        ILendefiMarketVault(usdcMarket.baseVault).deposit(1000e18, alice);
         vm.stopPrank();
 
         ILendefiMarketDashboard.ProtocolStats memory stats = dashboard.getProtocolStats();
@@ -165,8 +166,8 @@ contract LendefiMarketDashboardTest is BasicDeploy {
         IPROTOCOL.Market memory usdcMarket = marketFactoryInstance.getMarketInfo(charlie, address(usdcInstance));
 
         vm.startPrank(alice);
-        usdcInstance.approve(usdcMarket.baseVault, 1000e6);
-        ILendefiMarketVault(usdcMarket.baseVault).deposit(1000e6, alice);
+        usdcInstance.approve(usdcMarket.baseVault, 1000e18);
+        ILendefiMarketVault(usdcMarket.baseVault).deposit(1000e18, alice);
         vm.stopPrank();
 
         ILendefiMarketDashboard.UserMarketData[] memory userData = dashboard.getUserMarketData(alice);
@@ -188,8 +189,8 @@ contract LendefiMarketDashboardTest is BasicDeploy {
 
         vm.startPrank(alice);
         // USDC market
-        usdcInstance.approve(usdcMarket.baseVault, 1000e6);
-        ILendefiMarketVault(usdcMarket.baseVault).deposit(1000e6, alice);
+        usdcInstance.approve(usdcMarket.baseVault, 1000e18);
+        ILendefiMarketVault(usdcMarket.baseVault).deposit(1000e18, alice);
 
         // DAI market
         daiToken.approve(daiMarket.baseVault, 1000e18);
@@ -230,22 +231,22 @@ contract LendefiMarketDashboardTest is BasicDeploy {
         // Check that all our tokens are included
         bool foundUSDC = false;
         bool foundDAI = false;
-        bool foundWETH = false;
+        bool foundWBNB = false;
 
         for (uint256 i = 0; i < metrics.length; i++) {
             if (metrics[i].assetAddress == address(usdcInstance)) {
                 foundUSDC = true;
                 assertEq(metrics[i].symbol, "USDC");
-                assertEq(metrics[i].decimals, 6);
+                assertEq(metrics[i].decimals, 18);
             }
             if (metrics[i].assetAddress == address(daiToken)) {
                 foundDAI = true;
                 assertEq(metrics[i].symbol, "DAI");
                 assertEq(metrics[i].decimals, 18);
             }
-            if (metrics[i].assetAddress == address(wethToken)) {
-                foundWETH = true;
-                assertEq(metrics[i].symbol, "WETH");
+            if (metrics[i].assetAddress == address(wbnbToken)) {
+                foundWBNB = true;
+                assertEq(metrics[i].symbol, "WBNB");
                 assertEq(metrics[i].decimals, 18);
             }
 
@@ -256,7 +257,7 @@ contract LendefiMarketDashboardTest is BasicDeploy {
             assertGt(metrics[i].maxSupplyThreshold, 0);
         }
 
-        assertTrue(foundUSDC && foundDAI && foundWETH, "Not all assets found in metrics");
+        assertTrue(foundUSDC && foundDAI && foundWBNB, "Not all assets found in metrics");
     }
 
     // ========== Integration Tests ==========
@@ -267,8 +268,8 @@ contract LendefiMarketDashboardTest is BasicDeploy {
         // Alice provides liquidity to USDC
         IPROTOCOL.Market memory usdcMarket = marketFactoryInstance.getMarketInfo(charlie, address(usdcInstance));
         vm.startPrank(alice);
-        usdcInstance.approve(usdcMarket.baseVault, 5000e6);
-        ILendefiMarketVault(usdcMarket.baseVault).deposit(5000e6, alice);
+        usdcInstance.approve(usdcMarket.baseVault, 5000e18);
+        ILendefiMarketVault(usdcMarket.baseVault).deposit(5000e18, alice);
         vm.stopPrank();
 
         // Bob provides liquidity to DAI
@@ -295,7 +296,7 @@ contract LendefiMarketDashboardTest is BasicDeploy {
 
         // Verify TVL is correctly aggregated
         // Note: This is a simplified check since assets have different decimals
-        assertGt(stats.totalProtocolTVL, 5000e6); // At least USDC amount
+        assertGt(stats.totalProtocolTVL, 5000e18); // At least USDC amount
     }
 
     function test_EmptyProtocolState() public {
