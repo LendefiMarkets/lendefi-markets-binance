@@ -674,8 +674,8 @@ contract UpdateAssetConfigTest is BasicDeploy {
         );
 
         // Now try to set an invalid TWAP period (too short)
-        vm.expectRevert(abi.encodeWithSelector(IASSETS.InvalidThreshold.selector, "twapPeriod", 899, 900, 1800));
-        assetsInstance.updateUniswapOracle(address(testToken), address(testPool), 899, 1);
+        vm.expectRevert(abi.encodeWithSelector(IASSETS.InvalidThreshold.selector, "twapPeriod", 599, 600, 1800));
+        assetsInstance.updateUniswapOracle(address(testToken), address(testPool), 599, 1);
 
         vm.stopPrank();
     }
@@ -705,7 +705,7 @@ contract UpdateAssetConfigTest is BasicDeploy {
         );
 
         // Try with an invalid TWAP period (too long)
-        vm.expectRevert(abi.encodeWithSelector(IASSETS.InvalidThreshold.selector, "twapPeriod", 1801, 900, 1800));
+        vm.expectRevert(abi.encodeWithSelector(IASSETS.InvalidThreshold.selector, "twapPeriod", 1801, 600, 1800));
         assetsInstance.updateUniswapOracle(address(testToken), address(testPool), 1801, 1);
 
         vm.stopPrank();
