@@ -16,7 +16,7 @@ contract AssetModuleOracleTest is BasicDeploy {
     // Test tokens
     MockRWA internal rwaToken;
     MockRWA internal stableToken;
-    WBNB internal wbnbInstance;
+    // WBNB instance is already declared in BasicDeploy
 
     // Mock oracles
     MockPriceOracle internal mockOracle1;
