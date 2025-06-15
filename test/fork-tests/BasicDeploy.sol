@@ -564,7 +564,7 @@ contract BasicDeploy is Test {
         porFeedImplementation = new LendefiPoRFeed();
         // Protocol Oracle deploy (combined Oracle + Assets)
         bytes memory data = abi.encodeCall(
-            LendefiAssets.initialize, (address(timelockInstance), charlie, address(porFeedImplementation))
+            LendefiAssets.initialize, (address(timelockInstance), charlie, address(porFeedImplementation), address(marketCoreInstance))
         );
 
         address payable proxy = payable(Upgrades.deployUUPSProxy("LendefiAssets.sol", data));
@@ -791,7 +791,6 @@ contract BasicDeploy is Test {
         // Grant necessary roles
         vm.startPrank(address(timelockInstance));
         ecoInstance.grantRole(REWARDER_ROLE, address(marketCoreInstance));
-        assetsInstance.setCoreAddress(address(marketCoreInstance));
         vm.stopPrank();
     }
 
