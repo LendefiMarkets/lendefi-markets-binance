@@ -48,7 +48,8 @@ import {LendefiConstants} from "../markets/lib/LendefiConstants.sol";
 import {LendefiRates} from "../markets/lib/LendefiRates.sol";
 import {LendefiPoRFeed} from "../markets/LendefiPoRFeed.sol";
 import {IFlashLoanReceiver} from "../interfaces/IFlashLoanReceiver.sol";
-import {AutomationCompatibleInterface} from "../vendor/@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
+import {AutomationCompatibleInterface} from
+    "../vendor/@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
 
 /// @custom:oz-upgrades-from LendefiMarketVault
 contract LendefiMarketVaultV2 is
@@ -166,13 +167,7 @@ contract LendefiMarketVaultV2 is
     /// @param asset Address of the asset that was flash loaned
     /// @param amount Amount of asset flash loaned
     /// @param fee Fee charged for the flash loan
-    event FlashLoan(
-        address indexed user,
-        address indexed receiver,
-        address indexed asset,
-        uint256 amount,
-        uint256 fee
-    );
+    event FlashLoan(address indexed user, address indexed receiver, address indexed asset, uint256 amount, uint256 fee);
 
     /// @notice Emitted when the protocol configuration is updated
     /// @param config The new protocol configuration
@@ -192,11 +187,7 @@ contract LendefiMarketVaultV2 is
     /// @param timestamp Block timestamp when the alert was triggered
     /// @param tvl Total value locked in the protocol at the time of alert
     /// @param totalSupply Total supply of vault shares at the time of alert
-    event CollateralizationAlert(
-        uint256 timestamp,
-        uint256 tvl,
-        uint256 totalSupply
-    );
+    event CollateralizationAlert(uint256 timestamp, uint256 tvl, uint256 totalSupply);
 
     /// @notice Emitted when protocol fees are collected through share dilution
     /// @param recipient Address that received the fee shares (timelock)
@@ -368,18 +359,17 @@ contract LendefiMarketVaultV2 is
      *   - InvalidSupplyAmount: Thrown when supply amount is below minimum
      *   - InvalidFee: Thrown when flash loan fee is invalid
      */
-    function loadProtocolConfig(
-        ILendefiMarketVault.ProtocolConfig calldata config
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function loadProtocolConfig(ILendefiMarketVault.ProtocolConfig calldata config)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
         // Validate all parameters
         if (config.profitTargetRate < 0.0025e6) revert InvalidProfitTarget();
         if (config.borrowRate < 0.01e6) revert InvalidBorrowRate();
         if (config.rewardAmount > 10_000 ether) revert InvalidRewardAmount();
         if (config.rewardInterval < 90 * 24 * 60 * 5) revert InvalidInterval(); // 90 days in blocks
-        if (config.rewardableSupply < 20_000 * baseDecimals)
-            revert InvalidSupplyAmount();
-        if (config.flashLoanFee > 100 || config.flashLoanFee < 1)
-            revert InvalidFee();
+        if (config.rewardableSupply < 20_000 * baseDecimals) revert InvalidSupplyAmount();
+        if (config.flashLoanFee > 100 || config.flashLoanFee < 1) revert InvalidFee();
 
         // Update the protocol config
         protocolConfig = config;
@@ -399,10 +389,10 @@ contract LendefiMarketVaultV2 is
      *   - InvalidBorrowRate: Thrown when borrow rate is below minimum
      *   - InvalidFee: Thrown when flash loan fee is invalid
      */
-    function updateMarketParameters(
-        uint256 borrowRate,
-        uint32 flashLoanFee
-    ) external onlyRole(LendefiConstants.MANAGER_ROLE) {
+    function updateMarketParameters(uint256 borrowRate, uint32 flashLoanFee)
+        external
+        onlyRole(LendefiConstants.MANAGER_ROLE)
+    {
         // Validate parameters
         if (borrowRate < 0.01e6) revert InvalidBorrowRate();
         if (flashLoanFee > 100 || flashLoanFee < 1) revert InvalidFee();
@@ -453,11 +443,7 @@ contract LendefiMarketVaultV2 is
      * @custom:reentrancy Protected by nonReentrant modifier
      * @custom:fee Flash loan fee is calculated as (amount * flashLoanFee) / 10000
      */
-    function flashLoan(
-        address receiver,
-        uint256 amount,
-        bytes calldata params
-    )
+    function flashLoan(address receiver, uint256 amount, bytes calldata params)
         external
         validAmount(amount)
         validAddress(receiver)
@@ -471,12 +457,7 @@ contract LendefiMarketVaultV2 is
         if (amount > initialBalance) revert LowLiquidity();
 
         // Calculate fee and record initial balance
-        uint256 fee = Math.mulDiv(
-            amount,
-            protocolConfig.flashLoanFee,
-            10000,
-            Math.Rounding.Floor
-        );
+        uint256 fee = Math.mulDiv(amount, protocolConfig.flashLoanFee, 10000, Math.Rounding.Floor);
         uint256 requiredBalance = initialBalance + fee;
         totalBase += fee;
 
@@ -484,13 +465,7 @@ contract LendefiMarketVaultV2 is
         baseAssetInstance.safeTransfer(receiver, amount);
 
         // Execute flash loan operation using cached asset address
-        bool success = IFlashLoanReceiver(receiver).executeOperation(
-            cachedAsset,
-            amount,
-            fee,
-            msg.sender,
-            params
-        );
+        bool success = IFlashLoanReceiver(receiver).executeOperation(cachedAsset, amount, fee, msg.sender, params);
 
         // Verify both the return value AND the actual balance
         if (!success) revert FlashLoanFailed(); // Flash loan failed (incorrect return value)
@@ -553,23 +528,18 @@ contract LendefiMarketVaultV2 is
      * @custom:automation Part of Chainlink's AutomationCompatibleInterface
      * @custom:interval Updates occur based on the interval state variable (default 12 hours)
      */
-    function performUpkeep(bytes calldata /* performData */) external override {
+    function performUpkeep(bytes calldata /* performData */ ) external override {
         if ((block.timestamp - lastTimeStamp) > interval) {
             lastTimeStamp = block.timestamp;
             counter = counter + 1;
 
             // Use the stored TVL value instead of parameter
-            (bool collateralized, uint256 tvl) = IPROTOCOL(lendefiCore)
-                .isCollateralized();
+            (bool collateralized, uint256 tvl) = IPROTOCOL(lendefiCore).isCollateralized();
 
             // Update the reserves on the feed
             IPoRFeed(porFeed).updateReserves(tvl);
             if (!collateralized) {
-                emit CollateralizationAlert(
-                    block.timestamp,
-                    tvl,
-                    totalSupply()
-                );
+                emit CollateralizationAlert(block.timestamp, tvl, totalSupply());
             }
         }
     }
@@ -597,10 +567,7 @@ contract LendefiMarketVaultV2 is
      * @custom:access-control Restricted to MANAGER_ROLE
      * @custom:reentrancy Protected by nonReentrant modifier
      */
-    function boostYield(
-        address user,
-        uint256 amount
-    )
+    function boostYield(address user, uint256 amount)
         external
         onlyRole(LendefiConstants.MANAGER_ROLE)
         whenNotPaused
@@ -638,12 +605,7 @@ contract LendefiMarketVaultV2 is
      * @custom:reentrancy Protected by nonReentrant modifier
      * @custom:rewards Reward amount is capped by maxReward from ecosystem contract
      */
-    function claimReward()
-        external
-        nonReentrant
-        whenNotPaused
-        returns (uint256 finalReward)
-    {
+    function claimReward() external nonReentrant whenNotPaused returns (uint256 finalReward) {
         if (isRewardable(msg.sender)) {
             // Use cached protocol config
             ILendefiMarketVault.ProtocolConfig memory config = protocolConfig;
@@ -655,12 +617,7 @@ contract LendefiMarketVaultV2 is
             uint256 lastOperationBlock = liquidityOperationBlock[msg.sender];
             uint256 currentBlock = block.number;
             uint256 blocksElapsed = currentBlock - lastOperationBlock;
-            uint256 reward = Math.mulDiv(
-                config.rewardAmount,
-                blocksElapsed,
-                config.rewardInterval,
-                Math.Rounding.Floor
-            );
+            uint256 reward = Math.mulDiv(config.rewardAmount, blocksElapsed, config.rewardInterval, Math.Rounding.Floor);
 
             // Apply maximum reward cap using cached ecosystem reference
             uint256 maxReward = cachedEcosystem.maxReward();
@@ -687,9 +644,7 @@ contract LendefiMarketVaultV2 is
      * @custom:interval Uses the contract's interval variable to determine timing
      * @custom:gas-efficient View function with minimal gas consumption for frequent calls
      */
-    function checkUpkeep(
-        bytes calldata /* checkData */
-    )
+    function checkUpkeep(bytes calldata /* checkData */ )
         external
         view
         override
@@ -725,10 +680,7 @@ contract LendefiMarketVaultV2 is
      * @custom:reentrancy Protected by nonReentrant modifier
      * @custom:mev-protection Prevents same-block operations for the receiver
      */
-    function deposit(
-        uint256 amount,
-        address receiver
-    )
+    function deposit(uint256 amount, address receiver)
         public
         override
         validAmount(amount)
@@ -773,10 +725,7 @@ contract LendefiMarketVaultV2 is
      * @custom:reentrancy Protected by nonReentrant modifier
      * @custom:mev-protection Prevents same-block operations for the receiver
      */
-    function mint(
-        uint256 shares,
-        address receiver
-    )
+    function mint(uint256 shares, address receiver)
         public
         override
         validAmount(shares)
@@ -823,11 +772,7 @@ contract LendefiMarketVaultV2 is
      * @custom:reentrancy Protected by nonReentrant modifier
      * @custom:mev-protection Prevents same-block operations for the owner
      */
-    function withdraw(
-        uint256 amount,
-        address receiver,
-        address owner
-    )
+    function withdraw(uint256 amount, address receiver, address owner)
         public
         override
         validAddress(receiver)
@@ -848,12 +793,7 @@ contract LendefiMarketVaultV2 is
         uint256 totalSharesBeforeWithdraw = totalSupply();
 
         uint256 shares = super.withdraw(amount, receiver, owner);
-        uint256 baseAmount = Math.mulDiv(
-            shares,
-            totalSuppliedLiquidity,
-            totalSharesBeforeWithdraw,
-            Math.Rounding.Floor
-        );
+        uint256 baseAmount = Math.mulDiv(shares, totalSuppliedLiquidity, totalSharesBeforeWithdraw, Math.Rounding.Floor);
         totalBase -= amount;
         totalSuppliedLiquidity -= baseAmount;
 
@@ -891,11 +831,7 @@ contract LendefiMarketVaultV2 is
      * @custom:reentrancy Protected by nonReentrant modifier
      * @custom:mev-protection Prevents same-block operations for the owner
      */
-    function redeem(
-        uint256 shares,
-        address receiver,
-        address owner
-    )
+    function redeem(uint256 shares, address receiver, address owner)
         public
         override
         validAmount(shares)
@@ -919,12 +855,7 @@ contract LendefiMarketVaultV2 is
 
         totalBase -= amount;
         // Calculate proportional reduction in supplied liquidity
-        uint256 baseAmount = Math.mulDiv(
-            totalSuppliedLiquidity,
-            shares,
-            totalSharesBeforeRedeem,
-            Math.Rounding.Floor
-        );
+        uint256 baseAmount = Math.mulDiv(totalSuppliedLiquidity, shares, totalSharesBeforeRedeem, Math.Rounding.Floor);
         totalSuppliedLiquidity -= baseAmount;
 
         if (fee > 0) {
@@ -958,17 +889,15 @@ contract LendefiMarketVaultV2 is
      * @custom:error-cases
      *   - LowLiquidity: When insufficient funds available for borrowing
      */
-    function borrow(
-        uint256 amount,
-        address receiver
-    )
+    function borrow(uint256 amount, address receiver)
         public
         onlyRole(LendefiConstants.PROTOCOL_ROLE)
         whenNotPaused
         nonReentrant
     {
-        if (totalBorrow + amount > totalSuppliedLiquidity)
+        if (totalBorrow + amount > totalSuppliedLiquidity) {
             revert LowLiquidity();
+        }
         totalBorrow += amount;
 
         borrowerDebt[receiver] += amount; // Track by actual borrower
@@ -998,10 +927,7 @@ contract LendefiMarketVaultV2 is
      * @custom:reentrancy Protected by nonReentrant modifier
      * @custom:accounting Separates principal repayment from interest payments
      */
-    function repay(
-        uint256 amount,
-        address sender
-    )
+    function repay(uint256 amount, address sender)
         public
         onlyRole(LendefiConstants.PROTOCOL_ROLE)
         whenNotPaused
@@ -1047,12 +973,9 @@ contract LendefiMarketVaultV2 is
         uint256 cachedSupply = totalSuppliedLiquidity;
         uint256 cachedBorrow = totalBorrow;
 
-        (cachedSupply == 0 || cachedBorrow == 0) ? u = 0 : u = Math.mulDiv(
-            baseDecimals,
-            cachedBorrow,
-            cachedSupply,
-            Math.Rounding.Floor
-        );
+        (cachedSupply == 0 || cachedBorrow == 0)
+            ? u = 0
+            : u = Math.mulDiv(baseDecimals, cachedBorrow, cachedSupply, Math.Rounding.Floor);
     }
 
     /**
@@ -1082,9 +1005,7 @@ contract LendefiMarketVaultV2 is
         if (config.rewardAmount == 0) return false; // Rewards disabled
         uint256 baseAmount = previewRedeem(balanceOf(user));
 
-        return
-            block.number - lastBlock >= config.rewardInterval &&
-            baseAmount >= config.rewardableSupply;
+        return block.number - lastBlock >= config.rewardInterval && baseAmount >= config.rewardableSupply;
     }
 
     /**
@@ -1099,26 +1020,29 @@ contract LendefiMarketVaultV2 is
 
         // Calculate the current value of 1 share unit (using baseDecimals precision)
         uint256 shareValue = previewRedeem(baseDecimals);
-        return shareValue <= baseDecimals ? 0 : shareValue - baseDecimals;
+        uint256 rateInBaseDecimals = shareValue <= baseDecimals ? 0 : shareValue - baseDecimals;
+
+        // Convert to 1e6 format for consistent rate display across all chains
+        return Math.mulDiv(rateInBaseDecimals, 1e6, baseDecimals, Math.Rounding.Floor);
     }
 
     /**
      * @notice Calculates the current borrow interest rate for a specific collateral tier
      * @dev Based on utilization, base rate, supply rate, and tier-specific jump rate
      * @param tier The collateral tier to calculate the borrow rate for
-     * @return The current annual borrow interest rate in baseDecimals format
+     * @return The current annual borrow interest rate in 1e6 format
      */
-    function getBorrowRate(
-        IASSETS.CollateralTier tier
-    ) public view returns (uint256) {
-        return
-            LendefiRates.getBorrowRate(
-                utilization(),
-                protocolConfig.borrowRate,
-                protocolConfig.profitTargetRate,
-                getSupplyRate(),
-                IASSETS(assetsModule).getTierJumpRate(tier)
-            );
+    function getBorrowRate(IASSETS.CollateralTier tier) public view returns (uint256) {
+        // Normalize utilization to 1e6 format for consistent rate calculations
+        uint256 utilizationIn1e6 = Math.mulDiv(utilization(), 1e6, baseDecimals, Math.Rounding.Floor);
+
+        return LendefiRates.getBorrowRate(
+            utilizationIn1e6,
+            protocolConfig.borrowRate, // already in 1e6
+            protocolConfig.profitTargetRate, // already in 1e6
+            getSupplyRate(), // now returns 1e6
+            IASSETS(assetsModule).getTierJumpRate(tier) // assume 1e6
+        );
     }
 
     // ========== INTERNAL FUNCTIONS ==========
@@ -1132,12 +1056,8 @@ contract LendefiMarketVaultV2 is
         if (supply == 0) return 0;
 
         uint256 total = totalBase;
-        uint256 target = Math.mulDiv(
-            totalSuppliedLiquidity,
-            protocolConfig.profitTargetRate,
-            baseDecimals,
-            Math.Rounding.Floor
-        );
+        uint256 target =
+            Math.mulDiv(totalSuppliedLiquidity, protocolConfig.profitTargetRate, baseDecimals, Math.Rounding.Floor);
 
         if (total >= totalSuppliedLiquidity + target) {
             return target;
@@ -1149,40 +1069,34 @@ contract LendefiMarketVaultV2 is
      * @dev Internal conversion function (from assets to shares) with support for rounding direction.
      * Modified to account for protocol commission by adjusting the total supply calculation.
      */
-    function _convertToShares(
-        uint256 assets,
-        Math.Rounding rounding
-    ) internal view virtual override returns (uint256) {
+    function _convertToShares(uint256 assets, Math.Rounding rounding)
+        internal
+        view
+        virtual
+        override
+        returns (uint256)
+    {
         uint256 supply = totalSupply();
         uint256 virtualSupply = supply + _calculateVirtualFeeShares();
 
-        return
-            Math.mulDiv(
-                assets,
-                virtualSupply + 10 ** _decimalsOffset(),
-                totalAssets() + 1,
-                rounding
-            );
+        return Math.mulDiv(assets, virtualSupply + 10 ** _decimalsOffset(), totalAssets() + 1, rounding);
     }
 
     /**
      * @dev Internal conversion function (from shares to assets) with support for rounding direction.
      * Modified to account for protocol commission by adjusting the total supply calculation.
      */
-    function _convertToAssets(
-        uint256 shares,
-        Math.Rounding rounding
-    ) internal view virtual override returns (uint256) {
+    function _convertToAssets(uint256 shares, Math.Rounding rounding)
+        internal
+        view
+        virtual
+        override
+        returns (uint256)
+    {
         uint256 supply = totalSupply();
         uint256 virtualSupply = supply + _calculateVirtualFeeShares();
 
-        return
-            Math.mulDiv(
-                shares,
-                totalAssets() + 1,
-                virtualSupply + 10 ** _decimalsOffset(),
-                rounding
-            );
+        return Math.mulDiv(shares, totalAssets() + 1, virtualSupply + 10 ** _decimalsOffset(), rounding);
     }
 
     /**
@@ -1195,9 +1109,7 @@ contract LendefiMarketVaultV2 is
      * @custom:state-changes Increments version number with each upgrade
      * @custom:upgrade-safety Ensures only authorized parties can upgrade the vault
      */
-    function _authorizeUpgrade(
-        address
-    ) internal override onlyRole(LendefiConstants.UPGRADER_ROLE) {
+    function _authorizeUpgrade(address) internal override onlyRole(LendefiConstants.UPGRADER_ROLE) {
         version++;
     }
 }
