@@ -565,7 +565,7 @@ contract BasicDeploy is Test {
         porFeedImplementation = new LendefiPoRFeed();
         // Protocol Oracle deploy (combined Oracle + Assets)
         bytes memory data = abi.encodeCall(
-            LendefiAssets.initialize, (address(timelockInstance), charlie, address(porFeedImplementation))
+            LendefiAssets.initialize, (address(timelockInstance), charlie, address(porFeedImplementation), ethereum)
         );
 
         address payable proxy = payable(Upgrades.deployUUPSProxy("LendefiAssets.sol", data));
@@ -798,7 +798,6 @@ contract BasicDeploy is Test {
         // Grant necessary roles
         vm.startPrank(address(timelockInstance));
         ecoInstance.grantRole(REWARDER_ROLE, address(marketCoreInstance));
-        assetsInstance.setCoreAddress(address(marketCoreInstance));
         // Grant market owner MANAGER_ROLE on vault (since factory can't do it without DEFAULT_ADMIN_ROLE)
         marketVaultInstance.grantRole(LendefiConstants.MANAGER_ROLE, charlie);
         vm.stopPrank();
