@@ -360,11 +360,6 @@ contract LendefiMarketFactoryV2 is ILendefiMarketFactory, Initializable, AccessC
             revert CloneDeploymentFailed();
         }
 
-        // Initialize the cloned assets module
-        // Note: Using timelock for both admin and multisig roles
-        // Using the porFeed implementation as template (assets module will clone it for each asset)
-        IASSETS(assetsModule).initialize(timelock, multisig, porFeedImplementation);
-
         // Create core contract using minimal proxy pattern
         address core = coreImplementation.clone();
         if (core == address(0) || core.code.length == 0) {
@@ -376,6 +371,11 @@ contract LendefiMarketFactoryV2 is ILendefiMarketFactory, Initializable, AccessC
             LendefiCore.initialize.selector, timelock, govToken, assetsModule, positionVaultImplementation
         );
         coreProxy = address(new TransparentUpgradeableProxy(core, timelock, initData));
+
+        // Initialize the cloned assets module after core is deployed
+        // Note: Using timelock for both admin and multisig roles
+        // Using the porFeed implementation as template (assets module will clone it for each asset)
+        IASSETS(assetsModule).initialize(timelock, multisig, porFeedImplementation, coreProxy);
 
         // Create vault contract using minimal proxy pattern
         address baseVault = vaultImplementation.clone();
