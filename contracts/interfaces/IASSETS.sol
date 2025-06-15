@@ -368,8 +368,9 @@ interface IASSETS {
      * @param timelock Address with manager role
      * @param multisig Address with admin roles
      * @param porFeed Proof of Reserve feed address
+     * @param coreAddress Address of the core protocol contract
      */
-    function initialize(address timelock, address multisig, address porFeed) external;
+    function initialize(address timelock, address multisig, address porFeed, address coreAddress) external;
 
     /**
      * @notice Register a Uniswap V3 pool as an oracle for an asset
@@ -406,11 +407,6 @@ interface IASSETS {
      */
     function updateTierConfig(CollateralTier tier, uint256 jumpRate, uint256 liquidationFee) external;
 
-    /**
-     * @notice Set the core protocol address
-     * @param newCore The new core protocol address
-     */
-    function setCoreAddress(address newCore) external;
 
     /**
      * @notice Pause the contract
@@ -475,18 +471,6 @@ interface IASSETS {
      */
     function upgradeTimelockRemaining() external view returns (uint256);
 
-    /**
-     * @notice Get comprehensive details about an asset
-     * @param asset The asset address
-     * @return price Current asset price
-     * @return totalSupplied Total amount supplied to the protocol
-     * @return maxSupply Maximum supply threshold
-     * @return tier Collateral tier of the asset
-     */
-    function getAssetDetails(address asset)
-        external
-        view
-        returns (uint256 price, uint256 totalSupplied, uint256 maxSupply, CollateralTier tier);
 
     /**
      * @notice Get rates for all tiers
