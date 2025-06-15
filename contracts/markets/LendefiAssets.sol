@@ -130,6 +130,7 @@ contract LendefiAssets is
      * @param timelock_ Address of the timelock_ contract that will have admin privileges
      * @param marketOwner Address of the market owner who will have management privileges
      * @param porFeed_ Proof of Reserve feed address
+     * @param coreAddress_ Address of the core protocol contract
      * @custom:security Sets up the initial access control roles:
      * - DEFAULT_ADMIN_ROLE: timelock_
      * - MANAGER_ROLE: timelock_, marketOwner
@@ -142,8 +143,8 @@ contract LendefiAssets is
      * - circuitBreakerThreshold: 50%
      * @custom:version Sets initial contract version to 1
      */
-    function initialize(address timelock_, address marketOwner, address porFeed_) external initializer {
-        if (timelock_ == address(0) || marketOwner == address(0) || porFeed_ == address(0)) {
+    function initialize(address timelock_, address marketOwner, address porFeed_, address coreAddress_) external initializer {
+        if (timelock_ == address(0) || marketOwner == address(0) || porFeed_ == address(0) || coreAddress_ == address(0)) {
             revert ZeroAddressNotAllowed();
         }
 
@@ -170,6 +171,9 @@ contract LendefiAssets is
         _initializeDefaultTierParameters();
 
         porFeed = porFeed_;
+        coreAddress = coreAddress_;
+        lendefiInstance = IPROTOCOL(coreAddress_);
+        _grantRole(LendefiConstants.PROTOCOL_ROLE, coreAddress_);
 
         timelock = timelock_;
         version = 1;
@@ -269,24 +273,6 @@ contract LendefiAssets is
 
     // ==================== CORE FUNCTIONS ====================
 
-    /**
-     * @notice Updates the core protocol contract address
-     * @dev This function can only be called by the DEFAULT_ADMIN_ROLE when the contract is not paused
-     * @param newCore Address of the new core protocol contract
-     * @custom:security Validates that the new address is not zero
-     * @custom:access Restricted to DEFAULT_ADMIN_ROLE
-     * @custom:emits CoreAddressUpdated event with the new core address
-     */
-    function setCoreAddress(address newCore)
-        external
-        nonZeroAddress(newCore)
-        onlyRole(DEFAULT_ADMIN_ROLE)
-        whenNotPaused
-    {
-        coreAddress = newCore;
-        lendefiInstance = IPROTOCOL(newCore);
-        emit CoreAddressUpdated(newCore);
-    }
 
     /**
      * @notice Pauses all contract operations
@@ -480,6 +466,7 @@ contract LendefiAssets is
     function updateAssetPoRFeed(address asset, uint256 tvl)
         external
         onlyListedAsset(asset)
+        onlyRole(LendefiConstants.PROTOCOL_ROLE)
         returns (uint256 usdValue)
     {
         // Get PoR feed
@@ -541,32 +528,6 @@ contract LendefiAssets is
             : 0;
     }
 
-    /**
-     * @notice Retrieves detailed information about an asset
-     * @dev Combines multiple data points into a single view call
-     * @param asset The address of the asset to query
-     * @return price Current oracle price of the asset
-     * @return tvl Total value locked for the asset
-     * @return maxSupply Maximum supply threshold for the asset
-     * @return tier Collateral tier classification
-     * @custom:validation Asset must be listed
-     */
-    function getAssetDetails(address asset)
-        external
-        view
-        onlyListedAsset(asset)
-        returns (uint256 price, uint256 tvl, uint256 maxSupply, CollateralTier tier)
-    {
-        // Direct storage access instead of copying entire struct
-        maxSupply = assetInfo[asset].maxSupplyThreshold;
-        tier = assetInfo[asset].tier;
-
-        // Get price (this will revert if circuit breaker is active)
-        price = getAssetPrice(asset);
-
-        // Get total supplied from protocol
-        (tvl,,) = lendefiInstance.getAssetTVL(asset);
-    }
 
     /**
      * @notice Retrieves rates configuration for all collateral tiers
