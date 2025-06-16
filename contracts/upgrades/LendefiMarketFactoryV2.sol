@@ -113,6 +113,12 @@ contract LendefiMarketFactoryV2 is ILendefiMarketFactory, Initializable, AccessC
     /// @dev Provides direct access to all market data across all owners
     IPROTOCOL.Market[] internal allMarkets;
 
+    /// @notice Network-specific addresses for oracle validation
+    /// @dev Set during initialization to support different networks
+    address public networkUSDT;
+    address public networkWBNB;
+    address public UsdtWbnbPool;
+
     /// @dev Pending upgrade information
     UpgradeRequest public pendingUpgrade;
 
@@ -145,6 +151,9 @@ contract LendefiMarketFactoryV2 is ILendefiMarketFactory, Initializable, AccessC
      * @param _govToken Address of the protocol governance token
      * @param _multisig Address of the Proof of Reserves feed implementation
      * @param _ecosystem Address of the ecosystem contract for rewards
+     * @param _networkUSDT Network-specific USDC address for oracle validation
+     * @param _networkWBNB Network-specific WBNB address for oracle validation
+     * @param _UsdtWbnbPool Network-specific USDC/WBNB pool for price reference
      *
      * @custom:requirements
      *   - All address parameters must be non-zero
@@ -159,11 +168,19 @@ contract LendefiMarketFactoryV2 is ILendefiMarketFactory, Initializable, AccessC
      * @custom:error-cases
      *   - ZeroAddress: When any required address parameter is zero
      */
-    function initialize(address _timelock, address _govToken, address _multisig, address _ecosystem)
-        external
-        initializer
-    {
-        if (_timelock == address(0) || _govToken == address(0) || _multisig == address(0) || _ecosystem == address(0)) {
+    function initialize(
+        address _timelock,
+        address _govToken,
+        address _multisig,
+        address _ecosystem,
+        address _networkUSDT,
+        address _networkWBNB,
+        address _UsdtWbnbPool
+    ) external initializer {
+        if (
+            _timelock == address(0) || _govToken == address(0) || _multisig == address(0) || _ecosystem == address(0)
+                || _networkUSDT == address(0) || _networkWBNB == address(0) || _UsdtWbnbPool == address(0)
+        ) {
             revert ZeroAddress();
         }
 
@@ -178,6 +195,12 @@ contract LendefiMarketFactoryV2 is ILendefiMarketFactory, Initializable, AccessC
         timelock = _timelock;
         multisig = _multisig;
         ecosystem = _ecosystem;
+
+        // Set network-specific addresses
+        networkUSDT = _networkUSDT;
+        networkWBNB = _networkWBNB;
+        UsdtWbnbPool = _UsdtWbnbPool;
+
         version = 1;
     }
 
@@ -377,7 +400,7 @@ contract LendefiMarketFactoryV2 is ILendefiMarketFactory, Initializable, AccessC
         // Initialize the cloned assets module after core is deployed
         // Note: Using timelock for admin role and marketOwner for management
         // Using the porFeed implementation as template (assets module will clone it for each asset)
-        IASSETS(assetsModule).initialize(timelock, msg.sender, porFeedImplementation, coreProxy);
+        IASSETS(assetsModule).initialize(timelock, msg.sender, porFeedImplementation, coreProxy, networkUSDT, networkWBNB, UsdtWbnbPool);
 
         // Create vault contract using minimal proxy pattern
         address baseVault = vaultImplementation.clone();
