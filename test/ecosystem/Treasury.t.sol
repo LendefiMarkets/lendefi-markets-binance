@@ -388,8 +388,8 @@ contract TreasuryTest is BasicDeploy {
     // Fuzz Test: Only Pauser Can Pause or Unpause
     function testFuzzOnlyPauserCanPauseUnpause(address caller) public {
         vm.startPrank(caller);
-        if (caller != address(timelockInstance)) {
-            //guardian is pauser now
+        if (caller != pauser && caller != address(timelockInstance)) {
+            // Only pauser and timelock (as admin) can pause
             bytes memory expError =
                 abi.encodeWithSignature("AccessControlUnauthorizedAccount(address,bytes32)", caller, PAUSER_ROLE);
 
