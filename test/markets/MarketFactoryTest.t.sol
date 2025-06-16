@@ -117,6 +117,9 @@ contract MarketFactoryTest is BasicDeploy {
 
     function test_Revert_Initialize_ZeroTimelock() public {
         LendefiMarketFactory factoryImpl = new LendefiMarketFactory();
+        
+        // Get network addresses for test
+        (address networkUSDT, address networkWBNB, address UsdtWbnbPool) = getNetworkAddresses();
 
         // Try to deploy proxy with zero timelock in init data
         bytes memory initData = abi.encodeWithSelector(
@@ -124,7 +127,10 @@ contract MarketFactoryTest is BasicDeploy {
             address(0), // zero timelock
             address(tokenInstance),
             address(gnosisSafe),
-            address(ecoInstance)
+            address(ecoInstance),
+            networkUSDT,
+            networkWBNB,
+            UsdtWbnbPool
         );
 
         vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
@@ -133,13 +139,19 @@ contract MarketFactoryTest is BasicDeploy {
 
     function test_Revert_Initialize_ZeroGovToken() public {
         LendefiMarketFactory factoryImpl = new LendefiMarketFactory();
+        
+        // Get network addresses for test
+        (address networkUSDT, address networkWBNB, address UsdtWbnbPool) = getNetworkAddresses();
 
         bytes memory initData = abi.encodeWithSelector(
             LendefiMarketFactory.initialize.selector,
             address(timelockInstance),
             address(0),
             address(gnosisSafe),
-            address(ecoInstance)
+            address(ecoInstance),
+            networkUSDT,
+            networkWBNB,
+            UsdtWbnbPool
         );
 
         vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
@@ -148,13 +160,19 @@ contract MarketFactoryTest is BasicDeploy {
 
     function test_Revert_Initialize_ZeroEcosystem() public {
         LendefiMarketFactory factoryImpl = new LendefiMarketFactory();
+        
+        // Get network addresses for test
+        (address networkUSDT, address networkWBNB, address UsdtWbnbPool) = getNetworkAddresses();
 
         bytes memory initData = abi.encodeWithSelector(
             LendefiMarketFactory.initialize.selector,
             address(timelockInstance),
             address(tokenInstance),
             address(gnosisSafe),
-            address(0)
+            address(0),
+            networkUSDT,
+            networkWBNB,
+            UsdtWbnbPool
         );
 
         vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
@@ -163,13 +181,19 @@ contract MarketFactoryTest is BasicDeploy {
 
     function test_Revert_Initialize_ZeroMultisig() public {
         LendefiMarketFactory factoryImpl = new LendefiMarketFactory();
+        
+        // Get network addresses for test
+        (address networkUSDT, address networkWBNB, address UsdtWbnbPool) = getNetworkAddresses();
 
         bytes memory initData = abi.encodeWithSelector(
             LendefiMarketFactory.initialize.selector,
             address(timelockInstance),
             address(tokenInstance),
             address(0),
-            address(ecoInstance)
+            address(ecoInstance),
+            networkUSDT,
+            networkWBNB,
+            UsdtWbnbPool
         );
 
         vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
