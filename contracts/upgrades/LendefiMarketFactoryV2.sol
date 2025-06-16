@@ -653,7 +653,7 @@ contract LendefiMarketFactoryV2 is ILendefiMarketFactory, Initializable, AccessC
      * @custom:access-control Available to any caller (view function)
      */
     function getMarketOwnerByIndex(uint256 index) external view returns (address) {
-        require(index < allMarketOwners.length, "Index out of bounds");
+        if (index >= allMarketOwners.length) revert InvalidIndex();
         return allMarketOwners[index];
     }
 
