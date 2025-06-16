@@ -302,13 +302,19 @@ contract LendefiMarketDashboardTest is BasicDeploy {
     function test_EmptyProtocolState() public {
         // Deploy a fresh factory implementation and proxy
         LendefiMarketFactory freshFactoryImpl = new LendefiMarketFactory();
+        
+        // Get network addresses for test
+        (address networkUSDT, address networkWBNB, address UsdtWbnbPool) = getNetworkAddresses();
 
         bytes memory initData = abi.encodeWithSelector(
             LendefiMarketFactory.initialize.selector,
             address(timelockInstance),
             address(tokenInstance),
             gnosisSafe,
-            address(ecoInstance)
+            address(ecoInstance),
+            networkUSDT,
+            networkWBNB,
+            UsdtWbnbPool
         );
 
         ERC1967Proxy freshFactoryProxy = new ERC1967Proxy(address(freshFactoryImpl), initData);
