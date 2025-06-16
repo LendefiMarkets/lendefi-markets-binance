@@ -369,8 +369,11 @@ interface IASSETS {
      * @param multisig Address with admin roles
      * @param porFeed Proof of Reserve feed address
      * @param coreAddress Address of the core protocol contract
+     * @param networkUSDT Network-specific USDT address for oracle validation
+     * @param networkWBNB Network-specific WBNB address for oracle validation
+     * @param UsdtWbnbPool Network-specific USDT/WBNB pool for price reference
      */
-    function initialize(address timelock, address multisig, address porFeed, address coreAddress) external;
+    function initialize(address timelock, address multisig, address porFeed, address coreAddress, address networkUSDT, address networkWBNB, address UsdtWbnbPool) external;
 
     /**
      * @notice Register a Uniswap V3 pool as an oracle for an asset
