@@ -104,6 +104,33 @@ contract BasicDeploy is Test {
     USDC internal usdcInstance;
     // IERC20 usdcInstance = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48); //real usdc ethereum for fork testing
 
+    // ==================== NETWORK CONFIGURATION ====================
+    
+    /**
+     * @notice Get network-specific addresses for oracle validation
+     * @dev Returns appropriate addresses based on chain ID
+     * @return networkUSDT The USDT address for this network
+     * @return networkWBNB The WBNB address for this network 
+     * @return UsdtWbnbPool The USDT/WBNB pool address for this network
+     */
+    function getNetworkAddresses() internal returns (address networkUSDT, address networkWBNB, address UsdtWbnbPool) {
+        if (block.chainid == 56) {
+            // BSC mainnet addresses
+            networkUSDT = LendefiConstants.USDT_BSC;
+            networkWBNB = LendefiConstants.WBNB_BSC;
+            UsdtWbnbPool = LendefiConstants.USDT_WBNB_POOL;
+        } else {
+            // Testnet or other networks - use mock/deployed addresses
+            // Deploy WBNB if not already deployed
+            if (address(wbnbInstance) == address(0)) {
+                wbnbInstance = new WBNB();
+            }
+            networkUSDT = address(usdcInstance); // Note: using USDC instance as USDT mock for testnet
+            networkWBNB = address(wbnbInstance);
+            UsdtWbnbPool = address(0x1); // Mock pool address for testnet
+        }
+    }
+
     function deployTokenUpgrade() internal {
         if (address(timelockInstance) == address(0)) {
             _deployTimelock();
@@ -564,8 +591,9 @@ contract BasicDeploy is Test {
 
         porFeedImplementation = new LendefiPoRFeed();
         // Protocol Oracle deploy (combined Oracle + Assets)
+        (address networkUSDT, address networkWBNB, address UsdtWbnbPool) = getNetworkAddresses();
         bytes memory data = abi.encodeCall(
-            LendefiAssets.initialize, (address(timelockInstance), charlie, address(porFeedImplementation), ethereum)
+            LendefiAssets.initialize, (address(timelockInstance), charlie, address(porFeedImplementation), ethereum, networkUSDT, networkWBNB, UsdtWbnbPool)
         );
 
         address payable proxy = payable(Upgrades.deployUUPSProxy("LendefiAssets.sol", data));
@@ -741,9 +769,10 @@ contract BasicDeploy is Test {
         LendefiPoRFeed porFeedImpl = new LendefiPoRFeed();
 
         // Deploy factory using UUPS pattern with direct proxy deployment
+        (address networkUSDT, address networkWBNB, address UsdtWbnbPool) = getNetworkAddresses();
         bytes memory factoryData = abi.encodeCall(
             LendefiMarketFactory.initialize,
-            (address(timelockInstance), address(tokenInstance), gnosisSafe, address(ecoInstance))
+            (address(timelockInstance), address(tokenInstance), gnosisSafe, address(ecoInstance), networkUSDT, networkWBNB, UsdtWbnbPool)
         );
         address payable factoryProxy = payable(Upgrades.deployUUPSProxy("LendefiMarketFactory.sol", factoryData));
         marketFactoryInstance = LendefiMarketFactory(factoryProxy);
