@@ -141,6 +141,9 @@ interface ILendefiMarketFactory {
     /// @notice Thrown when attempting to create a market with a base asset that is not on the allowlist
     error BaseAssetNotAllowed();
 
+    /// @notice Thrown when an invalid index is provided for array access
+    error InvalidIndex();
+
     // ========== INITIALIZATION ==========
 
     /**
