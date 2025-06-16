@@ -55,6 +55,12 @@ contract LendefiAssetsV2 is
     /// @notice Address of the timelock contract
     address public timelock;
 
+    /// @notice Network-specific addresses for oracle validation
+    /// @dev Set during initialization to support different networks
+    address public networkUSDT;
+    address public networkWBNB;
+    address public UsdtWbnbPool;
+
     /// @notice Information about the currently pending upgrade request
     /// @dev Stores implementation address and scheduling details
     UpgradeRequest public pendingUpgrade;
@@ -121,6 +127,9 @@ contract LendefiAssetsV2 is
      * @param marketOwner Address of the market owner who will have management privileges
      * @param porFeed_ Proof of Reserve feed address
      * @param coreAddress_ Address of the core protocol contract
+     * @param networkUSDT_ Network-specific USDC address for oracle validation
+     * @param networkWBNB_ Network-specific WBNB address for oracle validation
+     * @param UsdtWbnbPool_ Network-specific USDC/WBNB pool for price reference
      * @custom:security Sets up the initial access control roles:
      * - DEFAULT_ADMIN_ROLE: timelock_
      * - MANAGER_ROLE: timelock_, marketOwner
@@ -133,12 +142,18 @@ contract LendefiAssetsV2 is
      * - circuitBreakerThreshold: 50%
      * @custom:version Sets initial contract version to 1
      */
-    function initialize(address timelock_, address marketOwner, address porFeed_, address coreAddress_)
-        external
-        initializer
-    {
+    function initialize(
+        address timelock_,
+        address marketOwner,
+        address porFeed_,
+        address coreAddress_,
+        address networkUSDT_,
+        address networkWBNB_,
+        address UsdtWbnbPool_
+    ) external initializer {
         if (
             timelock_ == address(0) || marketOwner == address(0) || porFeed_ == address(0) || coreAddress_ == address(0)
+                || networkUSDT_ == address(0) || networkWBNB_ == address(0) || UsdtWbnbPool_ == address(0)
         ) {
             revert ZeroAddressNotAllowed();
         }
@@ -169,6 +184,11 @@ contract LendefiAssetsV2 is
         coreAddress = coreAddress_;
         lendefiInstance = IPROTOCOL(coreAddress_);
         _grantRole(LendefiConstants.PROTOCOL_ROLE, coreAddress_);
+
+        // Set network-specific addresses
+        networkUSDT = networkUSDT_;
+        networkWBNB = networkWBNB_;
+        UsdtWbnbPool = UsdtWbnbPool_;
 
         timelock = timelock_;
         version = 1;
