@@ -29,8 +29,12 @@ contract AssetsInitializeTest is BasicDeploy {
 
         // Create initialization data
         LendefiPoRFeed porFeedImpl = new LendefiPoRFeed();
+        
+        // Get network addresses for test
+        (address networkUSDT, address networkWBNB, address UsdtWbnbPool) = getNetworkAddresses();
+        
         initData = abi.encodeCall(
-            LendefiAssets.initialize, (timelockAddr, charlie, address(porFeedImpl), address(marketCoreInstance))
+            LendefiAssets.initialize, (timelockAddr, charlie, address(porFeedImpl), address(marketCoreInstance), networkUSDT, networkWBNB, UsdtWbnbPool)
         );
     }
 
@@ -78,14 +82,17 @@ contract AssetsInitializeTest is BasicDeploy {
         LendefiAssets assetsModule = LendefiAssets(payable(address(proxy)));
 
         LendefiPoRFeed porFeedImpl = new LendefiPoRFeed();
+        
+        // Get network addresses for test
+        (address networkUSDT, address networkWBNB, address UsdtWbnbPool) = getNetworkAddresses();
 
         // Test with zero address for timelock
         vm.expectRevert(abi.encodeWithSignature("ZeroAddressNotAllowed()"));
-        assetsModule.initialize(address(0), gnosisSafe, address(porFeedImpl), address(marketCoreInstance));
+        assetsModule.initialize(address(0), gnosisSafe, address(porFeedImpl), address(marketCoreInstance), networkUSDT, networkWBNB, UsdtWbnbPool);
 
         // Test with zero address for market owner
         vm.expectRevert(abi.encodeWithSignature("ZeroAddressNotAllowed()"));
-        assetsModule.initialize(timelockAddr, address(0), address(porFeedImpl), address(marketCoreInstance));
+        assetsModule.initialize(timelockAddr, address(0), address(porFeedImpl), address(marketCoreInstance), networkUSDT, networkWBNB, UsdtWbnbPool);
     }
 
     function test_PreventReinitialization() public {
@@ -95,8 +102,12 @@ contract AssetsInitializeTest is BasicDeploy {
 
         // Try to initialize again
         LendefiPoRFeed porFeedImpl = new LendefiPoRFeed();
+        
+        // Get network addresses for test
+        (address networkUSDT, address networkWBNB, address UsdtWbnbPool) = getNetworkAddresses();
+        
         vm.expectRevert(abi.encodeWithSignature("InvalidInitialization()"));
-        assetsContract.initialize(timelockAddr, charlie, address(porFeedImpl), address(marketCoreInstance));
+        assetsContract.initialize(timelockAddr, charlie, address(porFeedImpl), address(marketCoreInstance), networkUSDT, networkWBNB, UsdtWbnbPool);
     }
 
     function test_RoleExclusivity() public {
