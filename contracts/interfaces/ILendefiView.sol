@@ -64,10 +64,7 @@ interface ILENDEFIVIEW {
      * @param positionId The ID of the position to query
      * @return Summary struct containing all position data
      */
-    function getPositionSummary(
-        address user,
-        uint256 positionId
-    ) external view returns (PositionSummary memory);
+    function getPositionSummary(address user, uint256 positionId) external view returns (PositionSummary memory);
 
     /**
      * @notice Provides detailed information about a user's liquidity provision
@@ -78,9 +75,7 @@ interface ILENDEFIVIEW {
      * @return isRewardEligible Whether the user is eligible for rewards
      * @return pendingRewards The amount of pending rewards available to the user
      */
-    function getLPInfo(
-        address user
-    )
+    function getLPInfo(address user)
         external
         view
         returns (
@@ -95,8 +90,5 @@ interface ILENDEFIVIEW {
      * @notice Gets a comprehensive snapshot of the entire protocol's state
      * @return A ProtocolSnapshot struct containing all key protocol metrics and parameters
      */
-    function getProtocolSnapshot()
-        external
-        view
-        returns (ProtocolSnapshot memory);
+    function getProtocolSnapshot() external view returns (ProtocolSnapshot memory);
 }
