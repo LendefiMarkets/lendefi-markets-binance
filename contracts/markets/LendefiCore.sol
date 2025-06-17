@@ -412,6 +412,7 @@ contract LendefiCore is
      *
      * @param asset Address of the asset to be used in the position
      * @param isIsolated Boolean indicating whether the position is isolated
+     * @return positionId The unique identifier for the newly created position
      *
      * @custom:requirements
      *   - Asset must be valid
