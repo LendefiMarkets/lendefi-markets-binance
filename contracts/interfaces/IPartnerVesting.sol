@@ -17,10 +17,7 @@ interface IPARTNERVESTING {
      * @param duration Length of the vesting period in seconds
      */
     event VestingInitialized(
-        address indexed token,
-        address indexed beneficiary,
-        uint64 startTimestamp,
-        uint64 duration
+        address indexed token, address indexed beneficiary, uint64 startTimestamp, uint64 duration
     );
 
     /**
