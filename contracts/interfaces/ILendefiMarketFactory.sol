@@ -39,11 +39,7 @@ interface ILendefiMarketFactory {
      * @param baseAsset The base asset address of the updated market
      * @param marketInfo The updated market configuration data
      */
-    event MarketUpdated(
-        address indexed marketOwner,
-        address indexed baseAsset,
-        IPROTOCOL.Market marketInfo
-    );
+    event MarketUpdated(address indexed marketOwner, address indexed baseAsset, IPROTOCOL.Market marketInfo);
 
     /**
      * @notice Emitted when a market is removed or deactivated
@@ -79,10 +75,7 @@ interface ILendefiMarketFactory {
      * @param effectiveTime The timestamp when the upgrade can be executed
      */
     event UpgradeScheduled(
-        address indexed scheduler,
-        address indexed implementation,
-        uint64 scheduledTime,
-        uint64 effectiveTime
+        address indexed scheduler, address indexed implementation, uint64 scheduledTime, uint64 effectiveTime
     );
 
     /**
@@ -90,10 +83,7 @@ interface ILendefiMarketFactory {
      * @param canceller The address that cancelled the upgrade
      * @param implementation The implementation address that was cancelled
      */
-    event UpgradeCancelled(
-        address indexed canceller,
-        address indexed implementation
-    );
+    event UpgradeCancelled(address indexed canceller, address indexed implementation);
 
     /**
      * @notice Emitted when a base asset is added to the allowlist
@@ -204,11 +194,7 @@ interface ILendefiMarketFactory {
      * @param name The name for the ERC4626 yield token
      * @param symbol The symbol for the ERC4626 yield token
      */
-    function createMarket(
-        address baseAsset,
-        string memory name,
-        string memory symbol
-    ) external;
+    function createMarket(address baseAsset, string memory name, string memory symbol) external;
 
     /**
      * @notice Schedules an upgrade to a new implementation with timelock
@@ -289,10 +275,7 @@ interface ILendefiMarketFactory {
      * @param baseAsset Address of the base asset to query market information for
      * @return Market configuration struct containing all market data
      */
-    function getMarketInfo(
-        address marketOwner,
-        address baseAsset
-    ) external view returns (IPROTOCOL.Market memory);
+    function getMarketInfo(address marketOwner, address baseAsset) external view returns (IPROTOCOL.Market memory);
 
     /**
      * @notice Checks if a market is currently active for the specified owner and base asset
@@ -300,37 +283,27 @@ interface ILendefiMarketFactory {
      * @param baseAsset Address of the base asset to check
      * @return bool True if the market is active, false if inactive or non-existent
      */
-    function isMarketActive(
-        address marketOwner,
-        address baseAsset
-    ) external view returns (bool);
+    function isMarketActive(address marketOwner, address baseAsset) external view returns (bool);
 
     /**
      * @notice Returns all markets created by a specific owner
      * @param marketOwner Address of the market owner to query
      * @return Array of Market structs for all markets owned by the specified address
      */
-    function getOwnerMarkets(
-        address marketOwner
-    ) external view returns (IPROTOCOL.Market[] memory);
+    function getOwnerMarkets(address marketOwner) external view returns (IPROTOCOL.Market[] memory);
 
     /**
      * @notice Returns all base assets for which a specific owner has created markets
      * @param marketOwner Address of the market owner to query
      * @return Array of base asset addresses
      */
-    function getOwnerBaseAssets(
-        address marketOwner
-    ) external view returns (address[] memory);
+    function getOwnerBaseAssets(address marketOwner) external view returns (address[] memory);
 
     /**
      * @notice Returns all active markets across all owners
      * @return Array containing Market structs of all active markets
      */
-    function getAllActiveMarkets()
-        external
-        view
-        returns (IPROTOCOL.Market[] memory);
+    function getAllActiveMarkets() external view returns (IPROTOCOL.Market[] memory);
 
     /**
      * @notice Returns the total number of market owners
@@ -343,9 +316,7 @@ interface ILendefiMarketFactory {
      * @param index The index of the owner to retrieve
      * @return Address of the market owner at the specified index
      */
-    function getMarketOwnerByIndex(
-        uint256 index
-    ) external view returns (address);
+    function getMarketOwnerByIndex(uint256 index) external view returns (address);
 
     /**
      * @notice Returns the total number of markets created across all owners
@@ -365,10 +336,7 @@ interface ILendefiMarketFactory {
      * @return scheduledTime The timestamp when the upgrade was scheduled
      * @return exists Whether an upgrade is pending
      */
-    function pendingUpgrade()
-        external
-        view
-        returns (address implementation, uint64 scheduledTime, bool exists);
+    function pendingUpgrade() external view returns (address implementation, uint64 scheduledTime, bool exists);
 
     /**
      * @notice Returns all market owner addresses
