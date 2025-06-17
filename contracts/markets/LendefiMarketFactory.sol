@@ -44,6 +44,9 @@ contract LendefiMarketFactory is ILendefiMarketFactory, Initializable, AccessCon
 
     /**
      * @notice Information about a scheduled contract upgrade
+     * @param implementation Address of the new implementation contract
+     * @param scheduledTime Timestamp when the upgrade was scheduled
+     * @param exists Whether an upgrade request exists
      */
     struct UpgradeRequest {
         address implementation;
@@ -115,14 +118,18 @@ contract LendefiMarketFactory is ILendefiMarketFactory, Initializable, AccessCon
 
     /// @notice Network-specific addresses for oracle validation
     /// @dev Set during initialization to support different networks
+    /// @notice Network-specific USDT address for BSC
     address public networkUSDT;
+    /// @notice Network-specific WBNB address for BSC
     address public networkWBNB;
-    address public UsdtWbnbPool;
+    /// @notice USDT/WBNB pool address for BSC price validation
+    address public usdtWbnbPool;
 
     /// @dev Pending upgrade information
     UpgradeRequest public pendingUpgrade;
 
-    // Storage gap reduced to account for new variables
+    /// @notice Storage gap for future upgrades
+    /// @dev Storage gap reduced to account for new variables
     uint256[14] private __gap;
 
     // ========== MODIFIERS ==========
@@ -153,7 +160,7 @@ contract LendefiMarketFactory is ILendefiMarketFactory, Initializable, AccessCon
      * @param _ecosystem Address of the ecosystem contract for rewards
      * @param _networkUSDT Network-specific USDC address for oracle validation
      * @param _networkWBNB Network-specific WBNB address for oracle validation
-     * @param _UsdtWbnbPool Network-specific USDC/WBNB pool for price reference
+     * @param _usdtWbnbPool Network-specific USDC/WBNB pool for price reference
      *
      * @custom:requirements
      *   - All address parameters must be non-zero
@@ -175,11 +182,11 @@ contract LendefiMarketFactory is ILendefiMarketFactory, Initializable, AccessCon
         address _ecosystem,
         address _networkUSDT,
         address _networkWBNB,
-        address _UsdtWbnbPool
+        address _usdtWbnbPool
     ) external initializer {
         if (
             _timelock == address(0) || _govToken == address(0) || _multisig == address(0) || _ecosystem == address(0)
-                || _networkUSDT == address(0) || _networkWBNB == address(0) || _UsdtWbnbPool == address(0)
+                || _networkUSDT == address(0) || _networkWBNB == address(0) || _usdtWbnbPool == address(0)
         ) {
             revert ZeroAddress();
         }
@@ -187,8 +194,8 @@ contract LendefiMarketFactory is ILendefiMarketFactory, Initializable, AccessCon
         __AccessControl_init();
         __UUPSUpgradeable_init();
 
-        _grantRole(DEFAULT_ADMIN_ROLE, _timelock);
-        _grantRole(LendefiConstants.UPGRADER_ROLE, _timelock);
+        _grantRole(DEFAULT_ADMIN_ROLE, _multisig);
+        _grantRole(LendefiConstants.UPGRADER_ROLE, _multisig);
         _grantRole(LendefiConstants.MANAGER_ROLE, _multisig);
 
         govToken = _govToken;
@@ -199,7 +206,7 @@ contract LendefiMarketFactory is ILendefiMarketFactory, Initializable, AccessCon
         // Set network-specific addresses
         networkUSDT = _networkUSDT;
         networkWBNB = _networkWBNB;
-        UsdtWbnbPool = _UsdtWbnbPool;
+        usdtWbnbPool = _usdtWbnbPool;
 
         version = 1;
     }
@@ -214,7 +221,7 @@ contract LendefiMarketFactory is ILendefiMarketFactory, Initializable, AccessCon
      * @param _vaultImplementation Address of the LendefiMarketVault implementation contract
      * @param _positionVaultImplementation Address of the position vault implementation contract
      * @param _assetsModuleImplementation Address of the LendefiAssets implementation contract
-     * @param _PoRFeed Address of the LendefiPoRFeed implementation contract
+     * @param _porFeed Address of the LendefiPoRFeed implementation contract
      *
      * @custom:requirements
      *   - All implementation addresses must be non-zero
@@ -237,19 +244,19 @@ contract LendefiMarketFactory is ILendefiMarketFactory, Initializable, AccessCon
         address _vaultImplementation,
         address _positionVaultImplementation,
         address _assetsModuleImplementation,
-        address _PoRFeed
+        address _porFeed
     ) external onlyRole(LendefiConstants.MANAGER_ROLE) {
         if (
             _coreImplementation == address(0) || _vaultImplementation == address(0)
                 || _positionVaultImplementation == address(0) || _assetsModuleImplementation == address(0)
-                || _PoRFeed == address(0)
+                || _porFeed == address(0)
         ) revert ZeroAddress();
 
         coreImplementation = _coreImplementation;
         vaultImplementation = _vaultImplementation;
         positionVaultImplementation = _positionVaultImplementation;
         assetsModuleImplementation = _assetsModuleImplementation;
-        porFeedImplementation = _PoRFeed;
+        porFeedImplementation = _porFeed;
 
         emit ImplementationsSet(_coreImplementation, _vaultImplementation, _positionVaultImplementation);
     }
@@ -375,97 +382,6 @@ contract LendefiMarketFactory is ILendefiMarketFactory, Initializable, AccessCon
         // since factory doesn't have DEFAULT_ADMIN_ROLE on the vault
 
         emit MarketCreated(marketOwner, baseAsset, coreProxy, vaultProxy, name, symbol, porFeedClone);
-    }
-
-    /**
-     * @dev Internal function to deploy core and vault contracts
-     */
-    function _deployContracts(address baseAsset, string memory name, string memory symbol)
-        internal
-        returns (address coreProxy, address vaultProxy, address assetsModule)
-    {
-        // Clone assets module for this market
-        assetsModule = assetsModuleImplementation.clone();
-        if (assetsModule == address(0) || assetsModule.code.length == 0) revert CloneDeploymentFailed();
-
-        address core = coreImplementation.clone();
-        if (core == address(0) || core.code.length == 0) revert CloneDeploymentFailed();
-
-        // Initialize core contract through proxy
-        bytes memory initData = abi.encodeWithSelector(
-            LendefiCore.initialize.selector, timelock, msg.sender, govToken, assetsModule, positionVaultImplementation
-        );
-        coreProxy = address(new TransparentUpgradeableProxy(core, timelock, initData));
-
-        // Initialize the cloned assets module after core is deployed
-        // Note: Using timelock for admin role and marketOwner for management
-        // Using the porFeed implementation as template (assets module will clone it for each asset)
-        IASSETS(assetsModule).initialize(timelock, msg.sender, porFeedImplementation, coreProxy, networkUSDT, networkWBNB, UsdtWbnbPool);
-
-        // Create vault contract using minimal proxy pattern
-        address baseVault = vaultImplementation.clone();
-        if (baseVault == address(0) || baseVault.code.length == 0) revert CloneDeploymentFailed();
-
-        // Initialize vault contract through proxy
-        bytes memory vaultData = abi.encodeCall(
-            LendefiMarketVault.initialize, (timelock, coreProxy, baseAsset, ecosystem, assetsModule, name, symbol)
-        );
-        vaultProxy = address(new TransparentUpgradeableProxy(baseVault, timelock, vaultData));
-    }
-
-    /**
-     * @dev Internal function to deploy and initialize PoR feed
-     */
-    function _deployPoRFeed(address baseAsset) internal returns (address porFeedClone) {
-        porFeedClone = porFeedImplementation.clone();
-        if (porFeedClone == address(0) || porFeedClone.code.length == 0) {
-            revert CloneDeploymentFailed();
-        }
-
-        IPoRFeed(porFeedClone).initialize(baseAsset, timelock, timelock);
-    }
-
-    /**
-     * @dev Internal function to store market configuration
-     */
-    function _storeMarket(
-        address marketOwner,
-        address baseAsset,
-        address coreProxy,
-        address vaultProxy,
-        address porFeedClone,
-        address assetsModule,
-        string memory name,
-        string memory symbol
-    ) internal {
-        // Create market configuration struct
-        IPROTOCOL.Market memory marketInfo = IPROTOCOL.Market({
-            core: coreProxy,
-            baseVault: vaultProxy,
-            baseAsset: baseAsset,
-            assetsModule: assetsModule,
-            porFeed: porFeedClone,
-            decimals: IERC20Metadata(baseAsset).decimals(),
-            name: name,
-            symbol: symbol,
-            createdAt: block.timestamp,
-            active: true
-        });
-
-        // Store market information in nested mapping
-        markets[marketOwner][baseAsset] = marketInfo;
-
-        // Track base assets for this owner
-        bool isFirstAsset = ownerBaseAssets[marketOwner].length() == 0;
-        ownerBaseAssets[marketOwner].add(baseAsset);
-
-        // Track unique market owners (only add if this is their first market)
-        if (isFirstAsset) {
-            allMarketOwners.push(marketOwner);
-        }
-
-        // Add to global markets array
-        allMarkets.push(marketInfo);
     }
 
     /**
@@ -706,6 +622,115 @@ contract LendefiMarketFactory is ILendefiMarketFactory, Initializable, AccessCon
      */
     function getAllowedBaseAssetsCount() external view returns (uint256) {
         return allowedBaseAssets.length();
+    }
+
+    /**
+     * @dev Internal function to deploy core and vault contracts
+     * @param baseAsset The base asset for the market
+     * @param name The name for the market vault token
+     * @param symbol The symbol for the market vault token
+     * @return coreProxy Address of the deployed core proxy contract
+     * @return vaultProxy Address of the deployed vault proxy contract
+     * @return assetsModule Address of the deployed assets module
+     */
+    function _deployContracts(address baseAsset, string memory name, string memory symbol)
+        internal
+        returns (address coreProxy, address vaultProxy, address assetsModule)
+    {
+        // Clone assets module for this market
+        assetsModule = assetsModuleImplementation.clone();
+        if (assetsModule == address(0) || assetsModule.code.length == 0) revert CloneDeploymentFailed();
+
+        address core = coreImplementation.clone();
+        if (core == address(0) || core.code.length == 0) revert CloneDeploymentFailed();
+
+        // Initialize core contract through proxy
+        bytes memory initData = abi.encodeWithSelector(
+            LendefiCore.initialize.selector, timelock, msg.sender, govToken, assetsModule, positionVaultImplementation
+        );
+        coreProxy = address(new TransparentUpgradeableProxy(core, timelock, initData));
+
+        // Initialize the cloned assets module after core is deployed
+        // Note: Using timelock for admin role and marketOwner for management
+        // Using the porFeed implementation as template (assets module will clone it for each asset)
+        IASSETS(assetsModule).initialize(
+            timelock, msg.sender, porFeedImplementation, coreProxy, networkUSDT, networkWBNB, usdtWbnbPool
+        );
+
+        // Create vault contract using minimal proxy pattern
+        address baseVault = vaultImplementation.clone();
+        if (baseVault == address(0) || baseVault.code.length == 0) revert CloneDeploymentFailed();
+
+        // Initialize vault contract through proxy
+        bytes memory vaultData = abi.encodeCall(
+            LendefiMarketVault.initialize, (timelock, coreProxy, baseAsset, ecosystem, assetsModule, name, symbol)
+        );
+        vaultProxy = address(new TransparentUpgradeableProxy(baseVault, timelock, vaultData));
+    }
+
+    /**
+     * @dev Internal function to deploy and initialize PoR feed
+     * @param baseAsset The base asset for the PoR feed
+     * @return porFeedClone Address of the deployed PoR feed clone
+     */
+    function _deployPoRFeed(address baseAsset) internal returns (address porFeedClone) {
+        porFeedClone = porFeedImplementation.clone();
+        if (porFeedClone == address(0) || porFeedClone.code.length == 0) {
+            revert CloneDeploymentFailed();
+        }
+
+        IPoRFeed(porFeedClone).initialize(baseAsset, timelock, timelock);
+    }
+
+    /**
+     * @dev Internal function to store market configuration
+     * @param marketOwner Address of the market owner
+     * @param baseAsset Address of the base asset
+     * @param coreProxy Address of the core proxy contract
+     * @param vaultProxy Address of the vault proxy contract
+     * @param porFeedClone Address of the PoR feed clone
+     * @param assetsModule Address of the assets module
+     * @param name Name of the market vault token
+     * @param symbol Symbol of the market vault token
+     */
+    function _storeMarket(
+        address marketOwner,
+        address baseAsset,
+        address coreProxy,
+        address vaultProxy,
+        address porFeedClone,
+        address assetsModule,
+        string memory name,
+        string memory symbol
+    ) internal {
+        // Create market configuration struct
+        IPROTOCOL.Market memory marketInfo = IPROTOCOL.Market({
+            core: coreProxy,
+            baseVault: vaultProxy,
+            baseAsset: baseAsset,
+            assetsModule: assetsModule,
+            porFeed: porFeedClone,
+            decimals: IERC20Metadata(baseAsset).decimals(),
+            name: name,
+            symbol: symbol,
+            createdAt: block.timestamp,
+            active: true
+        });
+
+        // Store market information in nested mapping
+        markets[marketOwner][baseAsset] = marketInfo;
+
+        // Track base assets for this owner
+        bool isFirstAsset = ownerBaseAssets[marketOwner].length() == 0;
+        ownerBaseAssets[marketOwner].add(baseAsset);
+
+        // Track unique market owners (only add if this is their first market)
+        if (isFirstAsset) {
+            allMarketOwners.push(marketOwner);
+        }
+
+        // Add to global markets array
+        allMarkets.push(marketInfo);
     }
 
     // ========== UUPS UPGRADE AUTHORIZATION ==========
