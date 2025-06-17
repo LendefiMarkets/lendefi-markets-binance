@@ -117,7 +117,7 @@ contract MarketFactoryTest is BasicDeploy {
 
     function test_Revert_Initialize_ZeroTimelock() public {
         LendefiMarketFactory factoryImpl = new LendefiMarketFactory();
-        
+
         // Get network addresses for test
         (address networkUSDT, address networkWBNB, address UsdtWbnbPool) = getNetworkAddresses();
 
@@ -139,7 +139,7 @@ contract MarketFactoryTest is BasicDeploy {
 
     function test_Revert_Initialize_ZeroGovToken() public {
         LendefiMarketFactory factoryImpl = new LendefiMarketFactory();
-        
+
         // Get network addresses for test
         (address networkUSDT, address networkWBNB, address UsdtWbnbPool) = getNetworkAddresses();
 
@@ -160,7 +160,7 @@ contract MarketFactoryTest is BasicDeploy {
 
     function test_Revert_Initialize_ZeroEcosystem() public {
         LendefiMarketFactory factoryImpl = new LendefiMarketFactory();
-        
+
         // Get network addresses for test
         (address networkUSDT, address networkWBNB, address UsdtWbnbPool) = getNetworkAddresses();
 
@@ -181,7 +181,7 @@ contract MarketFactoryTest is BasicDeploy {
 
     function test_Revert_Initialize_ZeroMultisig() public {
         LendefiMarketFactory factoryImpl = new LendefiMarketFactory();
-        
+
         // Get network addresses for test
         (address networkUSDT, address networkWBNB, address UsdtWbnbPool) = getNetworkAddresses();
 
@@ -199,5 +199,4 @@ contract MarketFactoryTest is BasicDeploy {
         vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
         new ERC1967Proxy(address(factoryImpl), initData);
     }
-
 }
