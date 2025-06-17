@@ -31,12 +31,9 @@ contract InvestorVesting is IVESTING, Context, Ownable2Step, ReentrancyGuard {
      * @dev Sets the owner to beneficiary address, the start timestamp and the
      * vesting duration of the vesting contract.
      */
-    constructor(
-        address token,
-        address beneficiary,
-        uint64 startTimestamp,
-        uint64 durationSeconds
-    ) Ownable(beneficiary) {
+    constructor(address token, address beneficiary, uint64 startTimestamp, uint64 durationSeconds)
+        Ownable(beneficiary)
+    {
         if (token == address(0) || beneficiary == address(0)) {
             revert ZeroAddress();
         }
@@ -102,14 +99,8 @@ contract InvestorVesting is IVESTING, Context, Ownable2Step, ReentrancyGuard {
      * @param timestamp current timestamp
      * @return amount vested
      */
-    function vestedAmount(
-        uint64 timestamp
-    ) internal view virtual returns (uint256) {
-        return
-            _vestingSchedule(
-                IERC20(_token).balanceOf(address(this)) + released(),
-                timestamp
-            );
+    function vestedAmount(uint64 timestamp) internal view virtual returns (uint256) {
+        return _vestingSchedule(IERC20(_token).balanceOf(address(this)) + released(), timestamp);
     }
 
     /**
@@ -119,10 +110,7 @@ contract InvestorVesting is IVESTING, Context, Ownable2Step, ReentrancyGuard {
      * @param timestamp current timestamp
      * @return amount vested
      */
-    function _vestingSchedule(
-        uint256 totalAllocation,
-        uint64 timestamp
-    ) internal view virtual returns (uint256) {
+    function _vestingSchedule(uint256 totalAllocation, uint64 timestamp) internal view virtual returns (uint256) {
         if (timestamp < start()) {
             return 0;
         } else if (timestamp >= end()) {
