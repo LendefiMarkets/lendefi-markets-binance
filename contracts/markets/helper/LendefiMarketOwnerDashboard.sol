@@ -157,19 +157,6 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
     }
 
     /**
-     * @notice Gets detailed information about all borrowers across owner's markets
-     * @param owner Address of the market owner
-     * @return Array of BorrowerInfo for all borrowers in owner's markets
-     */
-    function getOwnerBorrowers(address owner) external pure returns (BorrowerInfo[] memory) {
-        owner;
-        // TODO: Implement comprehensive borrower tracking
-        // This requires iterating through all positions across all owner's markets
-        // For now, returning empty array as placeholder
-        return new BorrowerInfo[](0);
-    }
-
-    /**
      * @notice Gets detailed information about all liquidity providers across owner's markets
      * @param owner Address of the market owner
      * @return Array of LiquidityProviderInfo for all LPs in owner's markets
@@ -189,38 +176,6 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
         // TODO: Implement comprehensive LP tracking
         // This requires tracking all LP token holders across all owner's markets
         // For now, returning empty array as placeholder
-        return new LiquidityProviderInfo[](0);
-    }
-
-    /**
-     * @notice Gets borrowers for a specific market owned by the owner
-     * @param owner Address of the market owner
-     * @param baseAsset Address of the base asset for the market
-     * @return Array of BorrowerInfo for borrowers in the specific market
-     */
-    function getMarketBorrowers(address owner, address baseAsset) external pure returns (BorrowerInfo[] memory) {
-        owner;
-        baseAsset;
-        // TODO: Implement market-specific borrower tracking
-        // This requires getting all positions from the core contract
-        return new BorrowerInfo[](0);
-    }
-
-    /**
-     * @notice Gets liquidity providers for a specific market owned by the owner
-     * @param owner Address of the market owner
-     * @param baseAsset Address of the base asset for the market
-     * @return Array of LiquidityProviderInfo for LPs in the specific market
-     */
-    function getMarketLiquidityProviders(address owner, address baseAsset)
-        external
-        pure
-        returns (LiquidityProviderInfo[] memory)
-    {
-        owner;
-        baseAsset;
-        // TODO: Implement market-specific LP tracking
-        // This requires getting all LP token holders from the vault
         return new LiquidityProviderInfo[](0);
     }
 
@@ -273,50 +228,6 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
         }
 
         return analytics;
-    }
-
-    /**
-     * @notice Gets top borrowers by debt amount across owner's markets
-     * @param owner Address of the market owner
-     * @param limit Maximum number of borrowers to return
-     * @return Array of BorrowerInfo sorted by total debt (descending)
-     */
-    function getTopBorrowersByDebt(address owner, uint256 limit) external pure returns (BorrowerInfo[] memory) {
-        owner;
-        limit;
-        // TODO: Implement borrower ranking by debt
-        // This requires getting all borrowers and sorting by debt amount
-        return new BorrowerInfo[](0);
-    }
-
-    /**
-     * @notice Gets top liquidity providers by LP value across owner's markets
-     * @param owner Address of the market owner
-     * @param limit Maximum number of liquidity providers to return
-     * @return Array of LiquidityProviderInfo sorted by LP value (descending)
-     */
-    function getTopLiquidityProviders(address owner, uint256 limit)
-        external
-        pure
-        returns (LiquidityProviderInfo[] memory)
-    {
-        owner;
-        limit;
-        // TODO: Implement LP ranking by value
-        // This requires getting all LPs and sorting by LP token value
-        return new LiquidityProviderInfo[](0);
-    }
-
-    /**
-     * @notice Gets borrowers at risk of liquidation across owner's markets
-     * @param owner Address of the market owner
-     * @return Array of BorrowerInfo for borrowers with high liquidation risk
-     */
-    function getAtRiskBorrowers(address owner) external pure returns (BorrowerInfo[] memory) {
-        owner;
-        // TODO: Implement at-risk borrower identification
-        // This requires checking health factors across all positions
-        return new BorrowerInfo[](0);
     }
 
     // ========== INTERFACE GETTERS ==========
