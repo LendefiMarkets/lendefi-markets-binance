@@ -313,7 +313,8 @@ contract LendefiPositionLifecycleTest is Test, BasicDeploy {
         marketVaultInstance.withdraw(maxWithdrawAmount, testAlice, testAlice);
 
         console2.log(
-            "Commission shares minted to timelock:", marketVaultInstance.balanceOf(marketVaultInstance.timelock()) / 1e18
+            "Commission shares minted to timelock:",
+            marketVaultInstance.balanceOf(marketVaultInstance.timelock()) / 1e18
         );
         vm.stopPrank();
     }
@@ -441,7 +442,8 @@ contract LendefiPositionLifecycleTest is Test, BasicDeploy {
         console2.log("Actual USDC received:", receivedUsdc / 1e18);
 
         console2.log(
-            "Commission shares minted to timelock:", marketVaultInstance.balanceOf(marketVaultInstance.timelock()) / 1e18
+            "Commission shares minted to timelock:",
+            marketVaultInstance.balanceOf(marketVaultInstance.timelock()) / 1e18
         );
         vm.stopPrank();
     }
