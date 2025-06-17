@@ -119,11 +119,12 @@ library LendefiRates {
      * @param baseDecimals Base asset decimal precision (e.g., 1e18 for 18-decimal tokens)
      * @return Total debt with interest in native token decimals
      */
-    function calculateDebtWithInterest(uint256 debtAmount, uint256 borrowRate, uint256 timeElapsed, uint256 baseDecimals)
-        internal
-        pure
-        returns (uint256)
-    {
+    function calculateDebtWithInterest(
+        uint256 debtAmount,
+        uint256 borrowRate,
+        uint256 timeElapsed,
+        uint256 baseDecimals
+    ) internal pure returns (uint256) {
         if (debtAmount == 0) return 0;
         return accrueInterest(debtAmount, annualRateToRay(borrowRate, baseDecimals), timeElapsed);
     }
