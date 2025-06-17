@@ -105,12 +105,12 @@ contract BasicDeploy is Test {
     // IERC20 usdcInstance = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48); //real usdc ethereum for fork testing
 
     // ==================== NETWORK CONFIGURATION ====================
-    
+
     /**
      * @notice Get network-specific addresses for oracle validation
      * @dev Returns appropriate addresses based on chain ID
      * @return networkUSDT The USDT address for this network
-     * @return networkWBNB The WBNB address for this network 
+     * @return networkWBNB The WBNB address for this network
      * @return UsdtWbnbPool The USDT/WBNB pool address for this network
      */
     function getNetworkAddresses() internal returns (address networkUSDT, address networkWBNB, address UsdtWbnbPool) {
@@ -593,7 +593,16 @@ contract BasicDeploy is Test {
         // Protocol Oracle deploy (combined Oracle + Assets)
         (address networkUSDT, address networkWBNB, address UsdtWbnbPool) = getNetworkAddresses();
         bytes memory data = abi.encodeCall(
-            LendefiAssets.initialize, (address(timelockInstance), charlie, address(porFeedImplementation), ethereum, networkUSDT, networkWBNB, UsdtWbnbPool)
+            LendefiAssets.initialize,
+            (
+                address(timelockInstance),
+                charlie,
+                address(porFeedImplementation),
+                ethereum,
+                networkUSDT,
+                networkWBNB,
+                UsdtWbnbPool
+            )
         );
 
         address payable proxy = payable(Upgrades.deployUUPSProxy("LendefiAssets.sol", data));
@@ -717,14 +726,14 @@ contract BasicDeploy is Test {
         address newImpl = Upgrades.prepareUpgrade("LendefiMarketFactoryV2.sol", opts);
 
         // Schedule the upgrade with that exact address
-        vm.startPrank(address(timelockInstance));
+        vm.startPrank(gnosisSafe);
         marketFactoryInstance.scheduleUpgrade(newImpl);
 
         // Fast forward past the timelock period (3 days for MarketFactory)
         vm.warp(block.timestamp + 3 days + 1);
 
         // Execute the upgrade
-        ITransparentUpgradeableProxy(proxy).upgradeToAndCall(newImpl, "");
+        marketFactoryInstance.upgradeToAndCall(newImpl, "");
         vm.stopPrank();
 
         // Verification
@@ -734,16 +743,14 @@ contract BasicDeploy is Test {
         // Assert that upgrade was successful
         assertEq(marketFactoryInstanceV2.version(), 2, "Version not incremented to 2");
         assertFalse(implAddressV2 == implAddressV1, "Implementation address didn't change");
-        assertTrue(
-            marketFactoryInstanceV2.hasRole(DEFAULT_ADMIN_ROLE, address(timelockInstance)), "Lost DEFAULT_ADMIN_ROLE"
-        );
+        assertTrue(marketFactoryInstanceV2.hasRole(DEFAULT_ADMIN_ROLE, gnosisSafe), "Lost DEFAULT_ADMIN_ROLE");
 
-        // Test role management still works - timelock should have admin control
-        vm.startPrank(address(timelockInstance));
-        marketFactoryInstanceV2.grantRole(UPGRADER_ROLE, gnosisSafe);
-        assertTrue(marketFactoryInstanceV2.hasRole(UPGRADER_ROLE, gnosisSafe), "Should grant UPGRADER_ROLE");
-        marketFactoryInstanceV2.revokeRole(UPGRADER_ROLE, gnosisSafe);
-        assertFalse(marketFactoryInstanceV2.hasRole(UPGRADER_ROLE, gnosisSafe), "Should revoke UPGRADER_ROLE");
+        // Test role management still works - gnosisSafe should have admin control
+        vm.startPrank(gnosisSafe);
+        marketFactoryInstanceV2.grantRole(UPGRADER_ROLE, alice);
+        assertTrue(marketFactoryInstanceV2.hasRole(UPGRADER_ROLE, alice), "Should grant UPGRADER_ROLE");
+        marketFactoryInstanceV2.revokeRole(UPGRADER_ROLE, alice);
+        assertFalse(marketFactoryInstanceV2.hasRole(UPGRADER_ROLE, alice), "Should revoke UPGRADER_ROLE");
         vm.stopPrank();
     }
 
@@ -772,7 +779,15 @@ contract BasicDeploy is Test {
         (address networkUSDT, address networkWBNB, address UsdtWbnbPool) = getNetworkAddresses();
         bytes memory factoryData = abi.encodeCall(
             LendefiMarketFactory.initialize,
-            (address(timelockInstance), address(tokenInstance), gnosisSafe, address(ecoInstance), networkUSDT, networkWBNB, UsdtWbnbPool)
+            (
+                address(timelockInstance),
+                address(tokenInstance),
+                gnosisSafe,
+                address(ecoInstance),
+                networkUSDT,
+                networkWBNB,
+                UsdtWbnbPool
+            )
         );
         address payable factoryProxy = payable(Upgrades.deployUUPSProxy("LendefiMarketFactory.sol", factoryData));
         marketFactoryInstance = LendefiMarketFactory(factoryProxy);
@@ -803,8 +818,8 @@ contract BasicDeploy is Test {
         require(marketFactoryInstance.coreImplementation() != address(0), "Core implementation not set");
         require(marketFactoryInstance.vaultImplementation() != address(0), "Vault implementation not set");
 
-        // Grant MARKET_OWNER_ROLE to charlie (done by timelock which has DEFAULT_ADMIN_ROLE)
-        vm.prank(address(timelockInstance));
+        // Grant MARKET_OWNER_ROLE to charlie (done by multisig which has DEFAULT_ADMIN_ROLE)
+        vm.prank(gnosisSafe);
         marketFactoryInstance.grantRole(LendefiConstants.MARKET_OWNER_ROLE, charlie);
 
         // Add base asset to allowlist (done by multisig which has MANAGER_ROLE)
