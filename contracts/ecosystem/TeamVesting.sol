@@ -52,18 +52,10 @@ contract TeamVesting is ITEAMVESTING, Context, Ownable2Step, ReentrancyGuard {
      * @param startTimestamp UNIX timestamp when vesting begins
      * @param durationSeconds Duration of vesting period in seconds
      */
-    constructor(
-        address token,
-        address timelock,
-        address beneficiary,
-        uint64 startTimestamp,
-        uint64 durationSeconds
-    ) Ownable(beneficiary) {
-        if (
-            token == address(0) ||
-            timelock == address(0) ||
-            beneficiary == address(0)
-        ) {
+    constructor(address token, address timelock, address beneficiary, uint64 startTimestamp, uint64 durationSeconds)
+        Ownable(beneficiary)
+    {
+        if (token == address(0) || timelock == address(0) || beneficiary == address(0)) {
             revert ZeroAddress();
         }
 
@@ -72,13 +64,7 @@ contract TeamVesting is ITEAMVESTING, Context, Ownable2Step, ReentrancyGuard {
         _start = startTimestamp;
         _duration = durationSeconds;
 
-        emit VestingInitialized(
-            token,
-            beneficiary,
-            timelock,
-            startTimestamp,
-            durationSeconds
-        );
+        emit VestingInitialized(token, beneficiary, timelock, startTimestamp, durationSeconds);
     }
 
     /**
@@ -86,12 +72,7 @@ contract TeamVesting is ITEAMVESTING, Context, Ownable2Step, ReentrancyGuard {
      * @dev First releases any vested tokens to the beneficiary, then returns remaining tokens to timelock
      * @return remainder The amount of unvested tokens returned to the timelock
      */
-    function cancelContract()
-        external
-        nonReentrant
-        onlyTimelock
-        returns (uint256 remainder)
-    {
+    function cancelContract() external nonReentrant onlyTimelock returns (uint256 remainder) {
         IERC20 tokenInstance = IERC20(_token);
         uint256 releasableAmount = releasable();
 
@@ -186,14 +167,8 @@ contract TeamVesting is ITEAMVESTING, Context, Ownable2Step, ReentrancyGuard {
      * @param timestamp The timestamp to calculate vested amount for
      * @return The total amount of tokens vested at the specified timestamp
      */
-    function vestedAmount(
-        uint64 timestamp
-    ) internal view virtual returns (uint256) {
-        return
-            _vestingSchedule(
-                IERC20(_token).balanceOf(address(this)) + released(),
-                timestamp
-            );
+    function vestedAmount(uint64 timestamp) internal view virtual returns (uint256) {
+        return _vestingSchedule(IERC20(_token).balanceOf(address(this)) + released(), timestamp);
     }
 
     /**
@@ -203,10 +178,7 @@ contract TeamVesting is ITEAMVESTING, Context, Ownable2Step, ReentrancyGuard {
      * @param timestamp The timestamp to calculate vested amount for
      * @return The amount of tokens vested at the specified timestamp
      */
-    function _vestingSchedule(
-        uint256 totalAllocation,
-        uint64 timestamp
-    ) internal view virtual returns (uint256) {
+    function _vestingSchedule(uint256 totalAllocation, uint64 timestamp) internal view virtual returns (uint256) {
         if (timestamp < start()) {
             return 0;
         } else if (timestamp >= end()) {
