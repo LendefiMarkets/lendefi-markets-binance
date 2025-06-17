@@ -5,7 +5,6 @@ pragma solidity 0.8.23;
  * @title Interface for Lendefi DAO Investor Vesting Contract
  * @custom:security-contact security@lendefimarkets.com
  */
-
 interface IVESTING {
     /// @notice  event emmited when contract cancelled
     /// @param amount tokens returned
