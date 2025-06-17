@@ -40,7 +40,7 @@ library UniswapTickMath {
         // This gives us token0/token1 ratio
         uint256 numerator = uint256(sqrtPriceX96) * uint256(sqrtPriceX96);
         uint256 denominator = 1 << 192; // 2^192
-        
+
         if (isToken0) {
             // Return token0/token1 price
             price = FullMath.mulDiv(numerator, precision, denominator);
