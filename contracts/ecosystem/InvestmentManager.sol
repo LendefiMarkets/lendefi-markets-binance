@@ -143,8 +143,7 @@ contract InvestmentManager is
      * @dev Maps round IDs and investors to their token allocations
      * @notice Stores maximum ETH and token amounts for each investor in a round
      */
-    mapping(uint32 => mapping(address => Allocation))
-        private investorAllocations;
+    mapping(uint32 => mapping(address => Allocation)) private investorAllocations;
 
     /**
      * @dev Maps round IDs to the total token allocation for that round
@@ -182,8 +181,9 @@ contract InvestmentManager is
      * @custom:throws RoundNotActive if the round is not active
      */
     modifier activeRound(uint32 roundId) {
-        if (rounds[roundId].status != RoundStatus.ACTIVE)
+        if (rounds[roundId].status != RoundStatus.ACTIVE) {
             revert RoundNotActive(roundId);
+        }
         _;
     }
 
@@ -195,11 +195,7 @@ contract InvestmentManager is
      */
     modifier correctStatus(uint32 roundId, RoundStatus requiredStatus) {
         if (rounds[roundId].status != requiredStatus) {
-            revert InvalidRoundStatus(
-                roundId,
-                requiredStatus,
-                rounds[roundId].status
-            );
+            revert InvalidRoundStatus(roundId, requiredStatus, rounds[roundId].status);
         }
         _;
     }
@@ -245,16 +241,8 @@ contract InvestmentManager is
      * @notice Sets up roles, connects to ecosystem contracts, and initializes version
      * @custom:throws ZeroAddressDetected if any parameter is the zero address
      */
-    function initialize(
-        address token,
-        address timelock_,
-        address treasury_
-    ) external initializer {
-        if (
-            token == address(0) ||
-            timelock_ == address(0) ||
-            treasury_ == address(0)
-        ) {
+    function initialize(address token, address timelock_, address treasury_) external initializer {
+        if (token == address(0) || timelock_ == address(0) || treasury_ == address(0)) {
             revert ZeroAddressDetected();
         }
 
@@ -313,24 +301,17 @@ contract InvestmentManager is
      * @custom:throws ZeroAddressDetected if newImplementation is zero address
      * @custom:throws If called by address without UPGRADER_ROLE
      */
-    function scheduleUpgrade(
-        address newImplementation
-    ) external onlyRole(UPGRADER_ROLE) nonZeroAddress(newImplementation) {
+    function scheduleUpgrade(address newImplementation)
+        external
+        onlyRole(UPGRADER_ROLE)
+        nonZeroAddress(newImplementation)
+    {
         uint64 currentTime = uint64(block.timestamp);
         uint64 effectiveTime = currentTime + uint64(UPGRADE_TIMELOCK_DURATION);
 
-        pendingUpgrade = UpgradeRequest({
-            implementation: newImplementation,
-            scheduledTime: currentTime,
-            exists: true
-        });
+        pendingUpgrade = UpgradeRequest({implementation: newImplementation, scheduledTime: currentTime, exists: true});
 
-        emit UpgradeScheduled(
-            msg.sender,
-            newImplementation,
-            currentTime,
-            effectiveTime
-        );
+        emit UpgradeScheduled(msg.sender, newImplementation, currentTime, effectiveTime);
     }
 
     /**
@@ -353,9 +334,7 @@ contract InvestmentManager is
      * @custom:throws ZeroAddressDetected if token address is zero
      * @custom:throws ZeroBalance if contract has no token balance
      */
-    function emergencyWithdrawToken(
-        address token
-    ) external nonReentrant onlyRole(MANAGER_ROLE) nonZeroAddress(token) {
+    function emergencyWithdrawToken(address token) external nonReentrant onlyRole(MANAGER_ROLE) nonZeroAddress(token) {
         uint256 balance = IERC20(token).balanceOf(address(this));
         if (balance == 0) revert ZeroBalance();
 
@@ -368,19 +347,12 @@ contract InvestmentManager is
      * @notice Only callable by addresses with MANAGER_ROLE
      * @custom:throws ZeroBalance if contract has no ETH balance
      */
-    function emergencyWithdrawEther()
-        external
-        nonReentrant
-        onlyRole(MANAGER_ROLE)
-    {
+    function emergencyWithdrawEther() external nonReentrant onlyRole(MANAGER_ROLE) {
         uint256 balance = address(this).balance;
         if (balance == 0) revert ZeroBalance();
 
         payable(timelock).sendValue(balance);
-        emit EmergencyWithdrawal(
-            0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE,
-            balance
-        );
+        emit EmergencyWithdrawal(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE, balance);
     }
 
     /**
@@ -412,23 +384,17 @@ contract InvestmentManager is
         uint64 vestingDuration
     ) external onlyRole(DAO_ROLE) whenNotPaused returns (uint32) {
         if (duration < MIN_ROUND_DURATION || duration > MAX_ROUND_DURATION) {
-            revert InvalidDuration(
-                duration,
-                MIN_ROUND_DURATION,
-                MAX_ROUND_DURATION
-            );
+            revert InvalidDuration(duration, MIN_ROUND_DURATION, MAX_ROUND_DURATION);
         }
         if (ethTarget == 0) revert InvalidEthTarget();
         if (tokenAlloc == 0) revert InvalidTokenAllocation();
-        if (start < block.timestamp)
+        if (start < block.timestamp) {
             revert InvalidStartTime(start, block.timestamp);
+        }
 
         supply += tokenAlloc;
         if (ecosystemToken.balanceOf(address(this)) < supply) {
-            revert InsufficientSupply(
-                supply,
-                ecosystemToken.balanceOf(address(this))
-            );
+            revert InsufficientSupply(supply, ecosystemToken.balanceOf(address(this)));
         }
 
         uint64 end = start + duration;
@@ -468,9 +434,7 @@ contract InvestmentManager is
      * @custom:throws InvalidRound if roundId doesn't exist
      * @custom:throws InvalidRoundStatus if round is not in PENDING status
      */
-    function activateRound(
-        uint32 roundId
-    )
+    function activateRound(uint32 roundId)
         external
         onlyRole(MANAGER_ROLE)
         validRound(roundId)
@@ -479,10 +443,7 @@ contract InvestmentManager is
     {
         Round storage currentRound = rounds[roundId];
         if (block.timestamp < currentRound.startTime) {
-            revert RoundStartTimeNotReached(
-                block.timestamp,
-                currentRound.startTime
-            );
+            revert RoundStartTimeNotReached(block.timestamp, currentRound.startTime);
         }
         if (block.timestamp >= currentRound.endTime) {
             revert RoundEndTimeReached(block.timestamp, currentRound.endTime);
@@ -509,23 +470,19 @@ contract InvestmentManager is
      * @custom:throws AllocationExists if investor already has an allocation
      * @custom:throws ExceedsRoundAllocation if allocation exceeds round limit
      */
-    function addInvestorAllocation(
-        uint32 roundId,
-        address investor,
-        uint256 ethAmount,
-        uint256 tokenAmount
-    ) external onlyRole(MANAGER_ROLE) validRound(roundId) whenNotPaused {
+    function addInvestorAllocation(uint32 roundId, address investor, uint256 ethAmount, uint256 tokenAmount)
+        external
+        onlyRole(MANAGER_ROLE)
+        validRound(roundId)
+        whenNotPaused
+    {
         if (investor == address(0)) revert InvalidInvestor();
         if (ethAmount == 0) revert InvalidEthAmount();
         if (tokenAmount == 0) revert InvalidTokenAmount();
 
         Round storage currentRound = rounds[roundId];
         if (uint8(currentRound.status) >= uint8(RoundStatus.COMPLETED)) {
-            revert InvalidRoundStatus(
-                roundId,
-                RoundStatus.ACTIVE,
-                currentRound.status
-            );
+            revert InvalidRoundStatus(roundId, RoundStatus.ACTIVE, currentRound.status);
         }
 
         Allocation storage item = investorAllocations[roundId][investor];
@@ -535,10 +492,7 @@ contract InvestmentManager is
 
         uint256 newTotal = totalRoundAllocations[roundId] + tokenAmount;
         if (newTotal > currentRound.tokenAllocation) {
-            revert ExceedsRoundAllocation(
-                tokenAmount,
-                currentRound.tokenAllocation - totalRoundAllocations[roundId]
-            );
+            revert ExceedsRoundAllocation(tokenAmount, currentRound.tokenAllocation - totalRoundAllocations[roundId]);
         }
 
         item.etherAmount = ethAmount;
@@ -562,22 +516,17 @@ contract InvestmentManager is
      * @custom:throws NoAllocationExists if investor has no allocation
      * @custom:throws InvestorHasActivePosition if investor has already invested
      */
-    function removeInvestorAllocation(
-        uint32 roundId,
-        address investor
-    ) external onlyRole(MANAGER_ROLE) validRound(roundId) whenNotPaused {
+    function removeInvestorAllocation(uint32 roundId, address investor)
+        external
+        onlyRole(MANAGER_ROLE)
+        validRound(roundId)
+        whenNotPaused
+    {
         if (investor == address(0)) revert InvalidInvestor();
 
         Round storage currentRound = rounds[roundId];
-        if (
-            currentRound.status != RoundStatus.PENDING &&
-            currentRound.status != RoundStatus.ACTIVE
-        ) {
-            revert InvalidRoundStatus(
-                roundId,
-                RoundStatus.ACTIVE,
-                currentRound.status
-            );
+        if (currentRound.status != RoundStatus.PENDING && currentRound.status != RoundStatus.ACTIVE) {
+            revert InvalidRoundStatus(roundId, RoundStatus.ACTIVE, currentRound.status);
         }
 
         Allocation storage item = investorAllocations[roundId][investor];
@@ -594,12 +543,7 @@ contract InvestmentManager is
         totalRoundAllocations[roundId] -= tokenAmount;
         item.etherAmount = 0;
         item.tokenAmount = 0;
-        emit InvestorAllocationRemoved(
-            roundId,
-            investor,
-            etherAmount,
-            tokenAmount
-        );
+        emit InvestorAllocationRemoved(roundId, investor, etherAmount, tokenAmount);
     }
 
     /**
@@ -614,9 +558,7 @@ contract InvestmentManager is
      * @custom:throws InvalidRound if roundId doesn't exist
      * @custom:throws RoundNotActive if round is not in active status
      */
-    function cancelInvestment(
-        uint32 roundId
-    ) external validRound(roundId) activeRound(roundId) nonReentrant {
+    function cancelInvestment(uint32 roundId) external validRound(roundId) activeRound(roundId) nonReentrant {
         Round storage currentRound = rounds[roundId];
 
         uint256 investedAmount = investorPositions[roundId][msg.sender];
@@ -645,9 +587,7 @@ contract InvestmentManager is
      * @custom:throws InvalidRound if roundId doesn't exist
      * @custom:throws InvalidRoundStatus if round is not in COMPLETED status
      */
-    function finalizeRound(
-        uint32 roundId
-    )
+    function finalizeRound(uint32 roundId)
         external
         validRound(roundId)
         correctStatus(roundId, RoundStatus.COMPLETED)
@@ -659,7 +599,7 @@ contract InvestmentManager is
         address[] storage roundInvestors = investors[roundId];
         uint256 investorCount = roundInvestors.length;
 
-        for (uint256 i = 0; i < investorCount; ) {
+        for (uint256 i = 0; i < investorCount;) {
             address investor = roundInvestors[i];
             uint256 investedAmount = investorPositions[roundId][investor];
             if (investedAmount == 0) continue;
@@ -667,11 +607,7 @@ contract InvestmentManager is
             Allocation storage item = investorAllocations[roundId][investor];
             uint256 tokenAmount = item.tokenAmount;
 
-            address vestingContract = _deployVestingContract(
-                investor,
-                tokenAmount,
-                roundId
-            );
+            address vestingContract = _deployVestingContract(investor, tokenAmount, roundId);
             vestingContracts[roundId][investor] = vestingContract;
 
             ecosystemToken.safeTransfer(vestingContract, tokenAmount);
@@ -684,12 +620,7 @@ contract InvestmentManager is
         _updateRoundStatus(roundId, RoundStatus.FINALIZED);
 
         uint256 amount = currentRound.etherInvested;
-        emit RoundFinalized(
-            msg.sender,
-            roundId,
-            amount,
-            currentRound.tokenDistributed
-        );
+        emit RoundFinalized(msg.sender, roundId, amount, currentRound.tokenDistributed);
         payable(treasury).sendValue(amount);
     }
 
@@ -706,20 +637,11 @@ contract InvestmentManager is
      * @custom:throws InvalidRound if roundId doesn't exist
      * @custom:throws InvalidRoundStatus if round is not in PENDING or ACTIVE status
      */
-    function cancelRound(
-        uint32 roundId
-    ) external validRound(roundId) onlyRole(MANAGER_ROLE) whenNotPaused {
+    function cancelRound(uint32 roundId) external validRound(roundId) onlyRole(MANAGER_ROLE) whenNotPaused {
         Round storage currentRound = rounds[roundId];
 
-        if (
-            currentRound.status != RoundStatus.PENDING &&
-            currentRound.status != RoundStatus.ACTIVE
-        ) {
-            revert InvalidRoundStatus(
-                roundId,
-                RoundStatus.ACTIVE,
-                currentRound.status
-            );
+        if (currentRound.status != RoundStatus.PENDING && currentRound.status != RoundStatus.ACTIVE) {
+            revert InvalidRoundStatus(roundId, RoundStatus.ACTIVE, currentRound.status);
         }
 
         _updateRoundStatus(roundId, RoundStatus.CANCELLED);
@@ -741,9 +663,7 @@ contract InvestmentManager is
      * @custom:throws RoundNotCancelled if round is not in CANCELLED status
      * @custom:throws NoRefundAvailable if caller has no refund to claim
      */
-    function claimRefund(
-        uint32 roundId
-    ) external validRound(roundId) nonReentrant {
+    function claimRefund(uint32 roundId) external validRound(roundId) nonReentrant {
         Round storage currentRound = rounds[roundId];
         if (currentRound.status != RoundStatus.CANCELLED) {
             revert RoundNotCancelled(roundId);
@@ -770,14 +690,9 @@ contract InvestmentManager is
      * @custom:security Helps track upgrade timelock status
      */
     function upgradeTimelockRemaining() external view returns (uint256) {
-        return
-            pendingUpgrade.exists &&
-                block.timestamp <
-                pendingUpgrade.scheduledTime + UPGRADE_TIMELOCK_DURATION
-                ? pendingUpgrade.scheduledTime +
-                    UPGRADE_TIMELOCK_DURATION -
-                    block.timestamp
-                : 0;
+        return pendingUpgrade.exists && block.timestamp < pendingUpgrade.scheduledTime + UPGRADE_TIMELOCK_DURATION
+            ? pendingUpgrade.scheduledTime + UPGRADE_TIMELOCK_DURATION - block.timestamp
+            : 0;
     }
 
     /**
@@ -788,14 +703,8 @@ contract InvestmentManager is
      * @return uint256 Amount of ETH available for refund
      * @custom:security Only returns values for cancelled rounds
      */
-    function getRefundAmount(
-        uint32 roundId,
-        address investor
-    ) external view returns (uint256) {
-        return
-            rounds[roundId].status != RoundStatus.CANCELLED
-                ? 0
-                : investorPositions[roundId][investor];
+    function getRefundAmount(uint32 roundId, address investor) external view returns (uint256) {
+        return rounds[roundId].status != RoundStatus.CANCELLED ? 0 : investorPositions[roundId][investor];
     }
 
     /**
@@ -808,18 +717,10 @@ contract InvestmentManager is
      * @return invested The amount of ETH already invested by the investor
      * @return vestingContract The address of the investor's vesting contract
      */
-    function getInvestorDetails(
-        uint32 roundId,
-        address investor
-    )
+    function getInvestorDetails(uint32 roundId, address investor)
         external
         view
-        returns (
-            uint256 etherAmount,
-            uint256 tokenAmount,
-            uint256 invested,
-            address vestingContract
-        )
+        returns (uint256 etherAmount, uint256 tokenAmount, uint256 invested, address vestingContract)
     {
         Allocation storage allocation = investorAllocations[roundId][investor];
         return (
@@ -855,9 +756,7 @@ contract InvestmentManager is
      * @param roundId The ID of the investment round to query
      * @return address[] Array of investor addresses in the round
      */
-    function getRoundInvestors(
-        uint32 roundId
-    ) external view returns (address[] memory) {
+    function getRoundInvestors(uint32 roundId) external view returns (address[] memory) {
         return investors[roundId];
     }
 
@@ -876,9 +775,7 @@ contract InvestmentManager is
      * @custom:throws NoAllocation if sender has no allocation
      * @custom:throws AmountAllocationMismatch if sent ETH doesn't match remaining allocation
      */
-    function investEther(
-        uint32 roundId
-    )
+    function investEther(uint32 roundId)
         public
         payable
         validRound(roundId)
@@ -888,16 +785,14 @@ contract InvestmentManager is
     {
         Round storage currentRound = rounds[roundId];
         if (block.timestamp >= currentRound.endTime) revert RoundEnded(roundId);
-        if (currentRound.participants >= MAX_INVESTORS_PER_ROUND)
+        if (currentRound.participants >= MAX_INVESTORS_PER_ROUND) {
             revert RoundOversubscribed(roundId);
+        }
 
-        Allocation storage allocation = investorAllocations[roundId][
-            msg.sender
-        ];
+        Allocation storage allocation = investorAllocations[roundId][msg.sender];
         if (allocation.etherAmount == 0) revert NoAllocation(msg.sender);
 
-        uint256 remainingAllocation = allocation.etherAmount -
-            investorPositions[roundId][msg.sender];
+        uint256 remainingAllocation = allocation.etherAmount - investorPositions[roundId][msg.sender];
         if (msg.value != remainingAllocation) {
             revert AmountAllocationMismatch(msg.value, remainingAllocation);
         }
@@ -937,25 +832,18 @@ contract InvestmentManager is
      * @custom:throws ImplementationMismatch if implementation doesn't match scheduled
      * @custom:throws UpgradeTimelockActive if timelock period hasn't elapsed
      */
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal override onlyRole(UPGRADER_ROLE) {
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) {
         if (!pendingUpgrade.exists) {
             revert UpgradeNotScheduled();
         }
 
         if (pendingUpgrade.implementation != newImplementation) {
-            revert ImplementationMismatch(
-                pendingUpgrade.implementation,
-                newImplementation
-            );
+            revert ImplementationMismatch(pendingUpgrade.implementation, newImplementation);
         }
 
         uint256 timeElapsed = block.timestamp - pendingUpgrade.scheduledTime;
         if (timeElapsed < UPGRADE_TIMELOCK_DURATION) {
-            revert UpgradeTimelockActive(
-                UPGRADE_TIMELOCK_DURATION - timeElapsed
-            );
+            revert UpgradeTimelockActive(UPGRADE_TIMELOCK_DURATION - timeElapsed);
         }
 
         delete pendingUpgrade;
@@ -973,10 +861,7 @@ contract InvestmentManager is
      * @custom:events-emits {RoundStatusUpdated} when status is changed
      * @custom:throws InvalidStatusTransition if attempting to move to a previous status
      */
-    function _updateRoundStatus(
-        uint32 roundId,
-        RoundStatus newStatus
-    ) internal {
+    function _updateRoundStatus(uint32 roundId, RoundStatus newStatus) internal {
         Round storage round_ = rounds[roundId];
         // Failsafe: This condition should never be true due to validation in calling functions
         if (uint8(newStatus) <= uint8(round_.status)) {
@@ -999,11 +884,7 @@ contract InvestmentManager is
      * @custom:events-emits {Invest} when investment is processed
      * @custom:events-emits {RoundComplete} if round target is reached
      */
-    function _processInvestment(
-        uint32 roundId,
-        address investor,
-        uint256 amount
-    ) private {
+    function _processInvestment(uint32 roundId, address investor, uint256 amount) private {
         Round storage currentRound = rounds[roundId];
 
         if (investorPositions[roundId][investor] == 0) {
@@ -1033,7 +914,7 @@ contract InvestmentManager is
         address[] storage roundInvestors = investors[roundId];
         uint256 length = roundInvestors.length;
 
-        for (uint256 i = 0; i < length; ) {
+        for (uint256 i = 0; i < length;) {
             if (roundInvestors[i] == investor) {
                 if (i != length - 1) {
                     roundInvestors[i] = roundInvestors[length - 1];
@@ -1057,11 +938,7 @@ contract InvestmentManager is
      * @custom:security Sets up vesting parameters based on round configuration
      * @custom:events-emits {DeployVesting} when vesting contract is created
      */
-    function _deployVestingContract(
-        address investor,
-        uint256 allocation,
-        uint32 roundId
-    ) private returns (address) {
+    function _deployVestingContract(address investor, uint256 allocation, uint32 roundId) private returns (address) {
         Round storage round = rounds[roundId];
         InvestorVesting vestingContract = new InvestorVesting(
             address(ecosystemToken),
@@ -1070,12 +947,7 @@ contract InvestmentManager is
             uint64(round.vestingDuration)
         );
 
-        emit DeployVesting(
-            roundId,
-            investor,
-            address(vestingContract),
-            allocation
-        );
+        emit DeployVesting(roundId, investor, address(vestingContract), allocation);
         return address(vestingContract);
     }
 }
