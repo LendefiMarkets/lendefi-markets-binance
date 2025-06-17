@@ -361,6 +361,14 @@ interface IASSETS {
      */
     error AssetListTooLarge(uint32 maxAllowedAssets);
 
+    /**
+     * @notice Error thrown when an invalid pool configuration is provided
+     * @param pool Address of the invalid pool
+     * @param symbol0 Symbol of token0 in the pool
+     * @param symbol1 Symbol of token1 in the pool
+     */
+    error InvalidPool(address pool, string symbol0, string symbol1);
+
     // ==================== FUNCTIONS ====================
 
     /**
@@ -373,7 +381,15 @@ interface IASSETS {
      * @param networkWBNB Network-specific WBNB address for oracle validation
      * @param UsdtWbnbPool Network-specific USDT/WBNB pool for price reference
      */
-    function initialize(address timelock, address multisig, address porFeed, address coreAddress, address networkUSDT, address networkWBNB, address UsdtWbnbPool) external;
+    function initialize(
+        address timelock,
+        address multisig,
+        address porFeed,
+        address coreAddress,
+        address networkUSDT,
+        address networkWBNB,
+        address UsdtWbnbPool
+    ) external;
 
     /**
      * @notice Register a Uniswap V3 pool as an oracle for an asset
@@ -409,7 +425,6 @@ interface IASSETS {
      * @param liquidationFee The new liquidation fee (in basis points * 100)
      */
     function updateTierConfig(CollateralTier tier, uint256 jumpRate, uint256 liquidationFee) external;
-
 
     /**
      * @notice Pause the contract
@@ -473,7 +488,6 @@ interface IASSETS {
      * @return The time remaining in seconds
      */
     function upgradeTimelockRemaining() external view returns (uint256);
-
 
     /**
      * @notice Get rates for all tiers
