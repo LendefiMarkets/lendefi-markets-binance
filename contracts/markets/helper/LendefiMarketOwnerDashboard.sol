@@ -46,10 +46,7 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
      * @param ecosystemAddr Address of the ecosystem contract
      */
     constructor(address marketFactoryAddr, address ecosystemAddr) {
-        require(
-            marketFactoryAddr != address(0) && ecosystemAddr != address(0),
-            "ZERO_ADDRESS"
-        );
+        require(marketFactoryAddr != address(0) && ecosystemAddr != address(0), "ZERO_ADDRESS");
 
         _marketFactory = ILendefiMarketFactory(marketFactoryAddr);
         _ecosystem = IECOSYSTEM(ecosystemAddr);
@@ -62,17 +59,11 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
      * @param owner Address of the market owner
      * @return Array of OwnerMarketOverview structs for all owner's markets
      */
-    function getOwnerMarketOverviews(
-        address owner
-    ) external view returns (OwnerMarketOverview[] memory) {
-        IPROTOCOL.Market[] memory ownerMarkets = _marketFactory.getOwnerMarkets(
-            owner
-        );
+    function getOwnerMarketOverviews(address owner) external view returns (OwnerMarketOverview[] memory) {
+        IPROTOCOL.Market[] memory ownerMarkets = _marketFactory.getOwnerMarkets(owner);
         uint256 marketCount = ownerMarkets.length;
 
-        OwnerMarketOverview[] memory overviews = new OwnerMarketOverview[](
-            marketCount
-        );
+        OwnerMarketOverview[] memory overviews = new OwnerMarketOverview[](marketCount);
 
         for (uint256 i = 0; i < marketCount; i++) {
             overviews[i] = _getOwnerMarketOverview(ownerMarkets[i]);
@@ -87,14 +78,12 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
      * @param baseAsset Address of the base asset
      * @return OwnerMarketOverview struct for the specified market
      */
-    function getOwnerMarketOverview(
-        address owner,
-        address baseAsset
-    ) external view returns (OwnerMarketOverview memory) {
-        IPROTOCOL.Market memory market = _marketFactory.getMarketInfo(
-            owner,
-            baseAsset
-        );
+    function getOwnerMarketOverview(address owner, address baseAsset)
+        external
+        view
+        returns (OwnerMarketOverview memory)
+    {
+        IPROTOCOL.Market memory market = _marketFactory.getMarketInfo(owner, baseAsset);
         return _getOwnerMarketOverview(market);
     }
 
@@ -103,12 +92,8 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
      * @param owner Address of the market owner
      * @return OwnerPortfolioStats struct containing portfolio-wide metrics
      */
-    function getOwnerPortfolioStats(
-        address owner
-    ) external view returns (OwnerPortfolioStats memory) {
-        IPROTOCOL.Market[] memory ownerMarkets = _marketFactory.getOwnerMarkets(
-            owner
-        );
+    function getOwnerPortfolioStats(address owner) external view returns (OwnerPortfolioStats memory) {
+        IPROTOCOL.Market[] memory ownerMarkets = _marketFactory.getOwnerMarkets(owner);
 
         uint256 totalTVL = 0;
         uint256 totalDebt = 0;
@@ -125,9 +110,7 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
             if (ownerMarkets[i].active) {
                 managedAssets[i] = ownerMarkets[i].baseAsset;
 
-                ILendefiMarketVault vault = ILendefiMarketVault(
-                    ownerMarkets[i].baseVault
-                );
+                ILendefiMarketVault vault = ILendefiMarketVault(ownerMarkets[i].baseVault);
 
                 // Add TVL and debt
                 uint256 marketTVL = vault.totalAssets();
@@ -149,49 +132,37 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
             }
         }
 
-        uint256 averageUtilization = totalTVL > 0
-            ? totalUtilization / totalTVL
-            : 0;
-        uint256 portfolioHealth = _calculatePortfolioHealth(
-            totalTVL,
-            totalDebt
-        );
+        uint256 averageUtilization = totalTVL > 0 ? totalUtilization / totalTVL : 0;
+        uint256 portfolioHealth = _calculatePortfolioHealth(totalTVL, totalDebt);
 
-        return
-            OwnerPortfolioStats({
-                totalMarkets: ownerMarkets.length,
-                managedBaseAssets: managedAssets,
-                portfolioCreationDate: earliestCreation,
-                totalPortfolioTVL: totalTVL,
-                totalPortfolioDebt: totalDebt,
-                totalCollateralUSD: totalCollateral, // TODO: Calculate from all positions
-                averageUtilization: averageUtilization,
-                totalFeesEarned: totalFeesEarned, // TODO: Calculate from protocol fees
-                totalProtocolRevenue: 0, // TODO: Get from ecosystem
-                totalOwnerRevenue: 0, // TODO: Calculate owner share
-                portfolioPerformanceScore: _calculatePerformanceScore(
-                    totalTVL,
-                    totalDebt,
-                    totalFeesEarned
-                ),
-                portfolioHealthScore: portfolioHealth,
-                totalLiquidations: 0, // TODO: Track liquidations
-                averageRiskScore: 500, // TODO: Calculate average risk
-                totalLiquidityProviders: totalLiquidityProviders,
-                totalBorrowers: totalBorrowers,
-                averagePositionSize: totalBorrowers > 0
-                    ? totalDebt / totalBorrowers
-                    : 0
-            });
+        return OwnerPortfolioStats({
+            totalMarkets: ownerMarkets.length,
+            managedBaseAssets: managedAssets,
+            portfolioCreationDate: earliestCreation,
+            totalPortfolioTVL: totalTVL,
+            totalPortfolioDebt: totalDebt,
+            totalCollateralUSD: totalCollateral, // TODO: Calculate from all positions
+            averageUtilization: averageUtilization,
+            totalFeesEarned: totalFeesEarned, // TODO: Calculate from protocol fees
+            totalProtocolRevenue: 0, // TODO: Get from ecosystem
+            totalOwnerRevenue: 0, // TODO: Calculate owner share
+            portfolioPerformanceScore: _calculatePerformanceScore(totalTVL, totalDebt, totalFeesEarned),
+            portfolioHealthScore: portfolioHealth,
+            totalLiquidations: 0, // TODO: Track liquidations
+            averageRiskScore: 500, // TODO: Calculate average risk
+            totalLiquidityProviders: totalLiquidityProviders,
+            totalBorrowers: totalBorrowers,
+            averagePositionSize: totalBorrowers > 0 ? totalDebt / totalBorrowers : 0
+        });
     }
 
     /**
      * @notice Gets detailed information about all borrowers across owner's markets
+     * @param owner Address of the market owner
      * @return Array of BorrowerInfo for all borrowers in owner's markets
      */
-    function getOwnerBorrowers(
-        address /* owner */
-    ) external pure returns (BorrowerInfo[] memory) {
+    function getOwnerBorrowers(address owner) external pure returns (BorrowerInfo[] memory) {
+        owner;
         // TODO: Implement comprehensive borrower tracking
         // This requires iterating through all positions across all owner's markets
         // For now, returning empty array as placeholder
@@ -203,12 +174,8 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
      * @param owner Address of the market owner
      * @return Array of LiquidityProviderInfo for all LPs in owner's markets
      */
-    function getOwnerLiquidityProviders(
-        address owner
-    ) external view returns (LiquidityProviderInfo[] memory) {
-        IPROTOCOL.Market[] memory ownerMarkets = _marketFactory.getOwnerMarkets(
-            owner
-        );
+    function getOwnerLiquidityProviders(address owner) external view returns (LiquidityProviderInfo[] memory) {
+        IPROTOCOL.Market[] memory ownerMarkets = _marketFactory.getOwnerMarkets(owner);
 
         // First pass: count total unique liquidity providers
         uint256 totalProviders = 0;
@@ -227,12 +194,13 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
 
     /**
      * @notice Gets borrowers for a specific market owned by the owner
+     * @param owner Address of the market owner
+     * @param baseAsset Address of the base asset for the market
      * @return Array of BorrowerInfo for borrowers in the specific market
      */
-    function getMarketBorrowers(
-        address /* owner */,
-        address /* baseAsset */
-    ) external pure returns (BorrowerInfo[] memory) {
+    function getMarketBorrowers(address owner, address baseAsset) external pure returns (BorrowerInfo[] memory) {
+        owner;
+        baseAsset;
         // TODO: Implement market-specific borrower tracking
         // This requires getting all positions from the core contract
         return new BorrowerInfo[](0);
@@ -240,12 +208,17 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
 
     /**
      * @notice Gets liquidity providers for a specific market owned by the owner
+     * @param owner Address of the market owner
+     * @param baseAsset Address of the base asset for the market
      * @return Array of LiquidityProviderInfo for LPs in the specific market
      */
-    function getMarketLiquidityProviders(
-        address /* owner */,
-        address /* baseAsset */
-    ) external pure returns (LiquidityProviderInfo[] memory) {
+    function getMarketLiquidityProviders(address owner, address baseAsset)
+        external
+        pure
+        returns (LiquidityProviderInfo[] memory)
+    {
+        owner;
+        baseAsset;
         // TODO: Implement market-specific LP tracking
         // This requires getting all LP token holders from the vault
         return new LiquidityProviderInfo[](0);
@@ -257,35 +230,32 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
      * @param baseAsset Address of the base asset
      * @return MarketPerformanceAnalytics struct with detailed performance metrics
      */
-    function getMarketPerformanceAnalytics(
-        address owner,
-        address baseAsset
-    ) external view returns (MarketPerformanceAnalytics memory) {
-        IPROTOCOL.Market memory market = _marketFactory.getMarketInfo(
-            owner,
-            baseAsset
-        );
+    function getMarketPerformanceAnalytics(address owner, address baseAsset)
+        external
+        view
+        returns (MarketPerformanceAnalytics memory)
+    {
+        IPROTOCOL.Market memory market = _marketFactory.getMarketInfo(owner, baseAsset);
 
-        return
-            MarketPerformanceAnalytics({
-                baseAsset: baseAsset,
-                marketName: market.name,
-                dailyVolumeUSD: 0, // TODO: Track daily volume
-                weeklyVolumeUSD: 0, // TODO: Track weekly volume
-                monthlyVolumeUSD: 0, // TODO: Track monthly volume
-                tvlGrowthRate: 0, // TODO: Calculate TVL growth rate
-                dailyRevenue: 0, // TODO: Track daily revenue
-                weeklyRevenue: 0, // TODO: Track weekly revenue
-                monthlyRevenue: 0, // TODO: Track monthly revenue
-                revenueGrowthRate: 0, // TODO: Calculate revenue growth rate
-                newLiquidityProviders: 0, // TODO: Track new LPs
-                newBorrowers: 0, // TODO: Track new borrowers
-                retentionRate: 8000, // TODO: Calculate actual retention rate (80% placeholder)
-                avgSessionDuration: 0, // TODO: Track session duration
-                liquidationEvents: 0, // TODO: Track liquidations
-                avgHealthFactor: 0, // TODO: Calculate average health factor
-                riskTrend: 1 // TODO: Calculate risk trend (1 = stable)
-            });
+        return MarketPerformanceAnalytics({
+            baseAsset: baseAsset,
+            marketName: market.name,
+            dailyVolumeUSD: 0, // TODO: Track daily volume
+            weeklyVolumeUSD: 0, // TODO: Track weekly volume
+            monthlyVolumeUSD: 0, // TODO: Track monthly volume
+            tvlGrowthRate: 0, // TODO: Calculate TVL growth rate
+            dailyRevenue: 0, // TODO: Track daily revenue
+            weeklyRevenue: 0, // TODO: Track weekly revenue
+            monthlyRevenue: 0, // TODO: Track monthly revenue
+            revenueGrowthRate: 0, // TODO: Calculate revenue growth rate
+            newLiquidityProviders: 0, // TODO: Track new LPs
+            newBorrowers: 0, // TODO: Track new borrowers
+            retentionRate: 8000, // TODO: Calculate actual retention rate (80% placeholder)
+            avgSessionDuration: 0, // TODO: Track session duration
+            liquidationEvents: 0, // TODO: Track liquidations
+            avgHealthFactor: 0, // TODO: Calculate average health factor
+            riskTrend: 1 // TODO: Calculate risk trend (1 = stable)
+        });
     }
 
     /**
@@ -293,23 +263,13 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
      * @param owner Address of the market owner
      * @return Array of MarketPerformanceAnalytics for all owner's markets
      */
-    function getOwnerMarketAnalytics(
-        address owner
-    ) external view returns (MarketPerformanceAnalytics[] memory) {
-        IPROTOCOL.Market[] memory ownerMarkets = _marketFactory.getOwnerMarkets(
-            owner
-        );
-        MarketPerformanceAnalytics[]
-            memory analytics = new MarketPerformanceAnalytics[](
-                ownerMarkets.length
-            );
+    function getOwnerMarketAnalytics(address owner) external view returns (MarketPerformanceAnalytics[] memory) {
+        IPROTOCOL.Market[] memory ownerMarkets = _marketFactory.getOwnerMarkets(owner);
+        MarketPerformanceAnalytics[] memory analytics = new MarketPerformanceAnalytics[](ownerMarkets.length);
 
         for (uint256 i = 0; i < ownerMarkets.length; i++) {
             // Reuse the single market analytics function
-            analytics[i] = this.getMarketPerformanceAnalytics(
-                owner,
-                ownerMarkets[i].baseAsset
-            );
+            analytics[i] = this.getMarketPerformanceAnalytics(owner, ownerMarkets[i].baseAsset);
         }
 
         return analytics;
@@ -317,12 +277,13 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
 
     /**
      * @notice Gets top borrowers by debt amount across owner's markets
+     * @param owner Address of the market owner
+     * @param limit Maximum number of borrowers to return
      * @return Array of BorrowerInfo sorted by total debt (descending)
      */
-    function getTopBorrowersByDebt(
-        address /* owner */,
-        uint256 /* limit */
-    ) external pure returns (BorrowerInfo[] memory) {
+    function getTopBorrowersByDebt(address owner, uint256 limit) external pure returns (BorrowerInfo[] memory) {
+        owner;
+        limit;
         // TODO: Implement borrower ranking by debt
         // This requires getting all borrowers and sorting by debt amount
         return new BorrowerInfo[](0);
@@ -330,12 +291,17 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
 
     /**
      * @notice Gets top liquidity providers by LP value across owner's markets
+     * @param owner Address of the market owner
+     * @param limit Maximum number of liquidity providers to return
      * @return Array of LiquidityProviderInfo sorted by LP value (descending)
      */
-    function getTopLiquidityProviders(
-        address /* owner */,
-        uint256 /* limit */
-    ) external pure returns (LiquidityProviderInfo[] memory) {
+    function getTopLiquidityProviders(address owner, uint256 limit)
+        external
+        pure
+        returns (LiquidityProviderInfo[] memory)
+    {
+        owner;
+        limit;
         // TODO: Implement LP ranking by value
         // This requires getting all LPs and sorting by LP token value
         return new LiquidityProviderInfo[](0);
@@ -343,11 +309,11 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
 
     /**
      * @notice Gets borrowers at risk of liquidation across owner's markets
+     * @param owner Address of the market owner
      * @return Array of BorrowerInfo for borrowers with high liquidation risk
      */
-    function getAtRiskBorrowers(
-        address /* owner */
-    ) external pure returns (BorrowerInfo[] memory) {
+    function getAtRiskBorrowers(address owner) external pure returns (BorrowerInfo[] memory) {
+        owner;
         // TODO: Implement at-risk borrower identification
         // This requires checking health factors across all positions
         return new BorrowerInfo[](0);
@@ -375,10 +341,14 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
 
     /**
      * @dev Internal function to create OwnerMarketOverview for a given market
+     * @param market The market configuration to create overview for
+     * @return OwnerMarketOverview struct containing comprehensive market data for owners
      */
-    function _getOwnerMarketOverview(
-        IPROTOCOL.Market memory market
-    ) internal view returns (OwnerMarketOverview memory) {
+    function _getOwnerMarketOverview(IPROTOCOL.Market memory market)
+        internal
+        view
+        returns (OwnerMarketOverview memory)
+    {
         ILendefiMarketVault vault = ILendefiMarketVault(market.baseVault);
         IPROTOCOL core = IPROTOCOL(market.core);
         IERC20Metadata baseToken = IERC20Metadata(market.baseAsset);
@@ -386,60 +356,54 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
         // Get financial metrics
         uint256 totalAssets = vault.totalAssets();
         uint256 totalShares = vault.totalSupply();
-        uint256 sharePrice = totalShares > 0
-            ? (totalAssets * 1e18) / totalShares
-            : 1e18;
+        uint256 sharePrice = totalShares > 0 ? (totalAssets * 1e18) / totalShares : 1e18;
 
-        return
-            OwnerMarketOverview({
-                // Market Identity
-                baseAsset: market.baseAsset,
-                baseAssetSymbol: baseToken.symbol(),
-                baseAssetDecimals: baseToken.decimals(),
-                marketName: market.name,
-                marketSymbol: market.symbol,
-                createdAt: market.createdAt,
-                active: market.active,
-                // Market Contracts
-                coreContract: market.core,
-                vaultContract: market.baseVault,
-                assetsModule: market.assetsModule,
-                porFeed: market.porFeed,
-                // Financial Metrics
-                totalSuppliedLiquidity: vault.totalSuppliedLiquidity(),
-                totalBorrowed: vault.totalBorrow(),
-                totalCollateralValueUSD: 0, // TODO: Calculate from all positions
-                utilization: vault.utilization(),
-                supplyRate: core.getSupplyRate(),
-                borrowRate: core.getBorrowRate(IASSETS.CollateralTier.CROSS_A),
-                // Vault Metrics
-                totalShares: totalShares,
-                totalAssets: totalAssets,
-                sharePrice: sharePrice,
-                totalLiquidityProviders: 0, // TODO: Count unique LP holders
-                // Revenue & Performance
-                totalFeesEarned: 0, // TODO: Calculate total fees earned
-                protocolRevenue: 0, // TODO: Get protocol share
-                ownerRevenue: 0, // TODO: Calculate owner share
-                performanceScore: _calculateMarketPerformanceScore(
-                    totalAssets,
-                    vault.totalBorrow()
-                ),
-                // Risk Metrics
-                averageHealthFactor: 0, // TODO: Calculate from all positions
-                totalPositions: 0, // TODO: Get from core
-                liquidationThreshold: 850, // TODO: Get from assets module
-                riskScore: _calculateMarketRiskScore(vault.utilization(), 0) // TODO: Improve risk calculation
-            });
+        return OwnerMarketOverview({
+            // Market Identity
+            baseAsset: market.baseAsset,
+            baseAssetSymbol: baseToken.symbol(),
+            baseAssetDecimals: baseToken.decimals(),
+            marketName: market.name,
+            marketSymbol: market.symbol,
+            createdAt: market.createdAt,
+            active: market.active,
+            // Market Contracts
+            coreContract: market.core,
+            vaultContract: market.baseVault,
+            assetsModule: market.assetsModule,
+            porFeed: market.porFeed,
+            // Financial Metrics
+            totalSuppliedLiquidity: vault.totalSuppliedLiquidity(),
+            totalBorrowed: vault.totalBorrow(),
+            totalCollateralValueUSD: 0, // TODO: Calculate from all positions
+            utilization: vault.utilization(),
+            supplyRate: core.getSupplyRate(),
+            borrowRate: core.getBorrowRate(IASSETS.CollateralTier.CROSS_A),
+            // Vault Metrics
+            totalShares: totalShares,
+            totalAssets: totalAssets,
+            sharePrice: sharePrice,
+            totalLiquidityProviders: 0, // TODO: Count unique LP holders
+            // Revenue & Performance
+            totalFeesEarned: 0, // TODO: Calculate total fees earned
+            protocolRevenue: 0, // TODO: Get protocol share
+            ownerRevenue: 0, // TODO: Calculate owner share
+            performanceScore: _calculateMarketPerformanceScore(totalAssets, vault.totalBorrow()),
+            // Risk Metrics
+            averageHealthFactor: 0, // TODO: Calculate from all positions
+            totalPositions: 0, // TODO: Get from core
+            liquidationThreshold: 850, // TODO: Get from assets module
+            riskScore: _calculateMarketRiskScore(vault.utilization(), 0) // TODO: Improve risk calculation
+        });
     }
 
     /**
      * @dev Calculates portfolio health score (0-1000)
+     * @param totalTVL Total value locked across owner's portfolio
+     * @param totalDebt Total debt across owner's portfolio
+     * @return Portfolio health score where 1000 = perfect health, 0 = critical
      */
-    function _calculatePortfolioHealth(
-        uint256 totalTVL,
-        uint256 totalDebt
-    ) internal pure returns (uint256) {
+    function _calculatePortfolioHealth(uint256 totalTVL, uint256 totalDebt) internal pure returns (uint256) {
         if (totalTVL == 0) return 1000; // Perfect health if no TVL
 
         uint256 utilizationRate = (totalDebt * 1000) / totalTVL;
@@ -450,12 +414,12 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
 
     /**
      * @dev Calculates performance score based on TVL, debt, and fees (0-1000)
+     * @param tvl Total value locked in the portfolio
+     * @param debt Total debt in the portfolio
+     * @param fees Total fees earned by the portfolio
+     * @return Performance score where higher values indicate better performance
      */
-    function _calculatePerformanceScore(
-        uint256 tvl,
-        uint256 debt,
-        uint256 fees
-    ) internal pure returns (uint256) {
+    function _calculatePerformanceScore(uint256 tvl, uint256 debt, uint256 fees) internal pure returns (uint256) {
         if (tvl == 0) return 0;
 
         // Performance increases with higher utilization and fees
@@ -463,9 +427,7 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
         uint256 feeRatio = (fees * 1000) / tvl;
 
         // Optimal utilization is around 80% (800 basis points)
-        uint256 utilizationScore = utilization > 800
-            ? 800 - (utilization - 800)
-            : utilization;
+        uint256 utilizationScore = utilization > 800 ? 800 - (utilization - 800) : utilization;
         uint256 feeScore = feeRatio > 1000 ? 1000 : feeRatio;
 
         return (utilizationScore + feeScore) / 2;
@@ -473,11 +435,15 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
 
     /**
      * @dev Calculates market performance score (0-1000)
+     * @param totalAssets Total assets in the market
+     * @param totalBorrowed Total borrowed amount in the market
+     * @return Market performance score based on optimal utilization
      */
-    function _calculateMarketPerformanceScore(
-        uint256 totalAssets,
-        uint256 totalBorrowed
-    ) internal pure returns (uint256) {
+    function _calculateMarketPerformanceScore(uint256 totalAssets, uint256 totalBorrowed)
+        internal
+        pure
+        returns (uint256)
+    {
         if (totalAssets == 0) return 0;
 
         uint256 utilization = (totalBorrowed * 1000) / totalAssets;
@@ -495,11 +461,12 @@ contract LendefiMarketOwnerDashboard is ILendefiMarketOwnerDashboard {
 
     /**
      * @dev Calculates market risk score (0-1000, higher = riskier)
+     * @param utilization Current market utilization rate
+     * @param avgHealthFactor Average health factor of positions (currently unused)
+     * @return Risk score where higher values indicate greater risk
      */
-    function _calculateMarketRiskScore(
-        uint256 utilization,
-        uint256 /* avgHealthFactor */
-    ) internal pure returns (uint256) {
+    function _calculateMarketRiskScore(uint256 utilization, uint256 avgHealthFactor) internal pure returns (uint256) {
+        avgHealthFactor;
         // Risk increases with higher utilization
         uint256 utilizationRisk = utilization > 1000 ? 1000 : utilization;
 
