@@ -7,7 +7,6 @@ pragma solidity 0.8.23;
  * @custom:security-contact security@lendefimarkets.com
  * @custom:copyright Copyright (c) 2025 Nebula Holding Inc. All rights reserved.
  */
-
 interface ITEAMMANAGER {
     /**
      * @notice Upgrade request details
@@ -41,11 +40,7 @@ interface ITEAMMANAGER {
      * @param vesting contract address
      * @param amount of tokens allocated to vesting
      */
-    event AddTeamMember(
-        address indexed account,
-        address indexed vesting,
-        uint256 amount
-    );
+    event AddTeamMember(address indexed account, address indexed vesting, uint256 amount);
 
     /**
      * @dev Emitted when an upgrade is scheduled
@@ -55,10 +50,7 @@ interface ITEAMMANAGER {
      * @param effectiveTime The time when the upgrade can be executed
      */
     event UpgradeScheduled(
-        address indexed sender,
-        address indexed implementation,
-        uint64 scheduledTime,
-        uint64 effectiveTime
+        address indexed sender, address indexed implementation, uint64 scheduledTime, uint64 effectiveTime
     );
 
     /**
@@ -66,10 +58,7 @@ interface ITEAMMANAGER {
      * @param canceller The address that cancelled the upgrade
      * @param implementation The implementation address that was cancelled
      */
-    event UpgradeCancelled(
-        address indexed canceller,
-        address indexed implementation
-    );
+    event UpgradeCancelled(address indexed canceller, address indexed implementation);
 
     /**
      * @dev Error thrown when an address parameter is zero
@@ -93,11 +82,7 @@ interface ITEAMMANAGER {
      * @param minAllowed The minimum allowed cliff duration
      * @param maxAllowed The maximum allowed cliff duration
      */
-    error InvalidCliff(
-        uint256 provided,
-        uint256 minAllowed,
-        uint256 maxAllowed
-    );
+    error InvalidCliff(uint256 provided, uint256 minAllowed, uint256 maxAllowed);
 
     /**
      * @dev Error thrown when duration is outside allowed range
@@ -105,11 +90,7 @@ interface ITEAMMANAGER {
      * @param minAllowed The minimum allowed vesting duration
      * @param maxAllowed The maximum allowed vesting duration
      */
-    error InvalidDuration(
-        uint256 provided,
-        uint256 minAllowed,
-        uint256 maxAllowed
-    );
+    error InvalidDuration(uint256 provided, uint256 minAllowed, uint256 maxAllowed);
 
     /**
      * @dev Error thrown when allocation exceeds remaining supply
@@ -159,12 +140,7 @@ interface ITEAMMANAGER {
      * @param cliff cliff period in seconds
      * @param duration vesting duration in seconds after cliff  (e.g. 24 months)
      */
-    function addTeamMember(
-        address beneficiary,
-        uint256 amount,
-        uint256 cliff,
-        uint256 duration
-    ) external;
+    function addTeamMember(address beneficiary, uint256 amount, uint256 cliff, uint256 duration) external;
 
     /**
      * @dev Schedules an upgrade to a new implementation
@@ -216,10 +192,7 @@ interface ITEAMMANAGER {
      * @return scheduledTime The timestamp when the upgrade was scheduled
      * @return exists Whether a pending upgrade exists
      */
-    function pendingUpgrade()
-        external
-        view
-        returns (address implementation, uint64 scheduledTime, bool exists);
+    function pendingUpgrade() external view returns (address implementation, uint64 scheduledTime, bool exists);
 
     /**
      * @dev Get the timelock address.
