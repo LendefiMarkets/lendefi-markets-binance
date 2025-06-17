@@ -44,11 +44,7 @@ interface IECOSYSTEM {
      * @param recipient The address that received the reward
      * @param amount The amount of tokens awarded
      */
-    event Reward(
-        address indexed sender,
-        address indexed recipient,
-        uint256 amount
-    );
+    event Reward(address indexed sender, address indexed recipient, uint256 amount);
 
     /**
      * @dev Emitted when tokens are burned
@@ -63,11 +59,7 @@ interface IECOSYSTEM {
      * @param vestingContract The address of the partner's vesting contract
      * @param amount The amount of tokens allocated to the partner
      */
-    event AddPartner(
-        address indexed partner,
-        address indexed vestingContract,
-        uint256 amount
-    );
+    event AddPartner(address indexed partner, address indexed vestingContract, uint256 amount);
 
     /**
      * @dev Emitted when a partnership is cancelled
@@ -82,11 +74,7 @@ interface IECOSYSTEM {
      * @param oldValue The previous maximum reward value
      * @param newValue The new maximum reward value
      */
-    event MaxRewardUpdated(
-        address indexed updater,
-        uint256 oldValue,
-        uint256 newValue
-    );
+    event MaxRewardUpdated(address indexed updater, uint256 oldValue, uint256 newValue);
 
     /**
      * @dev Emitted when the maximum burn amount is updated
@@ -94,11 +82,7 @@ interface IECOSYSTEM {
      * @param oldValue The previous maximum burn value
      * @param newValue The new maximum burn value
      */
-    event MaxBurnUpdated(
-        address indexed updater,
-        uint256 oldValue,
-        uint256 newValue
-    );
+    event MaxBurnUpdated(address indexed updater, uint256 oldValue, uint256 newValue);
 
     /**
      * @dev Emitted when the contract is upgraded
@@ -106,11 +90,7 @@ interface IECOSYSTEM {
      * @param newImplementation The address of the new implementation
      * @param version The new version number
      */
-    event Upgrade(
-        address indexed upgrader,
-        address indexed newImplementation,
-        uint32 version
-    );
+    event Upgrade(address indexed upgrader, address indexed newImplementation, uint32 version);
 
     /**
      * @dev Emitted when an upgrade is scheduled
@@ -120,10 +100,7 @@ interface IECOSYSTEM {
      * @param effectiveTime The time when the upgrade can be executed
      */
     event UpgradeScheduled(
-        address indexed sender,
-        address indexed implementation,
-        uint64 scheduledTime,
-        uint64 effectiveTime
+        address indexed sender, address indexed implementation, uint64 scheduledTime, uint64 effectiveTime
     );
 
     /**
@@ -131,10 +108,7 @@ interface IECOSYSTEM {
      * @param canceller The address that cancelled the upgrade
      * @param implementation The implementation address that was cancelled
      */
-    event UpgradeCancelled(
-        address indexed canceller,
-        address indexed implementation
-    );
+    event UpgradeCancelled(address indexed canceller, address indexed implementation);
 
     /**
      * @dev Emitted when an emergency withdrawal is executed
@@ -265,11 +239,7 @@ interface IECOSYSTEM {
      * @param timelockAddr Address of the timelock controller
      * @param multisig Address of the multisig wallet
      */
-    function initialize(
-        address token,
-        address timelockAddr,
-        address multisig
-    ) external;
+    function initialize(address token, address timelockAddr, address multisig) external;
 
     /**
      * @notice Pauses all contract operations
@@ -341,12 +311,7 @@ interface IECOSYSTEM {
      * @param cliff Cliff period in seconds
      * @param duration Vesting duration in seconds
      */
-    function addPartner(
-        address partner,
-        uint256 amount,
-        uint256 cliff,
-        uint256 duration
-    ) external;
+    function addPartner(address partner, uint256 amount, uint256 cliff, uint256 duration) external;
 
     /**
      * @notice Cancels a partner's vesting contract
