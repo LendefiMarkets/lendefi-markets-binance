@@ -67,9 +67,12 @@ contract LendefiAssets is
 
     /// @notice Network-specific addresses for oracle validation
     /// @dev Set during initialization to support different networks
+    /// @notice Network-specific USDT address for BSC
     address public networkUSDT;
+    /// @notice Network-specific WBNB address for BSC
     address public networkWBNB;
-    address public UsdtWbnbPool;
+    /// @notice USDT/WBNB pool address for BSC price validation
+    address public usdtWbnbPool;
 
     /// @notice Information about the currently pending upgrade request
     /// @dev Stores implementation address and scheduling details
@@ -139,7 +142,7 @@ contract LendefiAssets is
      * @param coreAddress_ Address of the core protocol contract
      * @param networkUSDT_ Network-specific USDC address for oracle validation
      * @param networkWBNB_ Network-specific WBNB address for oracle validation
-     * @param UsdtWbnbPool_ Network-specific USDC/WBNB pool for price reference
+     * @param usdtWbnbPool_ Network-specific USDC/WBNB pool for price reference
      * @custom:security Sets up the initial access control roles:
      * - DEFAULT_ADMIN_ROLE: timelock_
      * - MANAGER_ROLE: timelock_, marketOwner
@@ -159,11 +162,11 @@ contract LendefiAssets is
         address coreAddress_,
         address networkUSDT_,
         address networkWBNB_,
-        address UsdtWbnbPool_
+        address usdtWbnbPool_
     ) external initializer {
         if (
             timelock_ == address(0) || marketOwner == address(0) || porFeed_ == address(0) || coreAddress_ == address(0)
-                || networkUSDT_ == address(0) || networkWBNB_ == address(0) || UsdtWbnbPool_ == address(0)
+                || networkUSDT_ == address(0) || networkWBNB_ == address(0) || usdtWbnbPool_ == address(0)
         ) {
             revert ZeroAddressNotAllowed();
         }
@@ -198,7 +201,7 @@ contract LendefiAssets is
         // Set network-specific addresses
         networkUSDT = networkUSDT_;
         networkWBNB = networkWBNB_;
-        UsdtWbnbPool = UsdtWbnbPool_;
+        usdtWbnbPool = usdtWbnbPool_;
 
         timelock = timelock_;
         version = 1;
@@ -297,7 +300,6 @@ contract LendefiAssets is
     }
 
     // ==================== CORE FUNCTIONS ====================
-
 
     /**
      * @notice Pauses all contract operations
@@ -500,8 +502,7 @@ contract LendefiAssets is
         IPoRFeed(feedAddr).updateReserves(tvl);
         // Calculate USD value
         uint8 assetDecimals = assetInfo[asset].decimals;
-        uint256 dynamicWAD = 10 ** assetDecimals;
-        usdValue = (tvl * getAssetPrice(asset)) / dynamicWAD;
+        usdValue = FullMath.mulDiv(tvl, getAssetPrice(asset), 10 ** assetDecimals);
     }
 
     /**
@@ -552,7 +553,6 @@ contract LendefiAssets is
             ? pendingUpgrade.scheduledTime + LendefiConstants.UPGRADE_TIMELOCK_DURATION - block.timestamp
             : 0;
     }
-
 
     /**
      * @notice Retrieves rates configuration for all collateral tiers
@@ -605,11 +605,7 @@ contract LendefiAssets is
         returns (bool)
     {
         // Check standard supply cap
-        if (tvl + amount > assetInfo[asset].maxSupplyThreshold) {
-            return true;
-        }
-
-        return false;
+        return (tvl + amount > assetInfo[asset].maxSupplyThreshold);
     }
 
     /**
@@ -628,9 +624,7 @@ contract LendefiAssets is
             uint256 assetBalance = IERC20(asset).balanceOf(pool);
 
             // If amount is more than 3% of the available assets in pool, revert
-            if (amount > (assetBalance * 3) / 100) {
-                return true;
-            }
+            return (amount > (assetBalance * 3) / 100);
         }
 
         return false;
@@ -799,10 +793,8 @@ contract LendefiAssets is
             revert CircuitBreakerActive(asset);
         }
 
-        // Load into memory once
-        Asset storage info = assetInfo[asset];
-        uint8 chainlinkActive = info.chainlinkConfig.active;
-        uint8 uniswapActive = info.poolConfig.active;
+        uint8 chainlinkActive = assetInfo[asset].chainlinkConfig.active;
+        uint8 uniswapActive = assetInfo[asset].poolConfig.active;
 
         // Early returns for single oracle
         if (chainlinkActive == 1 && uniswapActive == 0) {
@@ -815,9 +807,7 @@ contract LendefiAssets is
         // Dual-oracle case (implicitly totalActive == 2)
         uint256 price1 = _getChainlinkPrice(asset);
         uint256 price2 = _getUniswapTWAPPrice(asset);
-        uint256 median = (price1 + price2) >> 1; // Bit shift instead of division
-
-        return median;
+        return (price1 + price2) >> 1; // Bit shift instead of division
     }
 
     /**
@@ -847,7 +837,11 @@ contract LendefiAssets is
         uint256 price2 = _getUniswapTWAPPrice(asset);
 
         // Calculate deviation
-        deviation = _calculatePriceDeviation(price1, price2);
+        uint256 minPrice = price1 < price2 ? price1 : price2;
+        uint256 maxPrice = price1 > price2 ? price1 : price2;
+        uint256 priceDelta = maxPrice - minPrice;
+
+        deviation = FullMath.mulDiv(priceDelta, 100, minPrice);
 
         // Compare with circuit breaker threshold
         return (deviation >= mainOracleConfig.circuitBreakerThreshold, deviation);
@@ -967,7 +961,7 @@ contract LendefiAssets is
             revert InvalidUniswapConfig(asset);
         }
 
-        tokenPriceInUSD = getAnyPoolTokenPriceInUSD(config.pool, asset, UsdtWbnbPool, config.twapPeriod); // Price on 1e6 scale, USDC
+        tokenPriceInUSD = getAnyPoolTokenPriceInUSD(config.pool, asset, usdtWbnbPool, config.twapPeriod); // Price on 1e6 scale, USDC
 
         if (tokenPriceInUSD <= 0) {
             revert OracleInvalidPrice(config.pool, int256(tokenPriceInUSD));
@@ -979,32 +973,33 @@ contract LendefiAssets is
      * @dev Uses WBNB detection to determine if conversion is needed
      * @param poolAddress Address of the Uniswap V3 pool to query
      * @param token Address of the token to get the price for
+     * @param wbnbUsdtPool Address of the WBNB/USDT pool for price conversion
      * @param twapPeriod Time period in seconds for the TWAP calculation (600-1800)
      * @return tokenPriceInUSD Price in USD normalized to 1e6 precision
      * @custom:validation Token must be present in the specified pool
      * @custom:security Uses TWAP for manipulation resistance
      * @custom:reverts AssetNotInUniswapPool - If token not found in pool
      */
-    function getAnyPoolTokenPriceInUSD(address poolAddress, address token, address, uint32 twapPeriod)
+    function getAnyPoolTokenPriceInUSD(address poolAddress, address token, address wbnbUsdtPool, uint32 twapPeriod)
         internal
         view
         returns (uint256 tokenPriceInUSD)
     {
         IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
-        (address token0, address token1) = (pool.token0(), pool.token1());
-
-        if (token != token0 && token != token1) {
-            revert AssetNotInUniswapPool(token, poolAddress);
-        }
 
         (bool isToken0, bool hasWBNB, bool isDirectUSDPool) = getOptimalUniswapConfig(token, pool);
         // Get the price in USD based on token position and WBNB presence
 
         if (hasWBNB && !isDirectUSDPool) {
-            // WBNB pool: Convert through WBNB/USDT
+            // WBNB pool: Convert through WBNB/USDT using provided pool address
             uint256 tokenPriceInWBNB = UniswapTickMath.getRawPrice(pool, isToken0, 1e18, twapPeriod);
-            uint256 wbnbPriceInUSDT =
-                UniswapTickMath.getRawPrice(IUniswapV3Pool(LendefiConstants.USDT_WBNB_POOL), false, 1e6, twapPeriod);
+
+            IUniswapV3Pool wbnbUsdtPoolContract = IUniswapV3Pool(wbnbUsdtPool);
+            // Dynamically determine WBNB position in WBNB/USDT pool
+            address poolToken0 = wbnbUsdtPoolContract.token0();
+            bool wbnbIsToken0 = networkWBNB == poolToken0;
+            uint256 wbnbPriceInUSDT = UniswapTickMath.getRawPrice(wbnbUsdtPoolContract, wbnbIsToken0, 1e6, twapPeriod);
+
             tokenPriceInUSD = FullMath.mulDiv(tokenPriceInWBNB, wbnbPriceInUSDT, 1e18);
         } else {
             // Direct USD pool: Get price directly
@@ -1033,11 +1028,15 @@ contract LendefiAssets is
      * @return token1 The address of token1 in the pool
      * @custom:reverts AssetNotInUniswapPool if the asset is not present in the pool
      */
-    function _validateAssetInPool(address asset, address poolAddress) internal view returns (address token0, address token1) {
+    function _validateAssetInPool(address asset, address poolAddress)
+        internal
+        view
+        returns (address token0, address token1)
+    {
         IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
         token0 = pool.token0();
         token1 = pool.token1();
-        
+
         if (asset != token0 && asset != token1) {
             revert AssetNotInUniswapPool(asset, poolAddress);
         }
@@ -1062,7 +1061,7 @@ contract LendefiAssets is
         isToken0 = (asset == token0);
 
         // Check if WBNB is in the pool to determine conversion approach
-        hasWBNB = (token0 == LendefiConstants.WBNB_BSC || token1 == LendefiConstants.WBNB_BSC);
+        hasWBNB = (token0 == networkWBNB || token1 == networkWBNB);
 
         // Check if this is a direct USD pool (any token in pool has USD in symbol)
         string memory symbol0 = IERC20Metadata(token0).symbol();
@@ -1089,8 +1088,8 @@ contract LendefiAssets is
      * @custom:reverts NotEnoughValidOracles if deactivation would violate minimum oracle requirement
      */
     function _validatePool(address asset, address uniswapPool, uint32 twapPeriod, uint8 active) internal view {
-        // Validate that the asset is in the pool
-        _validateAssetInPool(asset, uniswapPool);
+        // Validate that the asset is in the pool and get token addresses
+        (address token0, address token1) = _validateAssetInPool(asset, uniswapPool);
 
         // Validate TWAP period (between 10 minutes and 30 minutes for PancakeSwap)
         if (twapPeriod < 600 || twapPeriod > 1800) {
@@ -1106,6 +1105,17 @@ contract LendefiAssets is
         if (active == 0 && assetInfo[asset].chainlinkConfig.active == 0 && assetInfo[asset].assetMinimumOracles >= 1) {
             revert NotEnoughValidOracles(asset, assetInfo[asset].assetMinimumOracles, 0);
         }
+
+        // On BSC, ensure pool contains USD stablecoin or WBNB for pricing
+        if (block.chainid == LendefiConstants.BSC_CHAIN_ID) {
+            string memory symbol0 = IERC20Metadata(token0).symbol();
+            string memory symbol1 = IERC20Metadata(token1).symbol();
+            bool hasValidPairing =
+                (token0 == networkWBNB || token1 == networkWBNB) || (_containsUSD(symbol0) || _containsUSD(symbol1));
+            if (!hasValidPairing) {
+                revert InvalidPool(address(uniswapPool), symbol0, symbol1);
+            }
+        }
     }
 
     /**
@@ -1116,29 +1126,20 @@ contract LendefiAssets is
      * @custom:returns 0 if previous round data is invalid or unavailable
      * @custom:calculation (abs(currentPrice - previousPrice) * 100) / previousPrice
      * @custom:security Used to detect abnormal price movements in Chainlink feeds
-     * @custom:example If current price is $1200 and previous was $1000:
-     *                 volatilityPct = (|1200 - 1000| * 100) / 1000 = 20%
      */
-    /**
-     * @notice Calculates percentage deviation between two prices
-     * @param price1 First price value
-     * @param price2 Second price value
-     * @return deviation Percentage deviation (basis points)
-     */
-    function _calculatePriceDeviation(uint256 price1, uint256 price2) internal pure returns (uint256 deviation) {
-        uint256 minPrice = price1 < price2 ? price1 : price2;
-        uint256 maxPrice = price1 > price2 ? price1 : price2;
-        uint256 priceDelta = maxPrice - minPrice;
-        return FullMath.mulDiv(priceDelta, 100, minPrice);
-    }
-
     function _getChainlinkVolatility(address asset) internal view returns (uint256) {
         address oracle = assetInfo[asset].chainlinkConfig.oracleUSD;
         (uint80 roundId, int256 price,,,) = AggregatorV3Interface(oracle).latestRoundData();
         if (roundId <= 1) return 0;
         (, int256 previousPrice,, uint256 previousTimestamp,) = AggregatorV3Interface(oracle).getRoundData(roundId - 1);
         if (previousPrice <= 0 || previousTimestamp == 0) return 0;
-        return _calculatePriceDeviation(uint256(price), uint256(previousPrice));
+
+        // Calculate price deviation using previous price as denominator for volatility
+        uint256 currentPrice = uint256(price);
+        uint256 prevPrice = uint256(previousPrice);
+        if (prevPrice == 0) return 0;
+        uint256 priceDelta = currentPrice > prevPrice ? currentPrice - prevPrice : prevPrice - currentPrice;
+        return FullMath.mulDiv(priceDelta, 100, prevPrice);
     }
 
     /**
