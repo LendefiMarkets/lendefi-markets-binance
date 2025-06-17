@@ -422,7 +422,7 @@ contract WBNBForkTest is BasicDeploy {
         uint256 ethPriceInUSD = assetsInstance.getAssetPrice(WBNB);
         console2.log("BNB price in USD (from BNB/USDT pool):", ethPriceInUSD);
 
-        // Assert that the price is within a reasonable range - median causes lower price  
+        // Assert that the price is within a reasonable range - median causes lower price
         assertTrue(ethPriceInUSD > 100 * 1e6, "BNB price should be greater than $100");
         assertTrue(ethPriceInUSD < 10000 * 1e6, "BNB price should be less than $10,000");
     }
