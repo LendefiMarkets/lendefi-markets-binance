@@ -524,11 +524,13 @@ contract LendefiMarketVaultV2 is
      *   - Increments counter for tracking automation calls
      *   - Updates the PoR feed with current TVL data
      *
+     * @param performData Encoded data from checkUpkeep (unused)
      * @custom:emits CollateralizationAlert when protocol becomes undercollateralized
      * @custom:automation Part of Chainlink's AutomationCompatibleInterface
      * @custom:interval Updates occur based on the interval state variable (default 12 hours)
      */
-    function performUpkeep(bytes calldata /* performData */ ) external override {
+    function performUpkeep(bytes calldata performData) external override {
+        // performData is unused as this implementation doesn't require input data
         if ((block.timestamp - lastTimeStamp) > interval) {
             lastTimeStamp = block.timestamp;
             counter = counter + 1;
@@ -539,6 +541,7 @@ contract LendefiMarketVaultV2 is
             // Update the reserves on the feed
             IPoRFeed(porFeed).updateReserves(tvl);
             if (!collateralized) {
+                performData;
                 emit CollateralizationAlert(block.timestamp, tvl, totalSupply());
             }
         }
@@ -637,6 +640,7 @@ contract LendefiMarketVaultV2 is
      * @dev This view function is called by Chainlink Automation infrastructure to
      *      determine whether performUpkeep should be executed. The upkeep is needed
      *      when sufficient time has elapsed since the last Proof of Reserves update.
+     * @param checkData Encoded data to determine if upkeep is needed (unused)
      * @return upkeepNeeded Boolean indicating whether performUpkeep should be called
      * @return performData Encoded data to pass to performUpkeep (returns empty bytes)
      *
@@ -644,12 +648,14 @@ contract LendefiMarketVaultV2 is
      * @custom:interval Uses the contract's interval variable to determine timing
      * @custom:gas-efficient View function with minimal gas consumption for frequent calls
      */
-    function checkUpkeep(bytes calldata /* checkData */ )
+    function checkUpkeep(bytes calldata checkData)
         external
         view
         override
         returns (bool upkeepNeeded, bytes memory performData)
     {
+        // checkData is unused as this implementation doesn't require input data
+        checkData;
         upkeepNeeded = (block.timestamp - lastTimeStamp) > interval;
         performData = "0x00";
     }
@@ -1046,20 +1052,34 @@ contract LendefiMarketVaultV2 is
     }
 
     // ========== INTERNAL FUNCTIONS ==========
+    /**
+     * @notice Authorizes contract upgrades through the UUPS proxy pattern
+     * @dev Internal function called by the UUPS upgrade mechanism to verify
+     *      that the caller has permission to upgrade the contract implementation.
+     *      Also increments the version number for tracking purposes.
+     *
+     * @param newImplementation Address of the new implementation (unused in authorization)
+     * @custom:access-control Restricted to UPGRADER_ROLE
+     * @custom:state-changes Increments version number with each upgrade
+     * @custom:upgrade-safety Ensures only authorized parties can upgrade the vault
+     */
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(LendefiConstants.UPGRADER_ROLE) {
+        if (newImplementation == address(0)) revert ZeroAddress();
+        version++;
+    }
 
     /**
      * @dev Calculates the virtual fee shares that would be minted if fees were collected now.
      * This represents the protocol's earned but uncollected commission.
+     * @return virtualShares Number of shares representing uncollected protocol fees
      */
     function _calculateVirtualFeeShares() internal view returns (uint256) {
         uint256 supply = totalSupply();
         if (supply == 0) return 0;
-
-        uint256 total = totalBase;
         uint256 target =
             Math.mulDiv(totalSuppliedLiquidity, protocolConfig.profitTargetRate, baseDecimals, Math.Rounding.Floor);
 
-        if (total >= totalSuppliedLiquidity + target) {
+        if (totalBase >= totalSuppliedLiquidity + target) {
             return target;
         }
         return 0;
@@ -1068,6 +1088,9 @@ contract LendefiMarketVaultV2 is
     /**
      * @dev Internal conversion function (from assets to shares) with support for rounding direction.
      * Modified to account for protocol commission by adjusting the total supply calculation.
+     * @param assets Amount of assets to convert to shares
+     * @param rounding Rounding direction for the conversion
+     * @return shares Equivalent number of shares for the given assets
      */
     function _convertToShares(uint256 assets, Math.Rounding rounding)
         internal
@@ -1085,6 +1108,9 @@ contract LendefiMarketVaultV2 is
     /**
      * @dev Internal conversion function (from shares to assets) with support for rounding direction.
      * Modified to account for protocol commission by adjusting the total supply calculation.
+     * @param shares Number of shares to convert to assets
+     * @param rounding Rounding direction for the conversion
+     * @return assets Equivalent amount of assets for the given shares
      */
     function _convertToAssets(uint256 shares, Math.Rounding rounding)
         internal
@@ -1097,19 +1123,5 @@ contract LendefiMarketVaultV2 is
         uint256 virtualSupply = supply + _calculateVirtualFeeShares();
 
         return Math.mulDiv(shares, totalAssets() + 1, virtualSupply + 10 ** _decimalsOffset(), rounding);
-    }
-
-    /**
-     * @notice Authorizes contract upgrades through the UUPS proxy pattern
-     * @dev Internal function called by the UUPS upgrade mechanism to verify
-     *      that the caller has permission to upgrade the contract implementation.
-     *      Also increments the version number for tracking purposes.
-     *
-     * @custom:access-control Restricted to UPGRADER_ROLE
-     * @custom:state-changes Increments version number with each upgrade
-     * @custom:upgrade-safety Ensures only authorized parties can upgrade the vault
-     */
-    function _authorizeUpgrade(address) internal override onlyRole(LendefiConstants.UPGRADER_ROLE) {
-        version++;
     }
 }
