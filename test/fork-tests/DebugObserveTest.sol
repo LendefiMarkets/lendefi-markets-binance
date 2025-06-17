@@ -81,7 +81,7 @@ contract DebugObserveTest is Test {
         secondsAgos[1] = 0;
 
         try pool.observe(secondsAgos) returns (
-            int56[] memory tickCumulatives, uint160[] memory secondsPerLiquidityCumulativeX128s
+            int56[] memory tickCumulatives, uint160[] memory /* secondsPerLiquidityCumulativeX128s */
         ) {
             console2.log("Observe successful");
             console2.log("tickCumulatives[0] (older):", tickCumulatives[0]);
@@ -113,7 +113,7 @@ contract DebugObserveTest is Test {
         secondsAgos[1] = 0;
 
         try pool.observe(secondsAgos) returns (
-            int56[] memory tickCumulatives, uint160[] memory secondsPerLiquidityCumulativeX128s
+            int56[] memory tickCumulatives, uint160[] memory /* secondsPerLiquidityCumulativeX128s */
         ) {
             console2.log("Observe successful");
             console2.log("tickCumulatives[0] (older):", tickCumulatives[0]);
