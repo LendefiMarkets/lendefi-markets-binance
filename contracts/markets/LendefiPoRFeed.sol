@@ -106,6 +106,46 @@ contract LendefiPoRFeed is AggregatorV3Interface, Initializable {
     /// @notice Thrown when an invalid round ID is provided (e.g., not greater than current)
     error InvalidRoundId();
 
+    // ========== INITIALIZATION ==========
+
+    /**
+     * @notice Initializes the Proof of Reserves feed with essential parameters
+     * @dev Sets up the feed with the tracked asset, authorized updater, and owner.
+     *      Creates the initial round (ID 1) with zero reserves to establish the
+     *      data structure. This function can only be called once during deployment.
+     * @param _asset Address of the ERC20 token whose reserves will be tracked
+     * @param _updater Address authorized to update reserve data (typically a vault contract)
+     * @param _owner Address that will own this contract and manage permissions
+     *
+     * @custom:requirements
+     *   - All address parameters must be non-zero
+     *   - Function can only be called once during deployment
+     *
+     * @custom:state-changes
+     *   - Sets asset, updater, and owner addresses
+     *   - Initializes latestRoundId to 1
+     *   - Creates initial round with zero reserves and current timestamp
+     *
+     * @custom:access-control Only callable during contract initialization
+     * @custom:error-cases
+     *   - ZeroAddress: When any required address parameter is zero
+     *
+     * @custom:initialization-pattern Uses OpenZeppelin's Initializable for proxy safety
+     */
+    function initialize(address _asset, address _updater, address _owner) external initializer {
+        if (_asset == address(0) || _updater == address(0) || _owner == address(0)) {
+            revert ZeroAddress();
+        }
+
+        asset = _asset;
+        updater = _updater;
+        owner = _owner;
+
+        // Initialize with round ID 1
+        latestRoundId = 1;
+        rounds[latestRoundId] =
+            Round({answer: 0, startedAt: block.timestamp, updatedAt: block.timestamp, answeredInRound: 1});
+    }
     // ========== UPDATE FUNCTIONS ==========
 
     /**
@@ -359,46 +399,5 @@ contract LendefiPoRFeed is AggregatorV3Interface, Initializable {
      */
     function version() external pure override returns (uint256) {
         return 3; // AggregatorV3Interface
-    }
-
-    // ========== INITIALIZATION ==========
-
-    /**
-     * @notice Initializes the Proof of Reserves feed with essential parameters
-     * @dev Sets up the feed with the tracked asset, authorized updater, and owner.
-     *      Creates the initial round (ID 1) with zero reserves to establish the
-     *      data structure. This function can only be called once during deployment.
-     * @param _asset Address of the ERC20 token whose reserves will be tracked
-     * @param _updater Address authorized to update reserve data (typically a vault contract)
-     * @param _owner Address that will own this contract and manage permissions
-     *
-     * @custom:requirements
-     *   - All address parameters must be non-zero
-     *   - Function can only be called once during deployment
-     *
-     * @custom:state-changes
-     *   - Sets asset, updater, and owner addresses
-     *   - Initializes latestRoundId to 1
-     *   - Creates initial round with zero reserves and current timestamp
-     *
-     * @custom:access-control Only callable during contract initialization
-     * @custom:error-cases
-     *   - ZeroAddress: When any required address parameter is zero
-     *
-     * @custom:initialization-pattern Uses OpenZeppelin's Initializable for proxy safety
-     */
-    function initialize(address _asset, address _updater, address _owner) public initializer {
-        if (_asset == address(0) || _updater == address(0) || _owner == address(0)) {
-            revert ZeroAddress();
-        }
-
-        asset = _asset;
-        updater = _updater;
-        owner = _owner;
-
-        // Initialize with round ID 1
-        latestRoundId = 1;
-        rounds[latestRoundId] =
-            Round({answer: 0, startedAt: block.timestamp, updatedAt: block.timestamp, answeredInRound: 1});
     }
 }
