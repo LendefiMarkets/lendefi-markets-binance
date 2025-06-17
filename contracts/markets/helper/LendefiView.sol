@@ -38,12 +38,7 @@ contract LendefiView is ILENDEFIVIEW {
      * @param _ecosystem Address of the ecosystem contract for rewards
      */
     constructor(address _protocol, address _marketVault, address _ecosystem) {
-        require(
-            _protocol != address(0) &&
-                _marketVault != address(0) &&
-                _ecosystem != address(0),
-            "ZERO_ADDRESS"
-        );
+        require(_protocol != address(0) && _marketVault != address(0) && _ecosystem != address(0), "ZERO_ADDRESS");
 
         protocol = IPROTOCOL(_protocol);
         marketVault = ILendefiMarketVault(_marketVault);
@@ -57,38 +52,22 @@ contract LendefiView is ILENDEFIVIEW {
      * @param positionId The ID of the position to query
      * @return Summary struct containing all position data
      */
-    function getPositionSummary(
-        address user,
-        uint256 positionId
-    ) external view returns (PositionSummary memory) {
-        IPROTOCOL.UserPosition memory position = protocol.getUserPosition(
-            user,
-            positionId
-        );
+    function getPositionSummary(address user, uint256 positionId) external view returns (PositionSummary memory) {
+        IPROTOCOL.UserPosition memory position = protocol.getUserPosition(user, positionId);
 
-        uint256 totalCollateralValue = protocol.calculateCollateralValue(
-            user,
-            positionId
-        );
-        uint256 currentDebt = protocol.calculateDebtWithInterest(
-            user,
-            positionId
-        );
-        uint256 availableCredit = protocol.calculateCreditLimit(
-            user,
-            positionId
-        );
+        uint256 totalCollateralValue = protocol.calculateCollateralValue(user, positionId);
+        uint256 currentDebt = protocol.calculateDebtWithInterest(user, positionId);
+        uint256 availableCredit = protocol.calculateCreditLimit(user, positionId);
         uint256 healthFactor = protocol.healthFactor(user, positionId);
 
-        return
-            PositionSummary({
-                totalCollateralValue: totalCollateralValue,
-                currentDebt: currentDebt,
-                availableCredit: availableCredit,
-                healthFactor: healthFactor,
-                isIsolated: position.isIsolated,
-                status: position.status
-            });
+        return PositionSummary({
+            totalCollateralValue: totalCollateralValue,
+            currentDebt: currentDebt,
+            availableCredit: availableCredit,
+            healthFactor: healthFactor,
+            isIsolated: position.isIsolated,
+            status: position.status
+        });
     }
 
     /**
@@ -101,9 +80,7 @@ contract LendefiView is ILENDEFIVIEW {
      * @return isRewardEligible Whether the user is eligible for rewards
      * @return pendingRewards The amount of pending rewards available to the user
      */
-    function getLPInfo(
-        address user
-    )
+    function getLPInfo(address user)
         external
         view
         returns (
@@ -119,9 +96,7 @@ contract LendefiView is ILENDEFIVIEW {
         // Calculate the current USDC value based on the user's share of the total LP tokens
         uint256 totalAssets = marketVault.totalAssets();
         uint256 totalSupply = marketVault.totalSupply();
-        usdcValue = totalSupply > 0
-            ? (lpTokenBalance * totalAssets) / totalSupply
-            : 0;
+        usdcValue = totalSupply > 0 ? (lpTokenBalance * totalAssets) / totalSupply : 0;
 
         // Get last operation block from vault (liquidityOperationBlock mapping)
         // Since it's internal, we need to check if user is rewardable instead
@@ -137,8 +112,7 @@ contract LendefiView is ILENDEFIVIEW {
             // Since we can't access liquidityOperationBlock directly, estimate from current eligibility
             // If eligible, they must have waited at least rewardInterval blocks
             uint256 estimatedBlocksElapsed = config.rewardInterval;
-            uint256 reward = (config.rewardAmount * estimatedBlocksElapsed) /
-                config.rewardInterval;
+            uint256 reward = (config.rewardAmount * estimatedBlocksElapsed) / config.rewardInterval;
             uint256 maxReward = ecosystem.maxReward();
             pendingRewards = reward > maxReward ? maxReward : reward;
         }
@@ -149,31 +123,24 @@ contract LendefiView is ILENDEFIVIEW {
      * @dev Aggregates multiple protocol metrics into a single convenient struct
      * @return A ProtocolSnapshot struct containing all key protocol metrics and parameters
      */
-    function getProtocolSnapshot()
-        external
-        view
-        returns (ProtocolSnapshot memory)
-    {
+    function getProtocolSnapshot() external view returns (ProtocolSnapshot memory) {
         ILendefiMarketVault.ProtocolConfig memory config = marketVault.protocolConfig();
 
         // Get flash loan fee from protocol config
         uint256 flashLoanFee = config.flashLoanFee;
 
-        return
-            ProtocolSnapshot({
-                utilization: marketVault.utilization(),
-                borrowRate: protocol.getBorrowRate(
-                    IASSETS.CollateralTier.CROSS_A
-                ),
-                supplyRate: protocol.getSupplyRate(),
-                totalBorrow: marketVault.totalBorrow(),
-                totalSuppliedLiquidity: marketVault.totalSuppliedLiquidity(),
-                targetReward: config.rewardAmount,
-                rewardInterval: config.rewardInterval, // Now in blocks
-                rewardableSupply: config.rewardableSupply,
-                baseProfitTarget: config.profitTargetRate,
-                liquidatorThreshold: protocol.liquidatorThreshold(),
-                flashLoanFee: flashLoanFee
-            });
+        return ProtocolSnapshot({
+            utilization: marketVault.utilization(),
+            borrowRate: protocol.getBorrowRate(IASSETS.CollateralTier.CROSS_A),
+            supplyRate: protocol.getSupplyRate(),
+            totalBorrow: marketVault.totalBorrow(),
+            totalSuppliedLiquidity: marketVault.totalSuppliedLiquidity(),
+            targetReward: config.rewardAmount,
+            rewardInterval: config.rewardInterval, // Now in blocks
+            rewardableSupply: config.rewardableSupply,
+            baseProfitTarget: config.profitTargetRate,
+            liquidatorThreshold: protocol.liquidatorThreshold(),
+            flashLoanFee: flashLoanFee
+        });
     }
 }
