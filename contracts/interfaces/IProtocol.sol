@@ -350,8 +350,13 @@ interface IPROTOCOL {
      * @param assetsModule_ The address of the assets module
      * @param vaultImplementation The address of the vault implementation contract
      */
-    function initialize(address admin, address marketOwner, address govToken_, address assetsModule_, address vaultImplementation)
-        external;
+    function initialize(
+        address admin,
+        address marketOwner,
+        address govToken_,
+        address assetsModule_,
+        address vaultImplementation
+    ) external;
 
     /**
      * @notice Initializes the market with market info
@@ -523,7 +528,6 @@ interface IPROTOCOL {
      * @return The market configuration struct
      */
     function market() external view returns (Market memory);
-
 
     /**
      * @notice Gets the total value locked for a specific asset
