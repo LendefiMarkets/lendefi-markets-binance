@@ -78,13 +78,16 @@ contract CakePancakeTwapTest is Test {
 
                 if (hasWBNB) {
                     console2.log("--- WBNB pool: Converting through WBNB/USDT ---");
-                    uint256 cakePriceInWBNB = UniswapTickMath.getRawPrice(IUniswapV3Pool(CAKE_WBNB_POOL), cakeIsToken0, 1e18, 600);
-                    uint256 wbnbPriceInUSDT = UniswapTickMath.getRawPrice(IUniswapV3Pool(WBNB_USDT_POOL), false, 1e6, 600);
+                    uint256 cakePriceInWBNB =
+                        UniswapTickMath.getRawPrice(IUniswapV3Pool(CAKE_WBNB_POOL), cakeIsToken0, 1e18, 600);
+                    uint256 wbnbPriceInUSDT =
+                        UniswapTickMath.getRawPrice(IUniswapV3Pool(WBNB_USDT_POOL), false, 1e6, 600);
                     uint256 cakePriceInUSD = FullMath.mulDiv(cakePriceInWBNB, wbnbPriceInUSDT, 1e18);
                     console2.log("CAKE price in USD (calculated):", cakePriceInUSD);
                 } else {
                     console2.log("--- Direct USD pool: Getting price directly ---");
-                    uint256 cakePriceInUSD = UniswapTickMath.getRawPrice(IUniswapV3Pool(CAKE_WBNB_POOL), cakeIsToken0, 1e6, 600);
+                    uint256 cakePriceInUSD =
+                        UniswapTickMath.getRawPrice(IUniswapV3Pool(CAKE_WBNB_POOL), cakeIsToken0, 1e6, 600);
                     console2.log("CAKE price in USD (direct):", cakePriceInUSD);
                 }
 
