@@ -476,7 +476,6 @@ contract LendefiAssetsTest is BasicDeploy {
         assetsInstance.getAssetInfo(address(0xDEAD));
     }
 
-
     function test_CollateralTierParameters() public {
         // Test for all tiers
         IASSETS.CollateralTier[] memory tiers = new IASSETS.CollateralTier[](4);
@@ -640,13 +639,21 @@ contract LendefiAssetsTest is BasicDeploy {
         // This test needs a UUPS proxy, not a cloned assets module
         // Deploy a proper assets proxy for upgrade testing
         LendefiPoRFeed porFeedImpl = new LendefiPoRFeed();
-        
+
         // Get network addresses for test
         (address networkUSDT, address networkWBNB, address UsdtWbnbPool) = getNetworkAddresses();
-        
+
         bytes memory initData = abi.encodeCall(
             LendefiAssets.initialize,
-            (address(timelockInstance), charlie, address(porFeedImpl), address(marketCoreInstance), networkUSDT, networkWBNB, UsdtWbnbPool)
+            (
+                address(timelockInstance),
+                charlie,
+                address(porFeedImpl),
+                address(marketCoreInstance),
+                networkUSDT,
+                networkWBNB,
+                UsdtWbnbPool
+            )
         );
         address payable assetsProxy = payable(Upgrades.deployUUPSProxy("LendefiAssets.sol", initData));
         LendefiAssets assetsProxyInstance = LendefiAssets(assetsProxy);
@@ -765,7 +772,6 @@ contract LendefiAssetsTest is BasicDeploy {
         assertEq(currentSupply * 100 / maxSupply, 30); // 30% utilization
     }
 
-
     function test_UnpauseAssets() public {
         // First pause the assets contract using timelock (which should have PAUSER_ROLE)
         vm.startPrank(address(timelockInstance));
@@ -853,27 +859,33 @@ contract LendefiAssetsTest is BasicDeploy {
         );
     }
 
-
     function test_InitializeSuccess() public {
         address timelockAddr = address(timelockInstance);
 
         // Create initialization data
         LendefiPoRFeed porFeedImpl = new LendefiPoRFeed();
-        
+
         // Get network addresses for test
         (address networkUSDT, address networkWBNB, address UsdtWbnbPool) = getNetworkAddresses();
-        
+
         bytes memory initData = abi.encodeCall(
-            LendefiAssets.initialize, (timelockAddr, charlie, address(porFeedImpl), address(marketCoreInstance), networkUSDT, networkWBNB, UsdtWbnbPool)
+            LendefiAssets.initialize,
+            (
+                timelockAddr,
+                charlie,
+                address(porFeedImpl),
+                address(marketCoreInstance),
+                networkUSDT,
+                networkWBNB,
+                UsdtWbnbPool
+            )
         );
         // Deploy LendefiAssets with initialization
         address payable proxy = payable(Upgrades.deployUUPSProxy("LendefiAssets.sol", initData));
         LendefiAssets assetsContract = LendefiAssets(proxy);
 
         // Check role assignments
-        assertTrue(
-            assetsContract.hasRole(DEFAULT_ADMIN_ROLE, timelockAddr), "Timelock should have DEFAULT_ADMIN_ROLE"
-        );
+        assertTrue(assetsContract.hasRole(DEFAULT_ADMIN_ROLE, timelockAddr), "Timelock should have DEFAULT_ADMIN_ROLE");
         assertTrue(assetsContract.hasRole(MANAGER_ROLE, timelockAddr), "Timelock should have MANAGER_ROLE");
         assertTrue(assetsContract.hasRole(MANAGER_ROLE, charlie), "Market owner should have MANAGER_ROLE");
         assertTrue(assetsContract.hasRole(UPGRADER_ROLE, timelockAddr), "Timelock should have UPGRADER_ROLE");
