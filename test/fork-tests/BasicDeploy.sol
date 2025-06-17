@@ -104,15 +104,19 @@ contract BasicDeploy is Test {
     IERC20 usd1Instance = IERC20(0x8d0D000Ee44948FC98c9B98A4FA4921476f08B0d); //real usd1 ethereum for fork testing
 
     // ==================== NETWORK CONFIGURATION ====================
-    
+
     /**
      * @notice Get network-specific addresses for oracle validation
      * @dev For fork tests, always returns BSC mainnet addresses from LendefiConstants
      * @return networkUSDT The USDT address for this network
-     * @return networkWBNB The WBNB address for this network 
+     * @return networkWBNB The WBNB address for this network
      * @return UsdtWbnbPool The USDT/WBNB pool address for this network
      */
-    function getNetworkAddresses() internal pure returns (address networkUSDT, address networkWBNB, address UsdtWbnbPool) {
+    function getNetworkAddresses()
+        internal
+        pure
+        returns (address networkUSDT, address networkWBNB, address UsdtWbnbPool)
+    {
         // Fork tests run on BSC mainnet, so use LendefiConstants addresses
         networkUSDT = LendefiConstants.USDT_BSC;
         networkWBNB = LendefiConstants.WBNB_BSC;
@@ -578,13 +582,22 @@ contract BasicDeploy is Test {
         }
 
         porFeedImplementation = new LendefiPoRFeed();
-        
+
         // Get network addresses for test
         (address networkUSDT, address networkWBNB, address UsdtWbnbPool) = getNetworkAddresses();
-        
+
         // Protocol Oracle deploy (combined Oracle + Assets)
         bytes memory data = abi.encodeCall(
-            LendefiAssets.initialize, (address(timelockInstance), charlie, address(porFeedImplementation), address(marketCoreInstance), networkUSDT, networkWBNB, UsdtWbnbPool)
+            LendefiAssets.initialize,
+            (
+                address(timelockInstance),
+                charlie,
+                address(porFeedImplementation),
+                address(marketCoreInstance),
+                networkUSDT,
+                networkWBNB,
+                UsdtWbnbPool
+            )
         );
 
         address payable proxy = payable(Upgrades.deployUUPSProxy("LendefiAssets.sol", data));
@@ -754,13 +767,21 @@ contract BasicDeploy is Test {
         LendefiAssets assetsImpl = new LendefiAssets(); // Assets implementation for cloning
         LendefiPoRFeed porFeedImpl = new LendefiPoRFeed();
 
-        // Get network-specific addresses  
+        // Get network-specific addresses
         (address networkUSDT, address networkWBNB, address UsdtWbnbPool) = getNetworkAddresses();
-        
+
         // Deploy factory using UUPS pattern with direct proxy deployment
         bytes memory factoryData = abi.encodeCall(
             LendefiMarketFactory.initialize,
-            (address(timelockInstance), address(tokenInstance), gnosisSafe, address(ecoInstance), networkUSDT, networkWBNB, UsdtWbnbPool)
+            (
+                address(timelockInstance),
+                address(tokenInstance),
+                gnosisSafe,
+                address(ecoInstance),
+                networkUSDT,
+                networkWBNB,
+                UsdtWbnbPool
+            )
         );
         address payable factoryProxy = payable(Upgrades.deployUUPSProxy("LendefiMarketFactory.sol", factoryData));
         marketFactoryInstance = LendefiMarketFactory(factoryProxy);
@@ -790,8 +811,8 @@ contract BasicDeploy is Test {
         require(marketFactoryInstance.coreImplementation() != address(0), "Core implementation not set");
         require(marketFactoryInstance.vaultImplementation() != address(0), "Vault implementation not set");
 
-        // Grant MARKET_OWNER_ROLE to charlie (done by timelock which has DEFAULT_ADMIN_ROLE)
-        vm.prank(address(timelockInstance));
+        // Grant MARKET_OWNER_ROLE to charlie (done by multisig which has DEFAULT_ADMIN_ROLE)
+        vm.prank(gnosisSafe);
         marketFactoryInstance.grantRole(LendefiConstants.MARKET_OWNER_ROLE, charlie);
 
         // Add base asset to allowlist (done by multisig which has MANAGER_ROLE)
