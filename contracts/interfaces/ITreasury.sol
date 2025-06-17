@@ -79,11 +79,7 @@ interface ITREASURY {
      * @param startTime Start timestamp of the vesting schedule
      * @param duration Duration of the vesting period in seconds
      */
-    event Initialized(
-        address indexed initializer,
-        uint256 startTime,
-        uint256 duration
-    );
+    event Initialized(address indexed initializer, uint256 startTime, uint256 duration);
 
     /**
      * @dev Emitted when ETH is released from the treasury
@@ -91,11 +87,7 @@ interface ITREASURY {
      * @param amount Amount of ETH released
      * @param remainingReleasable Amount of ETH still available for release
      */
-    event EthReleased(
-        address indexed to,
-        uint256 amount,
-        uint256 remainingReleasable
-    );
+    event EthReleased(address indexed to, uint256 amount, uint256 remainingReleasable);
 
     /**
      * @dev Emitted when ERC20 tokens are released from the treasury
@@ -103,11 +95,7 @@ interface ITREASURY {
      * @param to Address receiving the tokens
      * @param amount Amount of tokens released
      */
-    event TokenReleased(
-        address indexed token,
-        address indexed to,
-        uint256 amount
-    );
+    event TokenReleased(address indexed token, address indexed to, uint256 amount);
 
     /**
      * @dev Emitted when the vesting schedule parameters are updated
@@ -115,11 +103,7 @@ interface ITREASURY {
      * @param newStart New start timestamp of the vesting schedule
      * @param newDuration New duration of the vesting period in seconds
      */
-    event VestingScheduleUpdated(
-        address indexed updater,
-        uint256 newStart,
-        uint256 newDuration
-    );
+    event VestingScheduleUpdated(address indexed updater, uint256 newStart, uint256 newDuration);
 
     /**
      * @dev Emitted when funds are withdrawn via the emergency withdrawal function
@@ -127,11 +111,7 @@ interface ITREASURY {
      * @param to Address receiving the funds
      * @param amount Amount withdrawn
      */
-    event EmergencyWithdrawal(
-        address indexed token,
-        address indexed to,
-        uint256 amount
-    );
+    event EmergencyWithdrawal(address indexed token, address indexed to, uint256 amount);
 
     /**
      * @dev Emitted when the contract implementation is upgraded
@@ -139,11 +119,7 @@ interface ITREASURY {
      * @param implementation Address of the new implementation
      * @param version New version number after the upgrade
      */
-    event Upgraded(
-        address indexed upgrader,
-        address indexed implementation,
-        uint32 version
-    );
+    event Upgraded(address indexed upgrader, address indexed implementation, uint32 version);
 
     /**
      * @dev Emitted when ETH is received by the contract
@@ -160,10 +136,7 @@ interface ITREASURY {
      * @param effectiveTime The time when the upgrade can be executed
      */
     event UpgradeScheduled(
-        address indexed sender,
-        address indexed implementation,
-        uint64 scheduledTime,
-        uint64 effectiveTime
+        address indexed sender, address indexed implementation, uint64 scheduledTime, uint64 effectiveTime
     );
 
     /**
@@ -171,10 +144,7 @@ interface ITREASURY {
      * @param canceller The address that cancelled the upgrade
      * @param implementation The implementation address that was cancelled
      */
-    event UpgradeCancelled(
-        address indexed canceller,
-        address indexed implementation
-    );
+    event UpgradeCancelled(address indexed canceller, address indexed implementation);
 
     /* ========== FUNCTIONS ========== */
 
@@ -226,10 +196,7 @@ interface ITREASURY {
      * @param newStart The new start timestamp
      * @param newDuration The new duration in seconds
      */
-    function updateVestingSchedule(
-        uint256 newStart,
-        uint256 newDuration
-    ) external;
+    function updateVestingSchedule(uint256 newStart, uint256 newDuration) external;
 
     /**
      * @notice Withdraws funds in case of emergency
@@ -284,10 +251,7 @@ interface ITREASURY {
      * @param timestamp The timestamp to check
      * @return The vested amount of tokens
      */
-    function vestedAmount(
-        address token,
-        uint256 timestamp
-    ) external view returns (uint256);
+    function vestedAmount(address token, uint256 timestamp) external view returns (uint256);
 
     /**
      * @notice Returns the current contract version
