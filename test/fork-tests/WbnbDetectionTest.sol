@@ -26,15 +26,15 @@ contract WbnbDetectionTest is Test {
 
     function testWbnbDetectionLogic() public view {
         console2.log("=== Testing WBNB Detection Logic ===");
-        
+
         // Test WBNB/USDT pool (direct USD pool)
         console2.log("\n--- WBNB/USDT Pool ---");
         _testPool(WBNB_USDT_POOL, WBNB, "WBNB");
-        
+
         // Test CAKE/WBNB pool (needs conversion)
         console2.log("\n--- CAKE/WBNB Pool ---");
         _testPool(CAKE_WBNB_POOL, CAKE, "CAKE");
-        
+
         // Test LINK/WBNB pool (needs conversion)
         console2.log("\n--- LINK/WBNB Pool ---");
         _testPool(LINK_WBNB_POOL, LINK, "LINK");
@@ -43,49 +43,49 @@ contract WbnbDetectionTest is Test {
     function _testPool(address poolAddress, address token, string memory tokenName) internal view {
         IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
         (address token0, address token1) = (pool.token0(), pool.token1());
-        
+
         console2.log(string.concat(tokenName, " pool:"), poolAddress);
         console2.log("Token0:", token0);
         console2.log("Token1:", token1);
-        
+
         // Check if token is in pool
         if (token != token0 && token != token1) {
             console2.log("ERROR: Token not in pool!");
             return;
         }
-        
+
         bool isToken0 = (token == token0);
         console2.log(string.concat(tokenName, " is token0:"), isToken0);
-        
+
         // Check WBNB detection
         bool hasWBNB = (token0 == WBNB || token1 == WBNB);
         console2.log("Pool has WBNB:", hasWBNB);
-        
+
         // Check if this is the WBNB/USDT pool specifically
         bool isWbnbUsdtPool = (poolAddress == WBNB_USDT_POOL);
         console2.log("Is WBNB/USDT pool:", isWbnbUsdtPool);
-        
+
         // Apply the logic
         if (hasWBNB && !isWbnbUsdtPool) {
             console2.log("-> WBNB pool: Should convert through WBNB/USDT");
-            
+
             // Use 60 seconds for pools with limited history
             uint32 twapPeriod = (poolAddress == LINK_WBNB_POOL) ? 60 : 600;
-            
+
             // Get token price in WBNB
             uint256 tokenPriceInWBNB = UniswapTickMath.getRawPrice(pool, isToken0, 1e18, twapPeriod);
             console2.log(string.concat(tokenName, " price in WBNB:"), tokenPriceInWBNB);
-            
-            // Get WBNB price in USDT  
+
+            // Get WBNB price in USDT
             uint256 wbnbPriceInUSDT = UniswapTickMath.getRawPrice(IUniswapV3Pool(WBNB_USDT_POOL), false, 1e6, 600);
             console2.log("WBNB price in USDT:", wbnbPriceInUSDT);
-            
+
             // Calculate final USD price
             uint256 tokenPriceInUSD = FullMath.mulDiv(tokenPriceInWBNB, wbnbPriceInUSDT, 1e18);
             console2.log(string.concat(tokenName, " price in USD (calculated):"), tokenPriceInUSD);
         } else {
             console2.log("-> Direct USD pool: Should get price directly");
-            
+
             uint256 tokenPriceInUSD = UniswapTickMath.getRawPrice(pool, isToken0, 1e6, 600);
             console2.log(string.concat(tokenName, " price in USD (direct):"), tokenPriceInUSD);
         }
