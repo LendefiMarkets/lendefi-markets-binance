@@ -140,17 +140,8 @@ contract Ecosystem is
      * @custom:events-emits {Initialized} when initialization is complete
      * @custom:throws ZeroAddressDetected if any input address is zero
      */
-
-    function initialize(
-        address token,
-        address timelockAddr,
-        address multisig
-    ) external initializer {
-        if (
-            token == address(0) ||
-            timelockAddr == address(0) ||
-            multisig == address(0)
-        ) {
+    function initialize(address token, address timelockAddr, address multisig) external initializer {
+        if (token == address(0) || timelockAddr == address(0) || multisig == address(0)) {
             revert ZeroAddressDetected();
         }
 
@@ -217,24 +208,17 @@ contract Ecosystem is
      * @param newImplementation Address of the new implementation
      * @notice Only callable by an address with UPGRADER_ROLE
      */
-    function scheduleUpgrade(
-        address newImplementation
-    ) external onlyRole(UPGRADER_ROLE) nonZeroAddress(newImplementation) {
+    function scheduleUpgrade(address newImplementation)
+        external
+        onlyRole(UPGRADER_ROLE)
+        nonZeroAddress(newImplementation)
+    {
         uint64 currentTime = uint64(block.timestamp);
         uint64 effectiveTime = currentTime + uint64(UPGRADE_TIMELOCK_DURATION);
 
-        pendingUpgrade = UpgradeRequest({
-            implementation: newImplementation,
-            scheduledTime: currentTime,
-            exists: true
-        });
+        pendingUpgrade = UpgradeRequest({implementation: newImplementation, scheduledTime: currentTime, exists: true});
 
-        emit UpgradeScheduled(
-            msg.sender,
-            newImplementation,
-            currentTime,
-            effectiveTime
-        );
+        emit UpgradeScheduled(msg.sender, newImplementation, currentTime, effectiveTime);
     }
 
     /**
@@ -245,9 +229,7 @@ contract Ecosystem is
      * @custom:throws ZeroAddress if token address is zero
      * @custom:throws ZeroBalance if contract has no token balance
      */
-    function emergencyWithdrawToken(
-        address token
-    ) external nonReentrant onlyRole(MANAGER_ROLE) nonZeroAddress(token) {
+    function emergencyWithdrawToken(address token) external nonReentrant onlyRole(MANAGER_ROLE) nonZeroAddress(token) {
         uint256 balance = IERC20(token).balanceOf(address(this));
         if (balance == 0) revert ZeroBalance();
 
@@ -272,10 +254,12 @@ contract Ecosystem is
      * @custom:throws AirdropSupplyLimit if the total airdropped amount exceeds the airdrop supply
      * @custom:throws GasLimit if the number of recipients exceeds 4000
      */
-    function airdrop(
-        address[] calldata recipients,
-        uint256 amount
-    ) external nonReentrant whenNotPaused onlyRole(MANAGER_ROLE) {
+    function airdrop(address[] calldata recipients, uint256 amount)
+        external
+        nonReentrant
+        whenNotPaused
+        onlyRole(MANAGER_ROLE)
+    {
         if (amount < 1 ether) {
             revert InvalidAmount(amount);
         }
@@ -287,7 +271,7 @@ contract Ecosystem is
 
         // Count valid (non-zero) addresses to properly calculate total amount
         uint256 validRecipientCount = 0;
-        for (uint256 i = 0; i < len; ) {
+        for (uint256 i = 0; i < len;) {
             if (recipients[i] != address(0)) {
                 validRecipientCount++;
             }
@@ -298,22 +282,16 @@ contract Ecosystem is
 
         uint256 totalAmount = validRecipientCount * amount;
         if (issuedAirDrop + totalAmount > airdropSupply) {
-            revert AirdropSupplyLimit(
-                totalAmount,
-                airdropSupply - issuedAirDrop
-            );
+            revert AirdropSupplyLimit(totalAmount, airdropSupply - issuedAirDrop);
         }
 
         issuedAirDrop += totalAmount;
         emit AirDrop(recipients, amount);
 
         // Distribute tokens to valid recipients
-        for (uint256 i = 0; i < len; ) {
+        for (uint256 i = 0; i < len;) {
             if (recipients[i] != address(0)) {
-                IERC20(address(tokenInstance)).safeTransfer(
-                    recipients[i],
-                    amount
-                );
+                IERC20(address(tokenInstance)).safeTransfer(recipients[i], amount);
             }
             unchecked {
                 ++i;
@@ -337,10 +315,7 @@ contract Ecosystem is
      * @custom:throws RewardLimit if the amount exceeds the maximum reward limit
      * @custom:throws RewardSupplyLimit if the total rewarded amount exceeds the reward supply
      */
-    function reward(
-        address to,
-        uint256 amount
-    )
+    function reward(address to, uint256 amount)
         external
         nonReentrant
         whenNotPaused
@@ -378,15 +353,7 @@ contract Ecosystem is
      * @custom:throws MaxBurnLimit if the amount exceeds the maximum burn limit
      * @custom:throws BurnSupplyLimit if the amount exceeds available supply
      */
-    function burn(
-        uint256 amount
-    )
-        external
-        nonReentrant
-        whenNotPaused
-        nonZeroAmount(amount)
-        onlyRole(BURNER_ROLE)
-    {
+    function burn(uint256 amount) external nonReentrant whenNotPaused nonZeroAmount(amount) onlyRole(BURNER_ROLE) {
         // Check if the amount exceeds the max burn first (cheaper check)
         if (amount > maxBurn) {
             revert MaxBurnLimit(amount, maxBurn);
@@ -430,12 +397,7 @@ contract Ecosystem is
      * @custom:throws InvalidVestingSchedule if duration is not within reasonable bounds
      * @custom:throws AmountExceedsSupply if the total issued partnership tokens exceed the partnership supply
      */
-    function addPartner(
-        address partner,
-        uint256 amount,
-        uint256 cliff,
-        uint256 duration
-    )
+    function addPartner(address partner, uint256 amount, uint256 cliff, uint256 duration)
         external
         nonReentrant
         whenNotPaused
@@ -451,38 +413,24 @@ contract Ecosystem is
         }
 
         // Add validation for vesting parameters
-        if (
-            duration < MIN_VESTING_DURATION ||
-            duration > MAX_VESTING_DURATION ||
-            cliff >= duration
-        ) {
+        if (duration < MIN_VESTING_DURATION || duration > MAX_VESTING_DURATION || cliff >= duration) {
             revert InvalidVestingSchedule();
         }
 
         if (issuedPartnership + amount > partnershipSupply) {
-            revert AmountExceedsSupply(
-                amount,
-                partnershipSupply - issuedPartnership
-            );
+            revert AmountExceedsSupply(amount, partnershipSupply - issuedPartnership);
         }
 
         issuedPartnership += amount;
 
         // Use PartnerVesting which is cancellable by the timelock
-        PartnerVesting vestingContract = new PartnerVesting(
-            address(tokenInstance),
-            partner,
-            uint64(block.timestamp + cliff),
-            uint64(duration)
-        );
+        PartnerVesting vestingContract =
+            new PartnerVesting(address(tokenInstance), partner, uint64(block.timestamp + cliff), uint64(duration));
 
         vestingContracts[partner] = address(vestingContract);
 
         emit AddPartner(partner, address(vestingContract), amount);
-        IERC20(address(tokenInstance)).safeTransfer(
-            address(vestingContract),
-            amount
-        );
+        IERC20(address(tokenInstance)).safeTransfer(address(vestingContract), amount);
     }
 
     /**
@@ -495,17 +443,14 @@ contract Ecosystem is
      * @custom:throws CallerNotAllowed if the caller is not the timelock
      * @custom:throws InvalidAddress if the partner has no vesting contract
      */
-    function cancelPartnership(
-        address partner
-    ) external nonZeroAddress(partner) onlyRole(MANAGER_ROLE) {
+    function cancelPartnership(address partner) external nonZeroAddress(partner) onlyRole(MANAGER_ROLE) {
         address vestingContract = vestingContracts[partner];
         if (vestingContract == address(0)) {
             revert InvalidAddress();
         }
 
         // Call the cancel function on the vesting contract
-        uint256 returnedAmount = PartnerVesting(vestingContract)
-            .cancelContract();
+        uint256 returnedAmount = PartnerVesting(vestingContract).cancelContract();
 
         // Update accounting to reflect returned tokens
         if (returnedAmount > 0) {
@@ -514,11 +459,7 @@ contract Ecosystem is
 
             // Transfer the tokens from Ecosystem to timelock
             // This maintains compatibility with existing tests while improving accounting
-            SafeERC20.safeTransfer(
-                IERC20(address(tokenInstance)),
-                timelock,
-                returnedAmount
-            );
+            SafeERC20.safeTransfer(IERC20(address(tokenInstance)), timelock, returnedAmount);
         }
 
         // Remove the partner's vesting contract from the mapping
@@ -555,9 +496,7 @@ contract Ecosystem is
      * @custom:throws InvalidAmount if the amount is 0
      * @custom:throws ExcessiveMaxValue if the amount exceeds 5% of remaining reward supply
      */
-    function updateMaxReward(
-        uint256 newMaxReward
-    )
+    function updateMaxReward(uint256 newMaxReward)
         external
         whenNotPaused
         onlyRole(MANAGER_ROLE)
@@ -588,9 +527,12 @@ contract Ecosystem is
      * @custom:throws InvalidAmount if the amount is 0
      * @custom:throws ExcessiveMaxValue if the amount exceeds 10% of remaining reward supply
      */
-    function updateMaxBurn(
-        uint256 newMaxBurn
-    ) external whenNotPaused onlyRole(MANAGER_ROLE) nonZeroAmount(newMaxBurn) {
+    function updateMaxBurn(uint256 newMaxBurn)
+        external
+        whenNotPaused
+        onlyRole(MANAGER_ROLE)
+        nonZeroAmount(newMaxBurn)
+    {
         // Ensure the maximum burn isn't excessive (no more than 10% of remaining reward supply)
         uint256 remainingRewards = rewardSupply - issuedReward;
         if (newMaxBurn > remainingRewards / 10) {
@@ -610,14 +552,9 @@ contract Ecosystem is
      * @return The time remaining in seconds, or 0 if no upgrade is scheduled or timelock has passed
      */
     function upgradeTimelockRemaining() external view returns (uint256) {
-        return
-            pendingUpgrade.exists &&
-                block.timestamp <
-                pendingUpgrade.scheduledTime + UPGRADE_TIMELOCK_DURATION
-                ? pendingUpgrade.scheduledTime +
-                    UPGRADE_TIMELOCK_DURATION -
-                    block.timestamp
-                : 0;
+        return pendingUpgrade.exists && block.timestamp < pendingUpgrade.scheduledTime + UPGRADE_TIMELOCK_DURATION
+            ? pendingUpgrade.scheduledTime + UPGRADE_TIMELOCK_DURATION - block.timestamp
+            : 0;
     }
 
     /**
@@ -650,25 +587,18 @@ contract Ecosystem is
      * @dev Authorizes an upgrade to a new implementation with timelock enforcement
      * @param newImplementation The address of the new implementation contract
      */
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal override onlyRole(UPGRADER_ROLE) {
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) {
         if (!pendingUpgrade.exists) {
             revert UpgradeNotScheduled();
         }
 
         if (pendingUpgrade.implementation != newImplementation) {
-            revert ImplementationMismatch(
-                pendingUpgrade.implementation,
-                newImplementation
-            );
+            revert ImplementationMismatch(pendingUpgrade.implementation, newImplementation);
         }
 
         uint256 timeElapsed = block.timestamp - pendingUpgrade.scheduledTime;
         if (timeElapsed < UPGRADE_TIMELOCK_DURATION) {
-            revert UpgradeTimelockActive(
-                UPGRADE_TIMELOCK_DURATION - timeElapsed
-            );
+            revert UpgradeTimelockActive(UPGRADE_TIMELOCK_DURATION - timeElapsed);
         }
 
         // Clear the scheduled upgrade
