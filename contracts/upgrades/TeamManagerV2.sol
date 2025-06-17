@@ -112,21 +112,13 @@ contract TeamManagerV2 is
      * @param timelock_ The address of the timelock controller
      * @param multisig The address receiving UPGRADER_ROLE
      */
-    function initialize(
-        address token,
-        address timelock_,
-        address multisig
-    ) external initializer {
+    function initialize(address token, address timelock_, address multisig) external initializer {
         __Pausable_init();
         __AccessControl_init();
         __UUPSUpgradeable_init();
         __ReentrancyGuard_init();
 
-        if (
-            token == address(0) ||
-            timelock_ == address(0) ||
-            multisig == address(0)
-        ) {
+        if (token == address(0) || timelock_ == address(0) || multisig == address(0)) {
             revert ZeroAddress();
         }
 
@@ -139,9 +131,7 @@ contract TeamManagerV2 is
 
         timelock = timelock_;
         ecosystemToken = ILENDEFI(payable(token));
-        supply =
-            (ecosystemToken.initialSupply() * TEAM_ALLOCATION_PERCENT) /
-            100;
+        supply = (ecosystemToken.initialSupply() * TEAM_ALLOCATION_PERCENT) / 100;
 
         version = 1;
         emit Initialized(msg.sender);
@@ -170,12 +160,7 @@ contract TeamManagerV2 is
      * @param cliff The cliff period in seconds
      * @param duration The vesting duration in seconds after cliff
      */
-    function addTeamMember(
-        address beneficiary,
-        uint256 amount,
-        uint256 cliff,
-        uint256 duration
-    )
+    function addTeamMember(address beneficiary, uint256 amount, uint256 cliff, uint256 duration)
         external
         nonReentrant
         whenNotPaused
@@ -203,11 +188,7 @@ contract TeamManagerV2 is
         totalAllocation += amount;
 
         TeamVesting vestingContract = new TeamVesting(
-            address(ecosystemToken),
-            timelock,
-            beneficiary,
-            uint64(block.timestamp + cliff),
-            uint64(duration)
+            address(ecosystemToken), timelock, beneficiary, uint64(block.timestamp + cliff), uint64(duration)
         );
 
         allocations[beneficiary] = amount;
@@ -221,24 +202,17 @@ contract TeamManagerV2 is
      * @dev Schedules an upgrade to a new implementation
      * @param newImplementation Address of the new implementation
      */
-    function scheduleUpgrade(
-        address newImplementation
-    ) external nonZeroAddress(newImplementation) onlyRole(UPGRADER_ROLE) {
+    function scheduleUpgrade(address newImplementation)
+        external
+        nonZeroAddress(newImplementation)
+        onlyRole(UPGRADER_ROLE)
+    {
         uint64 currentTime = uint64(block.timestamp);
         uint64 effectiveTime = currentTime + uint64(UPGRADE_TIMELOCK_DURATION);
 
-        pendingUpgrade = UpgradeRequest({
-            implementation: newImplementation,
-            scheduledTime: currentTime,
-            exists: true
-        });
+        pendingUpgrade = UpgradeRequest({implementation: newImplementation, scheduledTime: currentTime, exists: true});
 
-        emit UpgradeScheduled(
-            msg.sender,
-            newImplementation,
-            currentTime,
-            effectiveTime
-        );
+        emit UpgradeScheduled(msg.sender, newImplementation, currentTime, effectiveTime);
     }
 
     /**
@@ -259,14 +233,9 @@ contract TeamManagerV2 is
      * @return timeRemaining The time remaining in seconds, or 0 if no upgrade is scheduled or timelock has passed
      */
     function upgradeTimelockRemaining() external view returns (uint256) {
-        return
-            pendingUpgrade.exists &&
-                block.timestamp <
-                pendingUpgrade.scheduledTime + UPGRADE_TIMELOCK_DURATION
-                ? pendingUpgrade.scheduledTime +
-                    UPGRADE_TIMELOCK_DURATION -
-                    block.timestamp
-                : 0;
+        return pendingUpgrade.exists && block.timestamp < pendingUpgrade.scheduledTime + UPGRADE_TIMELOCK_DURATION
+            ? pendingUpgrade.scheduledTime + UPGRADE_TIMELOCK_DURATION - block.timestamp
+            : 0;
     }
 
     // ============ Internal Functions ============
@@ -276,25 +245,18 @@ contract TeamManagerV2 is
      * @dev Internal override for UUPS upgrade authorization
      * @param newImplementation Address of the new implementation contract
      */
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal override onlyRole(UPGRADER_ROLE) {
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) {
         if (!pendingUpgrade.exists) {
             revert UpgradeNotScheduled();
         }
 
         if (pendingUpgrade.implementation != newImplementation) {
-            revert ImplementationMismatch(
-                pendingUpgrade.implementation,
-                newImplementation
-            );
+            revert ImplementationMismatch(pendingUpgrade.implementation, newImplementation);
         }
 
         uint256 timeElapsed = block.timestamp - pendingUpgrade.scheduledTime;
         if (timeElapsed < UPGRADE_TIMELOCK_DURATION) {
-            revert UpgradeTimelockActive(
-                UPGRADE_TIMELOCK_DURATION - timeElapsed
-            );
+            revert UpgradeTimelockActive(UPGRADE_TIMELOCK_DURATION - timeElapsed);
         }
 
         // Clear the scheduled upgrade
