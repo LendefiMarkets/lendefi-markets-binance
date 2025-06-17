@@ -5,7 +5,6 @@ pragma solidity 0.8.23;
  * @title Team Vesting Interface
  * @custom:security-contact security@lendefimarkets.com
  */
-
 interface ITEAMVESTING {
     /**
      * @dev Cancelled Event
