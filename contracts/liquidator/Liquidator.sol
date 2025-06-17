@@ -75,21 +75,13 @@ contract FlashLoanRecipient is IFlashLoanRecipient, Ownable {
      * @param account address
      */
     function liquidate(address account) external onlyOwner {
-        IPROTOCOL.UserPosition[] memory positions = PROTOCOL_INSTANCE
-            .getUserPositions(account);
+        IPROTOCOL.UserPosition[] memory positions = PROTOCOL_INSTANCE.getUserPositions(account);
         uint256 positionId = positions.length - 1;
         if (PROTOCOL_INSTANCE.isLiquidatable(account, positionId)) {
-            require(
-                TOKEN_INSTANCE.balanceOf(address(this)) >= 20_000 ether,
-                "ERR_INSUFFIENT_LIQUIDATOR_TOKENS"
-            );
+            require(TOKEN_INSTANCE.balanceOf(address(this)) >= 20_000 ether, "ERR_INSUFFIENT_LIQUIDATOR_TOKENS");
 
-            uint256 debt = PROTOCOL_INSTANCE.calculateDebtWithInterest(
-                account,
-                positionId
-            );
-            uint256 liquidationBonus = PROTOCOL_INSTANCE
-                .getPositionLiquidationFee(account, positionId);
+            uint256 debt = PROTOCOL_INSTANCE.calculateDebtWithInterest(account, positionId);
+            uint256 liquidationBonus = PROTOCOL_INSTANCE.getPositionLiquidationFee(account, positionId);
             uint256 liquidationFee = (debt * liquidationBonus) / 1e6;
             IERC20[] memory array = new IERC20[](1);
             array[0] = USDC_INSTANCE;
@@ -124,32 +116,20 @@ contract FlashLoanRecipient is IFlashLoanRecipient, Ownable {
         bytes memory userData
     ) external override onlyVault {
         address target = address(uint160(bytes20(userData)));
-        IPROTOCOL.UserPosition[] memory positions = PROTOCOL_INSTANCE
-            .getUserPositions(target);
+        IPROTOCOL.UserPosition[] memory positions = PROTOCOL_INSTANCE.getUserPositions(target);
         uint256 positionId = positions.length - 1;
-        address[] memory assets = PROTOCOL_INSTANCE.getPositionCollateralAssets(
-            target,
-            positionId
-        );
+        address[] memory assets = PROTOCOL_INSTANCE.getPositionCollateralAssets(target, positionId);
         uint256 len = assets.length;
 
         uint256[] memory tokenAmounts = new uint256[](len);
         for (uint256 i = 0; i < len; ++i) {
-            uint256 amount = PROTOCOL_INSTANCE.getCollateralAmount(
-                target,
-                positionId,
-                assets[i]
-            );
+            uint256 amount = PROTOCOL_INSTANCE.getCollateralAmount(target, positionId, assets[i]);
             if (amount > 0) {
                 tokenAmounts[i] = amount;
             }
         }
 
-        SafeERC20.forceApprove(
-            USDC_INSTANCE,
-            address(PROTOCOL_INSTANCE),
-            amounts[0]
-        );
+        SafeERC20.forceApprove(USDC_INSTANCE, address(PROTOCOL_INSTANCE), amounts[0]);
 
         // Updated liquidate call with slippage protection parameters
         // expectedCost is the flash loan amount, maxSlippageBps allows 1% slippage (100 basis points)
@@ -159,24 +139,14 @@ contract FlashLoanRecipient is IFlashLoanRecipient, Ownable {
         for (uint256 i = 0; i < len; ++i) {
             if (tokenAmounts[i] > 0) {
                 uint256 assetPrice = ASSETS_INSTANCE.getAssetPrice(assets[i]);
-                uint256 amountOutMin = (tokenAmounts[i] * assetPrice * 99) /
-                    10 ** 6 /
-                    100;
-                uint256 outAmount = uniswapV3(
-                    assets[i],
-                    tokenAmounts[i],
-                    amountOutMin
-                );
+                uint256 amountOutMin = (tokenAmounts[i] * assetPrice * 99) / 10 ** 6 / 100;
+                uint256 outAmount = uniswapV3(assets[i], tokenAmounts[i], amountOutMin);
                 recievedBase += outAmount;
             }
         }
 
         require(recievedBase > amounts[0] + feeAmounts[0], "ERR_PROFIT_TARGET");
-        SafeERC20.safeTransfer(
-            tokens[0],
-            address(BALANCER_VAULT),
-            amounts[0] + feeAmounts[0]
-        );
+        SafeERC20.safeTransfer(tokens[0], address(BALANCER_VAULT), amounts[0] + feeAmounts[0]);
     }
 
     /**
@@ -185,11 +155,7 @@ contract FlashLoanRecipient is IFlashLoanRecipient, Ownable {
      * @param amounts corresponding amounts array
      * @param userData borrower address
      */
-    function makeFlashLoan(
-        IERC20[] memory tokens,
-        uint256[] memory amounts,
-        bytes memory userData
-    ) internal {
+    function makeFlashLoan(IERC20[] memory tokens, uint256[] memory amounts, bytes memory userData) internal {
         BALANCER_VAULT.flashLoan(this, tokens, amounts, userData);
     }
 
@@ -200,19 +166,11 @@ contract FlashLoanRecipient is IFlashLoanRecipient, Ownable {
      * @param amountOutMin how much to get back in USDC
      * @return amountOut of the swap
      */
-    function uniswapV3(
-        address asset,
-        uint256 swapAmount,
-        uint256 amountOutMin
-    ) internal returns (uint256) {
+    function uniswapV3(address asset, uint256 swapAmount, uint256 amountOutMin) internal returns (uint256) {
         uint24 poolFee = 3000;
         address usdc = address(USDC_INSTANCE);
 
-        SafeERC20.forceApprove(
-            IERC20(asset),
-            address(UNISWAP_ROUTER),
-            swapAmount
-        );
+        SafeERC20.forceApprove(IERC20(asset), address(UNISWAP_ROUTER), swapAmount);
 
         uint256 amountOut = UNISWAP_ROUTER.exactInputSingle(
             ISwapRouter.ExactInputSingleParams({
