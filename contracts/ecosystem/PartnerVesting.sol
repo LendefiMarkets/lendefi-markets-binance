@@ -15,12 +15,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract PartnerVesting is
-    IPARTNERVESTING,
-    Context,
-    Ownable2Step,
-    ReentrancyGuard
-{
+contract PartnerVesting is IPARTNERVESTING, Context, Ownable2Step, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     /// @dev Start timestamp of the vesting period
@@ -55,12 +50,9 @@ contract PartnerVesting is
      * @param startTimestamp UNIX timestamp when vesting begins
      * @param durationSeconds Duration of vesting period in seconds
      */
-    constructor(
-        address token,
-        address beneficiary,
-        uint64 startTimestamp,
-        uint64 durationSeconds
-    ) Ownable(beneficiary) {
+    constructor(address token, address beneficiary, uint64 startTimestamp, uint64 durationSeconds)
+        Ownable(beneficiary)
+    {
         if (token == address(0) || beneficiary == address(0)) {
             revert ZeroAddress();
         }
@@ -70,12 +62,7 @@ contract PartnerVesting is
         _start = startTimestamp;
         _duration = durationSeconds;
 
-        emit VestingInitialized(
-            token,
-            beneficiary,
-            startTimestamp,
-            durationSeconds
-        );
+        emit VestingInitialized(token, beneficiary, startTimestamp, durationSeconds);
     }
 
     /**
@@ -83,12 +70,7 @@ contract PartnerVesting is
      * @dev First releases any vested tokens to the beneficiary, then returns remaining tokens to creator
      * @return remainder The amount of tokens returned to the creator
      */
-    function cancelContract()
-        external
-        nonReentrant
-        onlyAuthorized
-        returns (uint256 remainder)
-    {
+    function cancelContract() external nonReentrant onlyAuthorized returns (uint256 remainder) {
         IERC20 tokenInstance = IERC20(_token);
         uint256 releasableAmount = releasable();
 
@@ -168,14 +150,8 @@ contract PartnerVesting is
      * @param timestamp The timestamp to calculate vested amount for
      * @return The total amount of tokens vested at the specified timestamp
      */
-    function vestedAmount(
-        uint64 timestamp
-    ) internal view virtual returns (uint256) {
-        return
-            _vestingSchedule(
-                IERC20(_token).balanceOf(address(this)) + released(),
-                timestamp
-            );
+    function vestedAmount(uint64 timestamp) internal view virtual returns (uint256) {
+        return _vestingSchedule(IERC20(_token).balanceOf(address(this)) + released(), timestamp);
     }
 
     /**
@@ -185,10 +161,7 @@ contract PartnerVesting is
      * @param timestamp The timestamp to calculate vested amount for
      * @return The amount of tokens vested at the specified timestamp
      */
-    function _vestingSchedule(
-        uint256 totalAllocation,
-        uint64 timestamp
-    ) internal view virtual returns (uint256) {
+    function _vestingSchedule(uint256 totalAllocation, uint64 timestamp) internal view virtual returns (uint256) {
         if (timestamp < start()) {
             return 0;
         } else if (timestamp >= end()) {
