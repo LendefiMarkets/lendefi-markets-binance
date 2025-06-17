@@ -465,7 +465,7 @@ contract GovernanceTokenV2 is
         uint256 allowedSupply = initialSupply * activeChains;
         uint256 newSupply = totalSupply() + amount;
         if (newSupply > allowedSupply) {
-            revert MaxSupplyExceeded(allowedSupply, newSupply);
+            revert MaxSupplyExceeded(newSupply, allowedSupply);
         }
 
         // Mint tokens
@@ -496,6 +496,12 @@ contract GovernanceTokenV2 is
         super.burnFrom(account, amount);
     }
 
+    // The following functions are overrides required by Solidity.
+    /// @inheritdoc ERC20PermitUpgradeable
+    function nonces(address owner) public view override(ERC20PermitUpgradeable, NoncesUpgradeable) returns (uint256) {
+        return super.nonces(owner);
+    }
+
     /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId)
         public
@@ -507,12 +513,6 @@ contract GovernanceTokenV2 is
         return interfaceId == type(IERC20).interfaceId || interfaceId == type(IBurnMintERC20).interfaceId
             || interfaceId == type(IERC165).interfaceId || interfaceId == type(IAccessControl).interfaceId
             || interfaceId == type(IGetCCIPAdmin).interfaceId;
-    }
-
-    // The following functions are overrides required by Solidity.
-    /// @inheritdoc ERC20PermitUpgradeable
-    function nonces(address owner) public view override(ERC20PermitUpgradeable, NoncesUpgradeable) returns (uint256) {
-        return super.nonces(owner);
     }
 
     /// @inheritdoc ERC20Upgradeable
