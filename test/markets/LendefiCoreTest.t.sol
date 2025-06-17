@@ -16,7 +16,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 contract LendefiCoreTest is BasicDeploy {
     // Events
     event ProtocolConfigUpdated(ILendefiMarketVault.ProtocolConfig config);
-    
+
     // Test tokens and oracles
     MockRWA public rwaToken;
     RWAPriceConsumerV3 public rwaOracle;
@@ -232,7 +232,8 @@ contract LendefiCoreTest is BasicDeploy {
         vm.prank(address(timelockInstance));
         marketCoreInstance.setLiquidatorThreshold(50_000 ether);
 
-        ILendefiMarketVault.ProtocolConfig memory loadedConfig = ILendefiMarketVault(address(marketVaultInstance)).protocolConfig();
+        ILendefiMarketVault.ProtocolConfig memory loadedConfig =
+            ILendefiMarketVault(address(marketVaultInstance)).protocolConfig();
         assertEq(loadedConfig.profitTargetRate, newConfig.profitTargetRate);
         assertEq(loadedConfig.borrowRate, newConfig.borrowRate);
         assertEq(marketCoreInstance.liquidatorThreshold(), 50_000 ether);
@@ -254,12 +255,15 @@ contract LendefiCoreTest is BasicDeploy {
     }
 
     function test_Revert_LoadProtocolConfig_Unauthorized() public {
-        ILendefiMarketVault.ProtocolConfig memory config = ILendefiMarketVault(address(marketVaultInstance)).protocolConfig();
+        ILendefiMarketVault.ProtocolConfig memory config =
+            ILendefiMarketVault(address(marketVaultInstance)).protocolConfig();
 
         vm.prank(alice);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, alice, 0x0000000000000000000000000000000000000000000000000000000000000000
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                alice,
+                0x0000000000000000000000000000000000000000000000000000000000000000
             )
         );
         marketVaultInstance.loadProtocolConfig(config);
@@ -950,7 +954,8 @@ contract LendefiCoreTest is BasicDeploy {
     // ============ Protocol Config Tests ============
 
     function test_getProtocolConfig() public {
-        ILendefiMarketVault.ProtocolConfig memory config = ILendefiMarketVault(address(marketVaultInstance)).protocolConfig();
+        ILendefiMarketVault.ProtocolConfig memory config =
+            ILendefiMarketVault(address(marketVaultInstance)).protocolConfig();
 
         // Check that we get a valid config
         assertTrue(config.profitTargetRate > 0);
@@ -961,10 +966,11 @@ contract LendefiCoreTest is BasicDeploy {
     function test_marketOwnerCanUpdateParameters() public {
         // Test that market owner can update borrow rate and flash loan fee
         vm.prank(charlie); // charlie is the market owner in BasicDeploy
-        marketVaultInstance.updateMarketParameters(0.10e6, 15); // 10% borrow rate, 15 bps flash fee
+        marketVaultInstance.updateMarketParameters(0.1e6, 15); // 10% borrow rate, 15 bps flash fee
 
-        ILendefiMarketVault.ProtocolConfig memory config = ILendefiMarketVault(address(marketVaultInstance)).protocolConfig();
-        assertEq(config.borrowRate, 0.10e6);
+        ILendefiMarketVault.ProtocolConfig memory config =
+            ILendefiMarketVault(address(marketVaultInstance)).protocolConfig();
+        assertEq(config.borrowRate, 0.1e6);
         assertEq(config.flashLoanFee, 15);
     }
 
