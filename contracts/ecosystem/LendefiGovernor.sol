@@ -10,11 +10,20 @@ pragma solidity 0.8.23;
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {GovernorUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/GovernorUpgradeable.sol";
-import {GovernorSettingsUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorSettingsUpgradeable.sol";
-import {GovernorCountingSimpleUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorCountingSimpleUpgradeable.sol";
-import {GovernorVotesUpgradeable, IVotes} from "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesUpgradeable.sol";
-import {GovernorVotesQuorumFractionUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesQuorumFractionUpgradeable.sol";
-import {GovernorTimelockControlUpgradeable, TimelockControllerUpgradeable} from "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorTimelockControlUpgradeable.sol";
+import {GovernorSettingsUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorSettingsUpgradeable.sol";
+import {GovernorCountingSimpleUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorCountingSimpleUpgradeable.sol";
+import {
+    GovernorVotesUpgradeable,
+    IVotes
+} from "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesUpgradeable.sol";
+import {GovernorVotesQuorumFractionUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorVotesQuorumFractionUpgradeable.sol";
+import {
+    GovernorTimelockControlUpgradeable,
+    TimelockControllerUpgradeable
+} from "@openzeppelin/contracts-upgradeable/governance/extensions/GovernorTimelockControlUpgradeable.sol";
 
 /// @custom:oz-upgrades
 contract LendefiGovernor is
@@ -109,10 +118,7 @@ contract LendefiGovernor is
      * @param effectiveTime The timestamp when the upgrade can be executed
      */
     event UpgradeScheduled(
-        address indexed scheduler,
-        address indexed implementation,
-        uint64 scheduledTime,
-        uint64 effectiveTime
+        address indexed scheduler, address indexed implementation, uint64 scheduledTime, uint64 effectiveTime
     );
 
     /**
@@ -120,10 +126,7 @@ contract LendefiGovernor is
      * @param canceller The address that cancelled the upgrade
      * @param implementation The implementation address that was cancelled
      */
-    event UpgradeCancelled(
-        address indexed canceller,
-        address indexed implementation
-    );
+    event UpgradeCancelled(address indexed canceller, address indexed implementation);
 
     /**
      * @notice Error thrown when a zero address is provided
@@ -159,25 +162,16 @@ contract LendefiGovernor is
      * @param _timelock timelock instance
      * @param _gnosisSafe multisig address for emergency functions and upgrades
      */
-    function initialize(
-        IVotes _token,
-        TimelockControllerUpgradeable _timelock,
-        address _gnosisSafe
-    ) external initializer {
-        if (
-            _gnosisSafe == address(0) ||
-            address(_timelock) == address(0) ||
-            address(_token) == address(0)
-        ) {
+    function initialize(IVotes _token, TimelockControllerUpgradeable _timelock, address _gnosisSafe)
+        external
+        initializer
+    {
+        if (_gnosisSafe == address(0) || address(_timelock) == address(0) || address(_token) == address(0)) {
             revert ZeroAddress();
         }
 
         __Governor_init("Lendefi Governor");
-        __GovernorSettings_init(
-            DEFAULT_VOTING_DELAY,
-            DEFAULT_VOTING_PERIOD,
-            DEFAULT_PROPOSAL_THRESHOLD
-        );
+        __GovernorSettings_init(DEFAULT_VOTING_DELAY, DEFAULT_VOTING_PERIOD, DEFAULT_PROPOSAL_THRESHOLD);
         __GovernorCountingSimple_init();
         __GovernorVotes_init(_token);
         __GovernorVotesQuorumFraction_init(1);
@@ -198,26 +192,15 @@ contract LendefiGovernor is
      * @dev Can only be called by addresses with UPGRADER_ROLE
      * @param newImplementation Address of the new implementation contract
      */
-    function scheduleUpgrade(
-        address newImplementation
-    ) external onlyRole(UPGRADER_ROLE) {
+    function scheduleUpgrade(address newImplementation) external onlyRole(UPGRADER_ROLE) {
         if (newImplementation == address(0)) revert ZeroAddress();
 
         uint64 currentTime = uint64(block.timestamp);
         uint64 effectiveTime = currentTime + uint64(UPGRADE_TIMELOCK_DURATION);
 
-        pendingUpgrade = UpgradeRequest({
-            implementation: newImplementation,
-            scheduledTime: currentTime,
-            exists: true
-        });
+        pendingUpgrade = UpgradeRequest({implementation: newImplementation, scheduledTime: currentTime, exists: true});
 
-        emit UpgradeScheduled(
-            msg.sender,
-            newImplementation,
-            currentTime,
-            effectiveTime
-        );
+        emit UpgradeScheduled(msg.sender, newImplementation, currentTime, effectiveTime);
     }
 
     /**
@@ -238,22 +221,15 @@ contract LendefiGovernor is
      * @return timeRemaining The time remaining in seconds, or 0 if no upgrade is scheduled or timelock has passed
      */
     function upgradeTimelockRemaining() external view returns (uint256) {
-        return
-            pendingUpgrade.exists &&
-                block.timestamp <
-                pendingUpgrade.scheduledTime + UPGRADE_TIMELOCK_DURATION
-                ? pendingUpgrade.scheduledTime +
-                    UPGRADE_TIMELOCK_DURATION -
-                    block.timestamp
-                : 0;
+        return pendingUpgrade.exists && block.timestamp < pendingUpgrade.scheduledTime + UPGRADE_TIMELOCK_DURATION
+            ? pendingUpgrade.scheduledTime + UPGRADE_TIMELOCK_DURATION - block.timestamp
+            : 0;
     }
 
     // The following functions are overrides required by Solidity.
 
     /// @inheritdoc GovernorUpgradeable
-    function supportsInterface(
-        bytes4 interfaceId
-    )
+    function supportsInterface(bytes4 interfaceId)
         public
         view
         override(GovernorUpgradeable, AccessControlUpgradeable)
@@ -263,29 +239,17 @@ contract LendefiGovernor is
     }
 
     /// @inheritdoc GovernorUpgradeable
-    function votingDelay()
-        public
-        view
-        override(GovernorUpgradeable, GovernorSettingsUpgradeable)
-        returns (uint256)
-    {
+    function votingDelay() public view override(GovernorUpgradeable, GovernorSettingsUpgradeable) returns (uint256) {
         return super.votingDelay();
     }
 
     /// @inheritdoc GovernorUpgradeable
-    function votingPeriod()
-        public
-        view
-        override(GovernorUpgradeable, GovernorSettingsUpgradeable)
-        returns (uint256)
-    {
+    function votingPeriod() public view override(GovernorUpgradeable, GovernorSettingsUpgradeable) returns (uint256) {
         return super.votingPeriod();
     }
 
     /// @inheritdoc GovernorUpgradeable
-    function quorum(
-        uint256 blockNumber
-    )
+    function quorum(uint256 blockNumber)
         public
         view
         override(GovernorUpgradeable, GovernorVotesQuorumFractionUpgradeable)
@@ -295,9 +259,7 @@ contract LendefiGovernor is
     }
 
     /// @inheritdoc GovernorUpgradeable
-    function state(
-        uint256 proposalId
-    )
+    function state(uint256 proposalId)
         public
         view
         override(GovernorUpgradeable, GovernorTimelockControlUpgradeable)
@@ -307,9 +269,7 @@ contract LendefiGovernor is
     }
 
     /// @inheritdoc GovernorUpgradeable
-    function proposalNeedsQueuing(
-        uint256 proposalId
-    )
+    function proposalNeedsQueuing(uint256 proposalId)
         public
         view
         override(GovernorUpgradeable, GovernorTimelockControlUpgradeable)
@@ -335,19 +295,8 @@ contract LendefiGovernor is
         uint256[] memory values,
         bytes[] memory calldatas,
         bytes32 descriptionHash
-    )
-        internal
-        override(GovernorUpgradeable, GovernorTimelockControlUpgradeable)
-        returns (uint48)
-    {
-        return
-            super._queueOperations(
-                proposalId,
-                targets,
-                values,
-                calldatas,
-                descriptionHash
-            );
+    ) internal override(GovernorUpgradeable, GovernorTimelockControlUpgradeable) returns (uint48) {
+        return super._queueOperations(proposalId, targets, values, calldatas, descriptionHash);
     }
 
     /// @inheritdoc GovernorUpgradeable
@@ -357,17 +306,8 @@ contract LendefiGovernor is
         uint256[] memory values,
         bytes[] memory calldatas,
         bytes32 descriptionHash
-    )
-        internal
-        override(GovernorUpgradeable, GovernorTimelockControlUpgradeable)
-    {
-        super._executeOperations(
-            proposalId,
-            targets,
-            values,
-            calldatas,
-            descriptionHash
-        );
+    ) internal override(GovernorUpgradeable, GovernorTimelockControlUpgradeable) {
+        super._executeOperations(proposalId, targets, values, calldatas, descriptionHash);
     }
 
     /// @inheritdoc GovernorUpgradeable
@@ -376,34 +316,23 @@ contract LendefiGovernor is
         uint256[] memory values,
         bytes[] memory calldatas,
         bytes32 descriptionHash
-    )
-        internal
-        override(GovernorUpgradeable, GovernorTimelockControlUpgradeable)
-        returns (uint256)
-    {
+    ) internal override(GovernorUpgradeable, GovernorTimelockControlUpgradeable) returns (uint256) {
         return super._cancel(targets, values, calldatas, descriptionHash);
     }
 
     /// @inheritdoc UUPSUpgradeable
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal override onlyRole(UPGRADER_ROLE) {
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) {
         if (!pendingUpgrade.exists) {
             revert UpgradeNotScheduled();
         }
 
         if (pendingUpgrade.implementation != newImplementation) {
-            revert ImplementationMismatch(
-                pendingUpgrade.implementation,
-                newImplementation
-            );
+            revert ImplementationMismatch(pendingUpgrade.implementation, newImplementation);
         }
 
         uint256 timeElapsed = block.timestamp - pendingUpgrade.scheduledTime;
         if (timeElapsed < UPGRADE_TIMELOCK_DURATION) {
-            revert UpgradeTimelockActive(
-                UPGRADE_TIMELOCK_DURATION - timeElapsed
-            );
+            revert UpgradeTimelockActive(UPGRADE_TIMELOCK_DURATION - timeElapsed);
         }
 
         // Clear the scheduled upgrade
