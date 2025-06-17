@@ -13,13 +13,13 @@ library LendefiConstants {
 
     /// @notice Address of the PancakeSwap V3 USDT/WBNB pool with 0.01% fee tier (higher liquidity than USDC)
     address internal constant USDT_WBNB_POOL = 0x36696169C63e42cd08ce11f5deeBbCeBae652050;
-    
+
     /// @notice USDT address on BSC (18 decimals)
     address internal constant USDT_BSC = 0x55d398326f99059fF775485246999027B3197955;
-    
+
     /// @notice USDC address on BSC (18 decimals)
     address internal constant USDC_BSC = 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d;
-    
+
     /// @notice WBNB address on BSC (18 decimals)
     address internal constant WBNB_BSC = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
 
@@ -49,4 +49,7 @@ library LendefiConstants {
 
     /// @notice Max assets supported by platform
     uint32 internal constant MAX_ASSETS = 3000;
+
+    /// @notice BSC (Binance Smart Chain) chain ID
+    uint256 internal constant BSC_CHAIN_ID = 56;
 }
