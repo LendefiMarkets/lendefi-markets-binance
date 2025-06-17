@@ -496,6 +496,12 @@ contract GovernanceToken is
         super.burnFrom(account, amount);
     }
 
+    // The following functions are overrides required by Solidity.
+    /// @inheritdoc ERC20PermitUpgradeable
+    function nonces(address owner) public view override(ERC20PermitUpgradeable, NoncesUpgradeable) returns (uint256) {
+        return super.nonces(owner);
+    }
+
     /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId)
         public
@@ -507,12 +513,6 @@ contract GovernanceToken is
         return interfaceId == type(IERC20).interfaceId || interfaceId == type(IBurnMintERC20).interfaceId
             || interfaceId == type(IERC165).interfaceId || interfaceId == type(IAccessControl).interfaceId
             || interfaceId == type(IGetCCIPAdmin).interfaceId;
-    }
-
-    // The following functions are overrides required by Solidity.
-    /// @inheritdoc ERC20PermitUpgradeable
-    function nonces(address owner) public view override(ERC20PermitUpgradeable, NoncesUpgradeable) returns (uint256) {
-        return super.nonces(owner);
     }
 
     /// @inheritdoc ERC20Upgradeable
