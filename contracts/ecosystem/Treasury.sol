@@ -143,12 +143,12 @@ contract Treasury is
      * @param startOffset The number of seconds the start time is before the current block timestamp
      * @param vestingDuration The duration of vesting in seconds (must be at least 730 days)
      */
-    function initialize(
-        address timelock,
-        address multisig,
-        uint256 startOffset,
-        uint256 vestingDuration
-    ) external initializer nonZeroAddress(timelock) nonZeroAddress(multisig) {
+    function initialize(address timelock, address multisig, uint256 startOffset, uint256 vestingDuration)
+        external
+        initializer
+        nonZeroAddress(timelock)
+        nonZeroAddress(multisig)
+    {
         if (vestingDuration < 730 days) revert InvalidDuration(730 days);
 
         // Initialize inherited contracts
@@ -197,10 +197,7 @@ contract Treasury is
      * @param to The address that will receive the ETH
      * @param amount The amount of ETH to release
      */
-    function release(
-        address to,
-        uint256 amount
-    )
+    function release(address to, uint256 amount)
         external
         override
         nonReentrant
@@ -226,11 +223,7 @@ contract Treasury is
      * @param to The address that will receive the tokens
      * @param amount The amount of tokens to release
      */
-    function release(
-        address token,
-        address to,
-        uint256 amount
-    )
+    function release(address token, address to, uint256 amount)
         external
         override
         nonReentrant
@@ -255,10 +248,12 @@ contract Treasury is
      * @param newStart The new start timestamp
      * @param newDuration The new duration in seconds
      */
-    function updateVestingSchedule(
-        uint256 newStart,
-        uint256 newDuration
-    ) external override nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
+    function updateVestingSchedule(uint256 newStart, uint256 newDuration)
+        external
+        override
+        nonReentrant
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
         if (newDuration == 0) revert InvalidDuration(0);
 
         _start = newStart;
@@ -274,9 +269,7 @@ contract Treasury is
      * @custom:throws ZeroAddress if token address is zero
      * @custom:throws ZeroBalanceError if contract has no token balance
      */
-    function emergencyWithdrawToken(
-        address token
-    ) external nonReentrant onlyRole(MANAGER_ROLE) nonZeroAddress(token) {
+    function emergencyWithdrawToken(address token) external nonReentrant onlyRole(MANAGER_ROLE) nonZeroAddress(token) {
         uint256 balance = IERC20(token).balanceOf(address(this));
         if (balance == 0) revert ZeroBalance();
 
@@ -289,46 +282,27 @@ contract Treasury is
      * @notice Only callable by addresses with MANAGER_ROLE
      * @custom:throws ZeroBalanceError if contract has no ETH balance
      */
-    function emergencyWithdrawEther()
-        external
-        nonReentrant
-        onlyRole(MANAGER_ROLE)
-    {
+    function emergencyWithdrawEther() external nonReentrant onlyRole(MANAGER_ROLE) {
         uint256 balance = address(this).balance;
         if (balance == 0) revert ZeroBalance();
 
         payable(_timelockAddress).sendValue(balance);
-        emit EmergencyWithdrawal(
-            0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE,
-            _timelockAddress,
-            balance
-        );
+        emit EmergencyWithdrawal(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE, _timelockAddress, balance);
     }
 
     /**
      * @dev Schedules an upgrade to a new implementation
      * @param newImplementation Address of the new implementation
      */
-    function scheduleUpgrade(
-        address newImplementation
-    ) external onlyRole(UPGRADER_ROLE) {
+    function scheduleUpgrade(address newImplementation) external onlyRole(UPGRADER_ROLE) {
         if (newImplementation == address(0)) revert ZeroAddress();
 
         uint64 currentTime = uint64(block.timestamp);
         uint64 effectiveTime = currentTime + uint64(UPGRADE_TIMELOCK_DURATION);
 
-        pendingUpgrade = UpgradeRequest({
-            implementation: newImplementation,
-            scheduledTime: currentTime,
-            exists: true
-        });
+        pendingUpgrade = UpgradeRequest({implementation: newImplementation, scheduledTime: currentTime, exists: true});
 
-        emit UpgradeScheduled(
-            msg.sender,
-            newImplementation,
-            currentTime,
-            effectiveTime
-        );
+        emit UpgradeScheduled(msg.sender, newImplementation, currentTime, effectiveTime);
     }
 
     /**
@@ -349,14 +323,9 @@ contract Treasury is
      * @return timeRemaining The time remaining in seconds, or 0 if no upgrade is scheduled or timelock has passed
      */
     function upgradeTimelockRemaining() external view returns (uint256) {
-        return
-            pendingUpgrade.exists &&
-                block.timestamp <
-                pendingUpgrade.scheduledTime + UPGRADE_TIMELOCK_DURATION
-                ? pendingUpgrade.scheduledTime +
-                    UPGRADE_TIMELOCK_DURATION -
-                    block.timestamp
-                : 0;
+        return pendingUpgrade.exists && block.timestamp < pendingUpgrade.scheduledTime + UPGRADE_TIMELOCK_DURATION
+            ? pendingUpgrade.scheduledTime + UPGRADE_TIMELOCK_DURATION - block.timestamp
+            : 0;
     }
 
     /**
@@ -382,12 +351,8 @@ contract Treasury is
      * @param token The ERC20 token to check
      * @return Amount of releasable tokens
      */
-    function releasable(
-        address token
-    ) public view virtual override returns (uint256) {
-        return
-            vestedAmount(token, uint256(block.timestamp)) -
-            _erc20Released[token];
+    function releasable(address token) public view virtual override returns (uint256) {
+        return vestedAmount(token, uint256(block.timestamp)) - _erc20Released[token];
     }
 
     /**
@@ -395,9 +360,7 @@ contract Treasury is
      * @param timestamp The timestamp to check
      * @return The vested amount of ETH
      */
-    function vestedAmount(
-        uint256 timestamp
-    ) public view virtual override returns (uint256) {
+    function vestedAmount(uint256 timestamp) public view virtual override returns (uint256) {
         return _vestingSchedule(address(this).balance + _released, timestamp);
     }
 
@@ -407,12 +370,8 @@ contract Treasury is
      * @param timestamp The timestamp to check
      * @return The vested amount of tokens
      */
-    function vestedAmount(
-        address token,
-        uint256 timestamp
-    ) public view virtual override returns (uint256) {
-        uint256 totalAllocation = IERC20(token).balanceOf(address(this)) +
-            _erc20Released[token];
+    function vestedAmount(address token, uint256 timestamp) public view virtual override returns (uint256) {
+        uint256 totalAllocation = IERC20(token).balanceOf(address(this)) + _erc20Released[token];
         return _vestingSchedule(totalAllocation, timestamp);
     }
 
@@ -461,9 +420,7 @@ contract Treasury is
      * @param token The ERC20 token to check
      * @return Amount of tokens released so far
      */
-    function released(
-        address token
-    ) public view virtual override returns (uint256) {
+    function released(address token) public view virtual override returns (uint256) {
         return _erc20Released[token];
     }
 
@@ -473,25 +430,18 @@ contract Treasury is
      * @dev Internal override for UUPS upgrade authorization
      * @param newImplementation Address of the new implementation contract
      */
-    function _authorizeUpgrade(
-        address newImplementation
-    ) internal override onlyRole(UPGRADER_ROLE) {
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) {
         if (!pendingUpgrade.exists) {
             revert UpgradeNotScheduled();
         }
 
         if (pendingUpgrade.implementation != newImplementation) {
-            revert ImplementationMismatch(
-                pendingUpgrade.implementation,
-                newImplementation
-            );
+            revert ImplementationMismatch(pendingUpgrade.implementation, newImplementation);
         }
 
         uint256 timeElapsed = block.timestamp - pendingUpgrade.scheduledTime;
         if (timeElapsed < UPGRADE_TIMELOCK_DURATION) {
-            revert UpgradeTimelockActive(
-                UPGRADE_TIMELOCK_DURATION - timeElapsed
-            );
+            revert UpgradeTimelockActive(UPGRADE_TIMELOCK_DURATION - timeElapsed);
         }
 
         // Clear the scheduled upgrade
@@ -511,10 +461,7 @@ contract Treasury is
      * @param timestamp The timestamp to check
      * @return The amount vested at the specified timestamp
      */
-    function _vestingSchedule(
-        uint256 totalAllocation,
-        uint256 timestamp
-    ) internal view virtual returns (uint256) {
+    function _vestingSchedule(uint256 totalAllocation, uint256 timestamp) internal view virtual returns (uint256) {
         if (timestamp < _start) {
             return 0;
         } else if (timestamp >= _start + _duration) {
