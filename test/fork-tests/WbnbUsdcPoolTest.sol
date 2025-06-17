@@ -83,18 +83,26 @@ contract WbnbUsdcPoolTest is Test {
 
                 if (hasWBNB && hasUSDC) {
                     console2.log("--- Direct USD pool: WBNB/USDC ---");
-                    
+
                     // Test both isToken0 values to see which gives correct price
-                    uint256 wbnbPriceAsToken0 = UniswapTickMath.getRawPrice(IUniswapV3Pool(WBNB_USDC_POOL), true, 1e6, periods[i]);
-                    uint256 wbnbPriceAsToken1 = UniswapTickMath.getRawPrice(IUniswapV3Pool(WBNB_USDC_POOL), false, 1e6, periods[i]);
-                    
+                    uint256 wbnbPriceAsToken0 =
+                        UniswapTickMath.getRawPrice(IUniswapV3Pool(WBNB_USDC_POOL), true, 1e6, periods[i]);
+                    uint256 wbnbPriceAsToken1 =
+                        UniswapTickMath.getRawPrice(IUniswapV3Pool(WBNB_USDC_POOL), false, 1e6, periods[i]);
+
                     console2.log("WBNB price treating WBNB as token0:", wbnbPriceAsToken0);
                     console2.log("WBNB price treating WBNB as token1:", wbnbPriceAsToken1);
-                    console2.log("Using isToken0=", wbnbIsToken0, "gives price:", wbnbIsToken0 ? wbnbPriceAsToken0 : wbnbPriceAsToken1);
-                    
+                    console2.log(
+                        "Using isToken0=",
+                        wbnbIsToken0,
+                        "gives price:",
+                        wbnbIsToken0 ? wbnbPriceAsToken0 : wbnbPriceAsToken1
+                    );
+
                     // Compare with USDT pool for reference
                     console2.log("--- Comparison with USDT pool ---");
-                    uint256 wbnbPriceInUSDT = UniswapTickMath.getRawPrice(IUniswapV3Pool(WBNB_USDT_POOL), false, 1e6, periods[i]);
+                    uint256 wbnbPriceInUSDT =
+                        UniswapTickMath.getRawPrice(IUniswapV3Pool(WBNB_USDT_POOL), false, 1e6, periods[i]);
                     console2.log("WBNB price in USD (from USDT pool):", wbnbPriceInUSDT);
                 } else {
                     console2.log("ERROR: Pool doesn't contain both WBNB and USDC as expected");
