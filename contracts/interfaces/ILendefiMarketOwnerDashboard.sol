@@ -189,39 +189,6 @@ interface ILendefiMarketOwnerDashboard {
     function getOwnerPortfolioStats(address owner) external view returns (OwnerPortfolioStats memory);
 
     /**
-     * @notice Gets detailed information about all borrowers across owner's markets
-     * @param owner Address of the market owner
-     * @return Array of BorrowerInfo for all borrowers in owner's markets
-     */
-    function getOwnerBorrowers(address owner) external view returns (BorrowerInfo[] memory);
-
-    /**
-     * @notice Gets detailed information about all liquidity providers across owner's markets
-     * @param owner Address of the market owner
-     * @return Array of LiquidityProviderInfo for all LPs in owner's markets
-     */
-    function getOwnerLiquidityProviders(address owner) external view returns (LiquidityProviderInfo[] memory);
-
-    /**
-     * @notice Gets borrowers for a specific market owned by the owner
-     * @param owner Address of the market owner
-     * @param baseAsset Address of the base asset
-     * @return Array of BorrowerInfo for borrowers in the specific market
-     */
-    function getMarketBorrowers(address owner, address baseAsset) external view returns (BorrowerInfo[] memory);
-
-    /**
-     * @notice Gets liquidity providers for a specific market owned by the owner
-     * @param owner Address of the market owner
-     * @param baseAsset Address of the base asset
-     * @return Array of LiquidityProviderInfo for LPs in the specific market
-     */
-    function getMarketLiquidityProviders(address owner, address baseAsset)
-        external
-        view
-        returns (LiquidityProviderInfo[] memory);
-
-    /**
      * @notice Gets performance analytics for a specific market
      * @param owner Address of the market owner
      * @param baseAsset Address of the base asset
@@ -238,32 +205,6 @@ interface ILendefiMarketOwnerDashboard {
      * @return Array of MarketPerformanceAnalytics for all owner's markets
      */
     function getOwnerMarketAnalytics(address owner) external view returns (MarketPerformanceAnalytics[] memory);
-
-    /**
-     * @notice Gets top borrowers by debt amount across owner's markets
-     * @param owner Address of the market owner
-     * @param limit Maximum number of borrowers to return
-     * @return Array of BorrowerInfo sorted by total debt (descending)
-     */
-    function getTopBorrowersByDebt(address owner, uint256 limit) external view returns (BorrowerInfo[] memory);
-
-    /**
-     * @notice Gets top liquidity providers by LP value across owner's markets
-     * @param owner Address of the market owner
-     * @param limit Maximum number of providers to return
-     * @return Array of LiquidityProviderInfo sorted by LP value (descending)
-     */
-    function getTopLiquidityProviders(address owner, uint256 limit)
-        external
-        view
-        returns (LiquidityProviderInfo[] memory);
-
-    /**
-     * @notice Gets borrowers at risk of liquidation across owner's markets
-     * @param owner Address of the market owner
-     * @return Array of BorrowerInfo for borrowers with high liquidation risk
-     */
-    function getAtRiskBorrowers(address owner) external view returns (BorrowerInfo[] memory);
 
     // ========== IMMUTABLE GETTERS ==========
 
