@@ -142,18 +142,18 @@ interface ILendefiMarketFactory {
      * @param _govToken Address of the protocol governance token
      * @param _multisig Address of the multisig wallet
      * @param _ecosystem Address of the ecosystem contract for rewards
-     * @param _networkUSDT Network-specific USDT address for oracle validation
-     * @param _networkWBNB Network-specific WBNB address for oracle validation
-     * @param _UsdtWbnbPool Network-specific USDT/WBNB pool for price reference
+     * @param _networkUSDC Network-specific USDC address for oracle validation
+     * @param _networkWETH Network-specific WETH address for oracle validation
+     * @param _UsdcWethPool Network-specific USDC/WETH pool for price reference
      */
     function initialize(
         address _timelock,
         address _govToken,
         address _multisig,
         address _ecosystem,
-        address _networkUSDT,
-        address _networkWBNB,
-        address _UsdtWbnbPool
+        address _networkUSDC,
+        address _networkWETH,
+        address _UsdcWethPool
     ) external;
 
     // ========== ADMIN FUNCTIONS ==========
@@ -339,11 +339,10 @@ interface ILendefiMarketFactory {
     function pendingUpgrade() external view returns (address implementation, uint64 scheduledTime, bool exists);
 
     /**
-     * @notice Returns all market owner addresses
-     * @param index The index to query
-     * @return The market owner address at the given index
+     * @notice Returns all market owners as an array
+     * @return Array of all market owner addresses
      */
-    function allMarketOwners(uint256 index) external view returns (address);
+    function getAllMarketOwners() external view returns (address[] memory);
 
     /**
      * @notice Checks if a base asset is allowed for market creation

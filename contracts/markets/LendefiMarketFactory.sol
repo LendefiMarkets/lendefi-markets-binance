@@ -44,6 +44,9 @@ contract LendefiMarketFactory is ILendefiMarketFactory, Initializable, AccessCon
 
     /**
      * @notice Information about a scheduled contract upgrade
+     */
+    /**
+     * @notice Struct to track pending upgrade requests
      * @param implementation Address of the new implementation contract
      * @param scheduledTime Timestamp when the upgrade was scheduled
      * @param exists Whether an upgrade request exists
@@ -95,6 +98,15 @@ contract LendefiMarketFactory is ILendefiMarketFactory, Initializable, AccessCon
     /// @dev Handles governance token rewards for liquidity providers
     address public ecosystem;
 
+    /// @notice Network-specific USDC address
+    address public networkUSDC;
+
+    /// @notice Network-specific WETH address
+    address public networkWETH;
+
+    /// @notice Uniswap pool address for USDC/WETH
+    address public usdcWethPool;
+
     /// @notice Set of approved base assets that can be used for market creation
     /// @dev Only assets in this allowlist can be used to create new markets
     /// @dev Ensures only tested and verified assets are supported by the protocol
@@ -108,29 +120,20 @@ contract LendefiMarketFactory is ILendefiMarketFactory, Initializable, AccessCon
     /// @dev Key: market owner address, Value: EnumerableSet of base asset addresses they've created markets for
     mapping(address => EnumerableSet.AddressSet) internal ownerBaseAssets;
 
-    /// @notice Array of all market owners who have created markets
-    /// @dev Used for enumeration and iteration over all market owners
-    address[] public allMarketOwners;
+    /// @notice Set of all market owners who have created markets
+    /// @dev Used for enumeration and iteration over all market owners with guaranteed uniqueness
+    EnumerableSet.AddressSet internal allMarketOwners;
 
     /// @notice Array of all market configurations created by this factory
     /// @dev Provides direct access to all market data across all owners
     IPROTOCOL.Market[] internal allMarkets;
-
-    /// @notice Network-specific addresses for oracle validation
-    /// @dev Set during initialization to support different networks
-    /// @notice Network-specific USDT address for BSC
-    address public networkUSDT;
-    /// @notice Network-specific WBNB address for BSC
-    address public networkWBNB;
-    /// @notice USDT/WBNB pool address for BSC price validation
-    address public usdtWbnbPool;
 
     /// @dev Pending upgrade information
     UpgradeRequest public pendingUpgrade;
 
     /// @notice Storage gap for future upgrades
     /// @dev Storage gap reduced to account for new variables
-    uint256[14] private __gap;
+    uint256[13] private __gap;
 
     // ========== MODIFIERS ==========
 
@@ -158,9 +161,9 @@ contract LendefiMarketFactory is ILendefiMarketFactory, Initializable, AccessCon
      * @param _govToken Address of the protocol governance token
      * @param _multisig Address of the Proof of Reserves feed implementation
      * @param _ecosystem Address of the ecosystem contract for rewards
-     * @param _networkUSDT Network-specific USDC address for oracle validation
-     * @param _networkWBNB Network-specific WBNB address for oracle validation
-     * @param _usdtWbnbPool Network-specific USDC/WBNB pool for price reference
+     * @param _networkUSDC Network-specific USDC address for oracle validation
+     * @param _networkWETH Network-specific WETH address for oracle validation
+     * @param _usdcWethPool Network-specific USDC/WETH pool for price reference
      *
      * @custom:requirements
      *   - All address parameters must be non-zero
@@ -180,13 +183,13 @@ contract LendefiMarketFactory is ILendefiMarketFactory, Initializable, AccessCon
         address _govToken,
         address _multisig,
         address _ecosystem,
-        address _networkUSDT,
-        address _networkWBNB,
-        address _usdtWbnbPool
+        address _networkUSDC,
+        address _networkWETH,
+        address _usdcWethPool
     ) external initializer {
         if (
             _timelock == address(0) || _govToken == address(0) || _multisig == address(0) || _ecosystem == address(0)
-                || _networkUSDT == address(0) || _networkWBNB == address(0) || _usdtWbnbPool == address(0)
+                || _networkUSDC == address(0) || _networkWETH == address(0) || _usdcWethPool == address(0)
         ) {
             revert ZeroAddress();
         }
@@ -204,9 +207,9 @@ contract LendefiMarketFactory is ILendefiMarketFactory, Initializable, AccessCon
         ecosystem = _ecosystem;
 
         // Set network-specific addresses
-        networkUSDT = _networkUSDT;
-        networkWBNB = _networkWBNB;
-        usdtWbnbPool = _usdtWbnbPool;
+        networkUSDC = _networkUSDC;
+        networkWETH = _networkWETH;
+        usdcWethPool = _usdcWethPool;
 
         version = 1;
     }
@@ -548,29 +551,40 @@ contract LendefiMarketFactory is ILendefiMarketFactory, Initializable, AccessCon
 
     /**
      * @notice Returns the total number of market owners
-     * @dev Returns the length of the allMarketOwners array
+     * @dev Returns the length of the allMarketOwners set
      * @return Total number of unique market owners
      *
      * @custom:access-control Available to any caller (view function)
      */
     function getMarketOwnersCount() external view returns (uint256) {
-        return allMarketOwners.length;
+        return allMarketOwners.length();
     }
 
     /**
      * @notice Returns a market owner address by index
-     * @dev Retrieves an owner address from the allMarketOwners array
+     * @dev Retrieves an owner address from the allMarketOwners set
      * @param index The index of the owner to retrieve
      * @return Address of the market owner at the specified index
      *
      * @custom:requirements
-     *   - index must be less than allMarketOwners.length
+     *   - index must be less than allMarketOwners.length()
      *
      * @custom:access-control Available to any caller (view function)
      */
     function getMarketOwnerByIndex(uint256 index) external view returns (address) {
-        if (index >= allMarketOwners.length) revert InvalidIndex();
-        return allMarketOwners[index];
+        if (index >= allMarketOwners.length()) revert InvalidIndex();
+        return allMarketOwners.at(index);
+    }
+
+    /**
+     * @notice Returns all market owners as an array
+     * @dev Retrieves all unique market owner addresses
+     * @return Array of all market owner addresses
+     *
+     * @custom:access-control Available to any caller (view function)
+     */
+    function getAllMarketOwners() external view returns (address[] memory) {
+        return allMarketOwners.values();
     }
 
     /**
@@ -650,16 +664,16 @@ contract LendefiMarketFactory is ILendefiMarketFactory, Initializable, AccessCon
         );
         coreProxy = address(new TransparentUpgradeableProxy(core, timelock, initData));
 
-        // Deploy assets module as TransparentUpgradeableProxy
+        // Initialize assets module contract through proxy
         bytes memory assetsInitData = abi.encodeWithSelector(
             IASSETS.initialize.selector,
             timelock,
             msg.sender,
             porFeedImplementation,
             coreProxy,
-            networkUSDT,
-            networkWBNB,
-            usdtWbnbPool
+            networkUSDC,
+            networkWETH,
+            usdcWethPool
         );
         assetsModule = address(new TransparentUpgradeableProxy(assetsModule, timelock, assetsInitData));
 
@@ -727,13 +741,11 @@ contract LendefiMarketFactory is ILendefiMarketFactory, Initializable, AccessCon
         markets[marketOwner][baseAsset] = marketInfo;
 
         // Track base assets for this owner
-        bool isFirstAsset = ownerBaseAssets[marketOwner].length() == 0;
+        // This is guaranteed to succeed since we already verified the market doesn't exist
         ownerBaseAssets[marketOwner].add(baseAsset);
 
-        // Track unique market owners (only add if this is their first market)
-        if (isFirstAsset) {
-            allMarketOwners.push(marketOwner);
-        }
+        // Track unique market owners (returns false if already exists, which is fine)
+        allMarketOwners.add(marketOwner);
 
         // Add to global markets array
         allMarkets.push(marketInfo);
