@@ -2,10 +2,10 @@
   "name": "lendefi-markets",
   "private": true,
   "description": "Lendefi Markets Contracts",
-  "homepage": "https://github.com/nebula-labs-xyz/lendefi-markets#readme",
+  "homepage": "https://github.com/LendefiMarkets/lendefi-markets-binance#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nebula-labs-xyz/lendefi-markets-binance.git"
+    "url": "git+https://github.com/LendefiMarkets/lendefi-markets-binance.git"
   },
   "license": "BUSL-1.1",
   "author": "Nebula Holding Inc",
@@ -14,8 +14,9 @@
     "build:optimized": "FOUNDRY_PROFILE=optimized forge build",
     "coverage": "forge coverage --report lcov --ffi",
     "coverage:html": "genhtml lcov.info -o coverage-report ",
-    "deploy:mainnet": "bash -c 'source .env && forge script Deploy --broadcast --chain mainnet --private-key $MAINNET_DEPLOYER_PK'",
-    "deploy:sepolia": "bash -c 'source .env && forge script Deploy --broadcast --chain sepolia --private-key $SEPOLIA_DEPLOYER_PK'",
+    "deploy:bsc-mainnet": "bash -c 'source .env && forge script script/DeployLendefiDAO.s.sol:DeployLendefiDAO --broadcast --chain binance --rpc-url $BSC_RPC_URL --private-key $BSC_DEPLOYER_PK --verify --verifier etherscan --etherscan-api-key $BSCSCAN_API_KEY --ffi'",
+    "deploy:bsc-testnet": "bash -c 'source .env && forge script script/DeployLendefiDAO.s.sol:DeployLendefiDAO --broadcast --chain bsc-testnet --rpc-url $BSC_TESTNET_RPC_URL --private-key $BSC_TESTNET_DEPLOYER_PK --verify --verifier etherscan --etherscan-api-key $BSCSCAN_API_KEY --ffi'",
+    "deploy:markets": "bash script/deploy.sh",
     "lint:check": "npm run lint:sol-logic && forge fmt --check",
     "lint:fix": "sort-package-json && forge fmt && npm run lint:sol-tests --fix && npm run lint:sol-logic --fix",
     "lint:natspec": "npx @defi-wonderland/natspec-smells --config natspec.config.js",
