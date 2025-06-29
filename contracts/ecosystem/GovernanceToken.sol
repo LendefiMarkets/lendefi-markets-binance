@@ -258,20 +258,6 @@ contract GovernanceToken is
     }
 
     /**
-     * @dev Sets the bridge address with BRIDGE_ROLE
-     * @param bridgeAddress The address of the bridge contract
-     * @custom:requires-role MANAGER_ROLE
-     * @custom:throws ZeroAddress if bridgeAddress is zero
-     */
-    function setBridgeAddress(address bridgeAddress) external onlyRole(MANAGER_ROLE) {
-        if (bridgeAddress == address(0)) revert ZeroAddress();
-
-        _grantRole(BRIDGE_ROLE, bridgeAddress);
-
-        emit BridgeRoleAssigned(msg.sender, bridgeAddress);
-    }
-
-    /**
      * @dev Initializes the Token Generation Event (TGE).
      * @notice Sets up the initial token distribution between the ecosystem and treasury contracts.
      * @param ecosystem The address of the ecosystem contract.
@@ -397,7 +383,12 @@ contract GovernanceToken is
     /// @dev calls public functions so this function does not require
     /// access controls. This is handled in the inner functions.
     function grantMintAndBurnRoles(address burnAndMinter) external {
-        grantRole(BRIDGE_ROLE, burnAndMinter);
+        // grantRole(BRIDGE_ROLE, burnAndMinter);
+        if (burnAndMinter == address(0)) revert ZeroAddress();
+
+        _grantRole(BRIDGE_ROLE, burnAndMinter);
+
+        emit BridgeRoleAssigned(msg.sender, burnAndMinter);
     }
 
     /// @notice Transfers the CCIPAdmin role to a new address
