@@ -186,9 +186,7 @@ contract LendefiCoreTest is BasicDeploy {
         LendefiPositionVault vaultImpl = new LendefiPositionVault();
 
         vm.expectRevert(); // Expect revert for already initialized
-        marketCoreInstance.initialize(
-            address(timelockInstance), charlie, address(tokenInstance), address(vaultImpl)
-        );
+        marketCoreInstance.initialize(address(timelockInstance), charlie, address(tokenInstance), address(vaultImpl));
     }
 
     function test_Revert_InitializeWithZeroAddress() public {
