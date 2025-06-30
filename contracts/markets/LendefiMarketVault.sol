@@ -271,8 +271,8 @@ contract LendefiMarketVault is
      * @param baseAsset Address of the ERC20 token used as the base asset
      * @param _ecosystem Address of the ecosystem contract for reward distribution
      * @param _assetsModule Address of the assets module contract for asset management
-     * @param name Name for the ERC20 vault token (e.g., "Lendefi USDC Vault")
-     * @param symbol Symbol for the ERC20 vault token (e.g., "lendUSDC")
+     * @param _name Name for the ERC20 vault token (e.g., "Lendefi USDC Vault")
+     * @param _symbol Symbol for the ERC20 vault token (e.g., "lendUSDC")
      *
      * @custom:requirements
      *   - All address parameters must be non-zero
@@ -298,8 +298,8 @@ contract LendefiMarketVault is
         address baseAsset,
         address _ecosystem,
         address _assetsModule,
-        string memory name,
-        string memory symbol
+        string memory _name,
+        string memory _symbol
     ) external initializer {
         if (baseAsset == address(0)) revert ZeroAddress();
         if (_timelock == address(0)) revert ZeroAddress();
@@ -319,7 +319,7 @@ contract LendefiMarketVault is
         IPoRFeed(porFeed).initialize(baseAsset, address(this), _timelock);
 
         __ERC4626_init(IERC20(baseAsset));
-        __ERC20_init(name, symbol);
+        __ERC20_init(_name, _symbol);
         __AccessControl_init();
         __ReentrancyGuard_init();
         __Pausable_init();
@@ -965,12 +965,11 @@ contract LendefiMarketVault is
 
     /**
      * @notice Calculates the current utilization rate of the vault's liquidity
-     * @dev Utilization rate indicates how much of the supplied liquidity is currently
-     *      borrowed. It's calculated as (totalBorrow / totalSuppliedLiquidity) and
-     *      expressed in baseDecimals format (e.g., 0.5e6 = 50% utilization).
-     * @return u The protocol's current utilization rate scaled by baseDecimals
+     * @dev Utilization rate indicates what percentage of the supplied liquidity is currently
+     *      borrowed. Returned value is normalized to 1e6 (e.g., 0.5e6 = 50% utilization).
+     * @return u The protocol's current utilization rate normalized to 1e6
      *
-     * @custom:formula u = (baseDecimals × totalBorrow) ÷ totalSuppliedLiquidity
+     * @custom:formula u = (1e6 × totalBorrow) ÷ totalSuppliedLiquidity
      * @custom:gas-optimization Caches storage reads to minimize SLOAD operations
      * @custom:edge-cases Returns 0 when no liquidity supplied or no borrowing activity
      */
@@ -979,9 +978,11 @@ contract LendefiMarketVault is
         uint256 cachedSupply = totalSuppliedLiquidity;
         uint256 cachedBorrow = totalBorrow;
 
-        (cachedSupply == 0 || cachedBorrow == 0)
-            ? u = 0
-            : u = Math.mulDiv(baseDecimals, cachedBorrow, cachedSupply, Math.Rounding.Floor);
+        if (cachedSupply == 0 || cachedBorrow == 0) {
+            return 0;
+        }
+
+        return Math.mulDiv(1e6, cachedBorrow, cachedSupply, Math.Rounding.Floor);
     }
 
     /**
@@ -1039,15 +1040,12 @@ contract LendefiMarketVault is
      * @return The current annual borrow interest rate in 1e6 format
      */
     function getBorrowRate(IASSETS.CollateralTier tier) public view returns (uint256) {
-        // Normalize utilization to 1e6 format for consistent rate calculations
-        uint256 utilizationIn1e6 = Math.mulDiv(utilization(), 1e6, baseDecimals, Math.Rounding.Floor);
-
         return LendefiRates.getBorrowRate(
-            utilizationIn1e6,
-            protocolConfig.borrowRate, // already in 1e6
-            protocolConfig.profitTargetRate, // already in 1e6
-            getSupplyRate(), // now returns 1e6
-            IASSETS(assetsModule).getTierJumpRate(tier) // assume 1e6
+            utilization(), // Now returns 1e6 format
+            protocolConfig.borrowRate,
+            protocolConfig.profitTargetRate,
+            getSupplyRate(),
+            IASSETS(assetsModule).getTierJumpRate(tier)
         );
     }
 
