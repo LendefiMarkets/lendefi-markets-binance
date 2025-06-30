@@ -47,7 +47,7 @@ contract BasicDeploy is Test {
     LendefiMarketFactory internal marketFactoryInstance;
     LendefiCore internal marketCoreInstance;
     LendefiMarketVault internal marketVaultInstance;
-    
+
     // Fork test specific IERC20 instances for BSC
     IERC20 usdcInstance = IERC20(0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d); //real usdc BSC for fork testing
     IERC20 usdtInstance = IERC20(0x55d398326f99059fF775485246999027B3197955); //real usdt BSC for fork testing
