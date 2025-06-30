@@ -404,13 +404,13 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
         vm.prank(address(marketCoreInstance));
         marketVaultInstance.borrow(borrowAmount, bob);
 
-        assertEq(marketVaultInstance.utilization(), 0.5e18); // 50%
+        assertEq(marketVaultInstance.utilization(), 0.5e6); // 50%
 
         // Borrow more
         vm.prank(address(marketCoreInstance));
         marketVaultInstance.borrow(borrowAmount / 2, bob);
 
-        assertEq(marketVaultInstance.utilization(), 0.75e18); // 75%
+        assertEq(marketVaultInstance.utilization(), 0.75e6); // 75%
     }
 
     function test_TotalAssets() public {
