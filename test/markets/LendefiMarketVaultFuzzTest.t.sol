@@ -209,7 +209,7 @@ contract LendefiMarketVaultFuzzTest is BasicDeploy {
             marketVaultInstance.borrow(borrowAmount, bob);
 
             uint256 utilization = marketVaultInstance.utilization();
-            uint256 expectedUtilization = (borrowAmount * 1e18) / totalSupply;
+            uint256 expectedUtilization = (borrowAmount * 1e6) / totalSupply;
 
             assertEq(utilization, expectedUtilization);
         } else {
