@@ -382,8 +382,7 @@ contract GovernanceTokenV2 is
     /// @notice grants both mint and burn roles to `burnAndMinter`.
     /// @dev calls public functions so this function does not require
     /// access controls. This is handled in the inner functions.
-    function grantMintAndBurnRoles(address burnAndMinter) external {
-        // grantRole(BRIDGE_ROLE, burnAndMinter);
+    function grantMintAndBurnRoles(address burnAndMinter) external onlyRole(MANAGER_ROLE) {
         if (burnAndMinter == address(0)) revert ZeroAddress();
 
         _grantRole(BRIDGE_ROLE, burnAndMinter);
