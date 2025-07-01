@@ -49,6 +49,11 @@ contract USDCForkTest is BasicDeploy {
         _deployGovernor();
         _deployMarketFactory();
 
+        // TGE setup - but DON'T warp time
+        vm.prank(guardian);
+        tokenInstance.initializeTGE(address(ecoInstance), address(treasuryInstance));
+        deal(address(tokenInstance), charlie, 30_000 ether);
+
         // Deploy USDC market
         _deployMarket(address(usdcInstance), "Lendefi Yield Token", "LYTUSDC");
 
@@ -68,10 +73,6 @@ contract USDCForkTest is BasicDeploy {
         timelockInstance.grantRole(EXECUTOR_ROLE, address(govInstance));
         timelockInstance.grantRole(CANCELLER_ROLE, address(govInstance));
         vm.stopPrank();
-
-        // TGE setup - but DON'T warp time
-        vm.prank(guardian);
-        tokenInstance.initializeTGE(address(ecoInstance), address(treasuryInstance));
 
         // Configure assets
         _configureWBNB();
