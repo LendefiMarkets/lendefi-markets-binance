@@ -56,19 +56,19 @@ contract BasicDeploy is Test {
     /**
      * @notice Get network-specific addresses for oracle validation
      * @dev For fork tests, always returns BSC mainnet addresses from LendefiConstants
-     * @return networkUSDT The USDT address for this network
-     * @return networkWBNB The WBNB address for this network
-     * @return UsdtWbnbPool The USDT/WBNB pool address for this network
+     * @return networkStable The base stablecoin address for this network
+     * @return networkWrappedNative The wrapped native token address for this network
+     * @return primaryPool The base/wrapped native pool address for this network
      */
     function getNetworkAddresses()
         internal
         pure
-        returns (address networkUSDT, address networkWBNB, address UsdtWbnbPool)
+        returns (address networkStable, address networkWrappedNative, address primaryPool)
     {
         // Fork tests run on BSC mainnet, so use LendefiConstants addresses
-        networkUSDT = LendefiConstants.USDT_BSC;
-        networkWBNB = LendefiConstants.WBNB_BSC;
-        UsdtWbnbPool = LendefiConstants.USDT_WBNB_POOL;
+        networkStable = LendefiConstants.USDT_BSC;
+        networkWrappedNative = LendefiConstants.WBNB_BSC;
+        primaryPool = LendefiConstants.USDT_WBNB_POOL;
     }
 
     function _deployTimelock() internal {
@@ -148,7 +148,7 @@ contract BasicDeploy is Test {
         LendefiPoRFeed porFeedImpl = new LendefiPoRFeed();
 
         // Get network-specific addresses
-        (address networkUSDT, address networkWBNB, address UsdtWbnbPool) = getNetworkAddresses();
+        (address networkStable, address networkWrappedNative, address primaryPool) = getNetworkAddresses();
 
         // Deploy factory using UUPS pattern with direct proxy deployment
         bytes memory factoryData = abi.encodeCall(
@@ -158,9 +158,9 @@ contract BasicDeploy is Test {
                 address(tokenInstance),
                 gnosisSafe,
                 address(ecoInstance),
-                networkUSDT,
-                networkWBNB,
-                UsdtWbnbPool
+                networkStable,
+                networkWrappedNative,
+                primaryPool
             )
         );
         address payable factoryProxy = payable(Upgrades.deployUUPSProxy("LendefiMarketFactory.sol", factoryData));
@@ -190,9 +190,14 @@ contract BasicDeploy is Test {
         require(marketFactoryInstance.coreImplementation() != address(0), "Core implementation not set");
         require(marketFactoryInstance.vaultImplementation() != address(0), "Vault implementation not set");
 
-        // Grant MARKET_OWNER_ROLE to charlie (done by multisig which has DEFAULT_ADMIN_ROLE)
-        vm.prank(gnosisSafe);
-        marketFactoryInstance.grantRole(LendefiConstants.MARKET_OWNER_ROLE, charlie);
+        // Setup governance tokens for charlie (required for permissionless market creation)
+        // Transfer governance tokens from guardian to charlie (guardian received DEPLOYER_SHARE during TGE)
+        vm.prank(guardian);
+        tokenInstance.transfer(charlie, 10000 ether); // Transfer 10,000 tokens (more than the 1000 required)
+
+        // Charlie approves factory to spend governance tokens
+        vm.prank(charlie);
+        tokenInstance.approve(address(marketFactoryInstance), 100 ether); // Approve the 100 tokens that will be transferred
 
         // Add base asset to allowlist (done by multisig which has MANAGER_ROLE)
         vm.prank(gnosisSafe);
