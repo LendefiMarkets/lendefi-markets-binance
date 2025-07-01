@@ -246,6 +246,16 @@ contract LendefiMarketVault is
         _;
     }
 
+    /// @notice Prevents MEV attacks by ensuring no same-block operations for a user
+    /// @param user The user address to check for MEV protection
+    modifier noMEV(address user) {
+        uint256 lastOperationBlock = liquidityOperationBlock[user];
+        uint256 currentBlock = block.number;
+        if (lastOperationBlock >= currentBlock) revert MEVSameBlockOperation();
+        liquidityOperationBlock[user] = currentBlock;
+        _;
+    }
+
     // ========== CONSTRUCTOR ==========
 
     /// @notice Disables initializers to prevent implementation contract initialization
@@ -531,9 +541,10 @@ contract LendefiMarketVault is
      */
     function performUpkeep(bytes calldata performData) external override {
         // performData is unused as this implementation doesn't require input data
-        if ((block.timestamp - lastTimeStamp) > interval) {
-            lastTimeStamp = block.timestamp;
-            counter = counter + 1;
+        uint256 currentTimestamp = block.timestamp;
+        if ((currentTimestamp - lastTimeStamp) > interval) {
+            lastTimeStamp = currentTimestamp;
+            counter += 1;
 
             // Use the stored TVL value instead of parameter
             (bool collateralized, uint256 tvl) = IPROTOCOL(lendefiCore).isCollateralized();
@@ -542,7 +553,7 @@ contract LendefiMarketVault is
             IPoRFeed(porFeed).updateReserves(tvl);
             if (!collateralized) {
                 performData;
-                emit CollateralizationAlert(block.timestamp, tvl, totalSupply());
+                emit CollateralizationAlert(currentTimestamp, tvl, totalSupply());
             }
         }
     }
@@ -693,14 +704,9 @@ contract LendefiMarketVault is
         validAddress(receiver)
         whenNotPaused
         nonReentrant
+        noMEV(receiver)
         returns (uint256)
     {
-        // MEV protection: prevent same-block operations
-        uint256 lastOperationBlock = liquidityOperationBlock[receiver];
-        uint256 currentBlock = block.number;
-        if (lastOperationBlock >= currentBlock) revert MEVSameBlockOperation();
-        liquidityOperationBlock[receiver] = currentBlock;
-
         uint256 shares = super.deposit(amount, receiver);
         totalBase += amount;
         totalSuppliedLiquidity += amount;
@@ -738,14 +744,9 @@ contract LendefiMarketVault is
         validAddress(receiver)
         whenNotPaused
         nonReentrant
+        noMEV(receiver)
         returns (uint256)
     {
-        // MEV protection: prevent same-block operations
-        uint256 lastOperationBlock = liquidityOperationBlock[receiver];
-        uint256 currentBlock = block.number;
-        if (lastOperationBlock >= currentBlock) revert MEVSameBlockOperation();
-        liquidityOperationBlock[receiver] = currentBlock;
-
         uint256 amount = super.mint(shares, receiver);
         totalBase += amount;
         totalSuppliedLiquidity += amount;
@@ -786,14 +787,9 @@ contract LendefiMarketVault is
         validAmount(amount)
         whenNotPaused
         nonReentrant
+        noMEV(owner)
         returns (uint256)
     {
-        // MEV protection: prevent same-block operations
-        uint256 lastOperationBlock = liquidityOperationBlock[owner];
-        uint256 currentBlock = block.number;
-        if (lastOperationBlock >= currentBlock) revert MEVSameBlockOperation();
-        liquidityOperationBlock[owner] = currentBlock;
-
         // Calculate and collect fees before withdrawal
         uint256 fee = _calculateVirtualFeeShares();
         uint256 totalSharesBeforeWithdraw = totalSupply();
@@ -804,8 +800,9 @@ contract LendefiMarketVault is
         totalSuppliedLiquidity -= baseAmount;
 
         if (fee > 0) {
-            _mint(timelock, fee);
-            emit ProtocolFeesCollected(timelock, fee);
+            address cachedTimelock = timelock;
+            _mint(cachedTimelock, fee);
+            emit ProtocolFeesCollected(cachedTimelock, fee);
         }
 
         return shares;
@@ -845,14 +842,9 @@ contract LendefiMarketVault is
         validAddress(owner)
         whenNotPaused
         nonReentrant
+        noMEV(owner)
         returns (uint256)
     {
-        // MEV protection: prevent same-block operations
-        uint256 lastOperationBlock = liquidityOperationBlock[owner];
-        uint256 currentBlock = block.number;
-        if (lastOperationBlock >= currentBlock) revert MEVSameBlockOperation();
-        liquidityOperationBlock[owner] = currentBlock;
-
         // Calculate and collect fees before redemption
         uint256 fee = _calculateVirtualFeeShares();
         uint256 totalSharesBeforeRedeem = totalSupply();
@@ -865,8 +857,9 @@ contract LendefiMarketVault is
         totalSuppliedLiquidity -= baseAmount;
 
         if (fee > 0) {
-            _mint(timelock, fee);
-            emit ProtocolFeesCollected(timelock, fee);
+            address cachedTimelock = timelock;
+            _mint(cachedTimelock, fee);
+            emit ProtocolFeesCollected(cachedTimelock, fee);
         }
 
         return amount;
@@ -901,10 +894,11 @@ contract LendefiMarketVault is
         whenNotPaused
         nonReentrant
     {
-        if (totalBorrow + amount > totalSuppliedLiquidity) {
+        uint256 newTotalBorrow = totalBorrow + amount;
+        if (newTotalBorrow > totalSuppliedLiquidity) {
             revert LowLiquidity();
         }
-        totalBorrow += amount;
+        totalBorrow = newTotalBorrow;
 
         borrowerDebt[receiver] += amount; // Track by actual borrower
         IERC20(asset()).safeTransfer(receiver, amount);
@@ -1022,8 +1016,7 @@ contract LendefiMarketVault is
      * @return The current annual supply interest rate in parts per million (1e6 = 100%)
      */
     function getSupplyRate() public view returns (uint256) {
-        uint256 supply = totalSupply();
-        if (supply == 0) return 0;
+        if (totalSupply() == 0) return 0;
 
         // Calculate the current value of 1 share unit (using baseDecimals precision)
         uint256 shareValue = previewRedeem(baseDecimals);
@@ -1040,10 +1033,11 @@ contract LendefiMarketVault is
      * @return The current annual borrow interest rate in 1e6 format
      */
     function getBorrowRate(IASSETS.CollateralTier tier) public view returns (uint256) {
+        ILendefiMarketVault.ProtocolConfig memory config = protocolConfig;
         return LendefiRates.getBorrowRate(
-            utilization(), // Now returns 1e6 format
-            protocolConfig.borrowRate,
-            protocolConfig.profitTargetRate,
+            utilization(),
+            config.borrowRate,
+            config.profitTargetRate,
             getSupplyRate(),
             IASSETS(assetsModule).getTierJumpRate(tier)
         );
@@ -1072,8 +1066,7 @@ contract LendefiMarketVault is
      * @return virtualShares Number of shares representing uncollected protocol fees
      */
     function _calculateVirtualFeeShares() internal view returns (uint256) {
-        uint256 supply = totalSupply();
-        if (supply == 0) return 0;
+        if (totalSupply() == 0) return 0;
         uint256 target =
             Math.mulDiv(totalSuppliedLiquidity, protocolConfig.profitTargetRate, baseDecimals, Math.Rounding.Floor);
 
