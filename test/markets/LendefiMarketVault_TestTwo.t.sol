@@ -25,9 +25,7 @@ contract LendefiMarketVault_TestTwo is BasicDeploy {
         // Deploy base contracts and market
         deployMarketsWithUSDC();
 
-        // Setup TGE
-        vm.prank(guardian);
-        tokenInstance.initializeTGE(address(ecoInstance), address(treasuryInstance));
+        // TGE is already initialized in deployMarketsWithUSDC(), no need to call it again
 
         flashReceiver = new MockFlashLoanReceiver();
 

@@ -52,6 +52,12 @@ contract AllowlistTest is BasicDeploy {
     }
 
     function test_CreateMarketWithoutAllowlist_ShouldFail() public {
+        // Setup governance tokens for charlie first
+        vm.prank(guardian);
+        tokenInstance.transfer(charlie, 10000 ether);
+        vm.prank(charlie);
+        tokenInstance.approve(address(marketFactoryInstance), 100 ether);
+
         // Try to create market without adding token to allowlist
         vm.prank(charlie);
         vm.expectRevert(ILendefiMarketFactory.BaseAssetNotAllowed.selector);
@@ -62,6 +68,15 @@ contract AllowlistTest is BasicDeploy {
         // Add token to allowlist
         vm.prank(gnosisSafe);
         marketFactoryInstance.addAllowedBaseAsset(address(testToken));
+
+        // Setup governance tokens for charlie (required for permissionless market creation)
+        // Transfer governance tokens from guardian to charlie
+        vm.prank(guardian);
+        tokenInstance.transfer(charlie, 10000 ether); // Transfer 10,000 tokens
+
+        // Charlie approves factory to spend governance tokens
+        vm.prank(charlie);
+        tokenInstance.approve(address(marketFactoryInstance), 100 ether); // Approve the 100 tokens that will be transferred
 
         // Now market creation should succeed
         vm.prank(charlie);

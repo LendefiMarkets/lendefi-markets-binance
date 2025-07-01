@@ -30,8 +30,7 @@ contract LendefiViewTest is BasicDeploy {
     function setUp() public {
         // Deploy complete system
         deployMarketsWithUSDC();
-        vm.prank(guardian);
-        tokenInstance.initializeTGE(address(ecoInstance), address(treasuryInstance));
+        // TGE is already initialized in deployMarketsWithUSDC(), no need to call it again
 
         // Deploy WBNB and its oracle
         wbnbInstance = new WBNB();

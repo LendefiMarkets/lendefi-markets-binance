@@ -45,8 +45,7 @@ contract LendefiMarketVault_TestOne is BasicDeploy {
 
         // Deploy complete system
         deployMarketsWithUSDC();
-        vm.prank(guardian);
-        tokenInstance.initializeTGE(address(ecoInstance), address(treasuryInstance));
+        // TGE is already initialized in deployMarketsWithUSDC(), no need to call it again
 
         // Configure assets
         vm.startPrank(address(timelockInstance));

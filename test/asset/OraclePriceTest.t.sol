@@ -19,10 +19,6 @@ contract OraclePriceTest is BasicDeploy {
         // Use deployMarketsWithUSDC() instead of deployComplete()
         deployMarketsWithUSDC();
 
-        // TGE setup
-        vm.prank(guardian);
-        tokenInstance.initializeTGE(address(ecoInstance), address(treasuryInstance));
-
         // Deploy mock tokens
         wethInstance = new WETH9();
 

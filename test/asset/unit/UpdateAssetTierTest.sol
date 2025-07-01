@@ -17,10 +17,6 @@ contract UpdateAssetTierTest is BasicDeploy {
         // Use the complete deployment function that includes Oracle module
         deployMarketsWithUSDC();
 
-        // TGE setup
-        vm.prank(guardian);
-        tokenInstance.initializeTGE(address(ecoInstance), address(treasuryInstance));
-
         // Deploy WETH if not already deployed
         if (address(wethInstance) == address(0)) {
             wethInstance = new WETH9();

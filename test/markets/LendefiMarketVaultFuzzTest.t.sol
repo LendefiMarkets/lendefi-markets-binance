@@ -14,9 +14,7 @@ contract LendefiMarketVaultFuzzTest is BasicDeploy {
         // Deploy base contracts and market
         deployMarketsWithUSDC();
 
-        // Setup TGE
-        vm.prank(guardian);
-        tokenInstance.initializeTGE(address(ecoInstance), address(treasuryInstance));
+        // TGE is already initialized in deployMarketsWithUSDC(), no need to call it again
 
         // Setup initial liquidity for vault tests
         deal(address(usdcInstance), alice, INITIAL_LIQUIDITY);

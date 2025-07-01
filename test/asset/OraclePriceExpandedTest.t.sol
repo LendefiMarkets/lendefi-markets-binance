@@ -33,10 +33,6 @@ contract OraclePriceExpandedTest is BasicDeploy {
     function setUp() public {
         deployMarketsWithUSDC();
 
-        // TGE setup
-        vm.prank(guardian);
-        tokenInstance.initializeTGE(address(ecoInstance), address(treasuryInstance));
-
         // Deploy mock tokens
         wbnbInstance = new WBNB();
         testAsset = new MockRWA("Test Asset", "TST");

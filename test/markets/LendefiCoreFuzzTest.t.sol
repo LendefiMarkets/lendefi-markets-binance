@@ -19,9 +19,7 @@ contract LendefiCoreFuzzTest is BasicDeploy {
         // Deploy base contracts and market
         deployMarketsWithUSDC();
 
-        // Setup TGE
-        vm.prank(guardian);
-        tokenInstance.initializeTGE(address(ecoInstance), address(treasuryInstance));
+        // TGE is already initialized in deployMarketsWithUSDC(), no need to call it again
 
         // Deploy test tokens
         wbnbInstance = new WBNB();

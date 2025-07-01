@@ -33,15 +33,19 @@ contract LendefiMarketOwnerDashboardTest is BasicDeploy {
         marketFactoryInstance.addAllowedBaseAsset(address(wbnbToken));
         vm.stopPrank();
 
+        // Setup governance tokens for charlie (required for permissionless market creation)
+        vm.prank(guardian);
+        tokenInstance.transfer(charlie, 10000 ether); // Transfer 10,000 tokens
+        vm.prank(charlie);
+        tokenInstance.approve(address(marketFactoryInstance), 200 ether); // Approve for 2 markets (100 each)
+
         // Create additional markets for charlie
         vm.startPrank(charlie);
         marketFactoryInstance.createMarket(address(daiToken), "Lendefi DAI Market", "lfDAI");
         marketFactoryInstance.createMarket(address(wbnbToken), "Lendefi WBNB Market", "lfWBNB");
         vm.stopPrank();
 
-        // Setup TGE
-        vm.prank(guardian);
-        tokenInstance.initializeTGE(address(ecoInstance), address(treasuryInstance));
+        // TGE is already initialized in deployMarketsWithUSDC(), no need to call it again
 
         // Fund users for testing
         deal(address(usdcInstance), alice, 10000e18);
@@ -285,9 +289,14 @@ contract LendefiMarketOwnerDashboardTest is BasicDeploy {
         // Create a second market owner to test owner-specific filtering
         address david = makeAddr("david");
 
-        // Grant MARKET_OWNER_ROLE to david
-        vm.prank(gnosisSafe);
-        marketFactoryInstance.grantRole(LendefiConstants.MARKET_OWNER_ROLE, david);
+        // Setup governance tokens for david
+        // Transfer governance tokens from guardian to david (guardian received DEPLOYER_SHARE during TGE)
+        vm.prank(guardian);
+        tokenInstance.transfer(david, 10000 ether); // Transfer 10,000 tokens (more than the 1000 required)
+
+        // David approves factory to spend governance tokens
+        vm.prank(david);
+        tokenInstance.approve(address(marketFactoryInstance), 100 ether); // Approve the 100 tokens that will be transferred
 
         // David creates his own market
         vm.startPrank(david);
