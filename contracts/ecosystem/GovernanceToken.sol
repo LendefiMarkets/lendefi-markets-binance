@@ -395,8 +395,8 @@ contract GovernanceToken is
     /// access controls. This is handled in the inner functions.
     function grantMintAndBurnRoles(address burnAndMinter)
         external
-        onlyRole(MANAGER_ROLE)
         nonZeroAddress(burnAndMinter)
+        onlyRole(MANAGER_ROLE)
     {
         _grantRole(BRIDGE_ROLE, burnAndMinter);
         emit BridgeRoleAssigned(msg.sender, burnAndMinter);
@@ -406,7 +406,7 @@ contract GovernanceToken is
     /// @dev only the owner can call this function, NOT the current ccipAdmin, and 1-step ownership transfer is used.
     /// @param newAdmin The address to transfer the CCIPAdmin role to. Setting to address(0) is a valid way to revoke
     /// the role
-    function setCCIPAdmin(address newAdmin) external onlyRole(MANAGER_ROLE) {
+    function setCCIPAdmin(address newAdmin) external nonZeroAddress(newAdmin) onlyRole(MANAGER_ROLE) {
         address currentAdmin = ccipAdmin;
 
         ccipAdmin = newAdmin;

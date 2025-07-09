@@ -329,6 +329,17 @@ contract GovernanceTokenV2 is
         emit MaxBridgeUpdated(msg.sender, oldMaxBridge, newMaxBridge);
     }
 
+    /**
+     * @notice Updates the number of active chains in the ecosystem
+     * @dev This function allows updating the count of active chains, which may be used for cross-chain operations
+     * @param newActiveChains The new number of active chains
+     * @notice Only callable by an address with MANAGER_ROLE
+     * @custom:requires-role MANAGER_ROLE
+     * @custom:requires New active chains must be greater than zero and not less than current value
+     * @custom:events-emits {ActiveChainsUpdated} event with old and new chain counts
+     * @custom:throws ZeroAmount if newActiveChains is zero
+     * @custom:throws ValidationFailed if newActiveChains is less than current activeChains
+     */
     function updateActiveChains(uint32 newActiveChains)
         external
         nonZeroAmount(newActiveChains)
@@ -340,6 +351,7 @@ contract GovernanceTokenV2 is
 
         emit ActiveChainsUpdated(msg.sender, oldActiveChains, newActiveChains);
     }
+
     /**
      * @dev Schedules an upgrade to a new implementation
      * @param newImplementation Address of the new implementation
@@ -348,7 +360,6 @@ contract GovernanceTokenV2 is
      * @custom:events-emits {UpgradeScheduled} event
      * @custom:throws ZeroAddress if newImplementation is zero
      */
-
     function scheduleUpgrade(address newImplementation)
         external
         nonZeroAddress(newImplementation)
@@ -382,11 +393,12 @@ contract GovernanceTokenV2 is
     /// @notice grants both mint and burn roles to `burnAndMinter`.
     /// @dev calls public functions so this function does not require
     /// access controls. This is handled in the inner functions.
-    function grantMintAndBurnRoles(address burnAndMinter) external onlyRole(MANAGER_ROLE) {
-        if (burnAndMinter == address(0)) revert ZeroAddress();
-
+    function grantMintAndBurnRoles(address burnAndMinter)
+        external
+        nonZeroAddress(burnAndMinter)
+        onlyRole(MANAGER_ROLE)
+    {
         _grantRole(BRIDGE_ROLE, burnAndMinter);
-
         emit BridgeRoleAssigned(msg.sender, burnAndMinter);
     }
 
@@ -394,7 +406,7 @@ contract GovernanceTokenV2 is
     /// @dev only the owner can call this function, NOT the current ccipAdmin, and 1-step ownership transfer is used.
     /// @param newAdmin The address to transfer the CCIPAdmin role to. Setting to address(0) is a valid way to revoke
     /// the role
-    function setCCIPAdmin(address newAdmin) external onlyRole(MANAGER_ROLE) {
+    function setCCIPAdmin(address newAdmin) external nonZeroAddress(newAdmin) onlyRole(MANAGER_ROLE) {
         address currentAdmin = ccipAdmin;
 
         ccipAdmin = newAdmin;
