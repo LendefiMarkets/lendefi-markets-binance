@@ -58,13 +58,13 @@ contract LendefiGovernor is
      * @notice Default voting delay in blocks (approximately 1 day)
      * @dev The period after a proposal is created during which voting cannot start
      */
-    uint48 public constant DEFAULT_VOTING_DELAY = 7200; // ~1 day
+    uint48 public constant DEFAULT_VOTING_DELAY = 18000; // ~4 hours on Binance
 
     /**
      * @notice Default voting period in blocks (approximately 1 week)
      * @dev The period during which voting can occur
      */
-    uint32 public constant DEFAULT_VOTING_PERIOD = 7200; // ~1 day
+    uint32 public constant DEFAULT_VOTING_PERIOD = 18000; // ~4 hours on Binance
 
     /**
      * @notice Default proposal threshold (20,000 tokens)
