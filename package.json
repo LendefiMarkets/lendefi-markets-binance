@@ -14,7 +14,7 @@
     "build:optimized": "FOUNDRY_PROFILE=optimized forge build",
     "coverage": "forge coverage --report lcov --ffi",
     "coverage:html": "genhtml lcov.info -o coverage-report ",
-    "deploy:bsc-mainnet": "bash -c 'source .env && forge script script/DeployLendefiDAO.s.sol:DeployLendefiDAO --broadcast --chain binance --rpc-url $BSC_RPC_URL --private-key $BSC_DEPLOYER_PK --verify --verifier etherscan --etherscan-api-key $BSCSCAN_API_KEY --ffi'",
+    "deploy:bsc-mainnet": "bash -c 'source .env && forge script script/DeployLendefiDAO.s.sol:DeployLendefiDAO --broadcast --chain bsc --rpc-url $BSC_RPC_URL --private-key $BSC_DEPLOYER_PK --verify --verifier etherscan --etherscan-api-key $BSCSCAN_API_KEY --ffi'",
     "deploy:bsc-testnet": "bash -c 'source .env && forge script script/DeployLendefiDAO.s.sol:DeployLendefiDAO --broadcast --chain bsc-testnet --rpc-url $BSC_TESTNET_RPC_URL --private-key $BSC_TESTNET_DEPLOYER_PK --verify --verifier etherscan --etherscan-api-key $BSCSCAN_API_KEY --ffi'",
     "deploy:markets": "bash script/deploy.sh",
     "lint:check": "npm run lint:sol-logic && forge fmt --check",
